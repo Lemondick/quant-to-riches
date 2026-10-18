@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -31,6 +32,8 @@ def publish(report, destination, title):
 
 
 def python_tests(args):
+    # A script entry point otherwise searches .github/scripts, unlike python -m unittest.
+    sys.path.insert(0, str(Path.cwd().resolve()))
     suite = unittest.defaultTestLoader.discover(args.start, pattern=args.pattern)
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     expected = len(result.expectedFailures)

@@ -1,6 +1,7 @@
 """Check CI result accounting using actual unittest and TRX inputs."""
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -31,6 +32,8 @@ class TestReportTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=15,
+            cwd=self.root,
+            env={key: value for key, value in os.environ.items() if key != "GITHUB_STEP_SUMMARY"},
         )
         return process, json.loads(self.report.read_text(encoding="utf-8"))
 
@@ -56,6 +59,20 @@ class TestReportTests(unittest.TestCase):
         self.assertEqual(process.returncode, 1)
         self.assertEqual(report["tests"], 0)
         self.assertFalse(report["successful"])
+
+    def test_discovery_keeps_project_root_importable_like_python_m_unittest(self):
+        (self.root / "project_helper.py").write_text("VALUE = 7\n", encoding="utf-8")
+        directory = self.root / "cases"
+        directory.mkdir()
+        (directory / "test_synthetic.py").write_text(
+            "import unittest\nfrom project_helper import VALUE\n"
+            "class Example(unittest.TestCase):\n"
+            "    def test_import(self): self.assertEqual(VALUE, 7)\n",
+            encoding="utf-8",
+        )
+        process, report = self.run_report("--start", "cases")
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(report["passed"], 1)
 
     def test_all_skipped_discovery_does_not_pass(self):
         (self.root / "test_synthetic.py").write_text(
