@@ -33,20 +33,8 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         var existing = repository.FindTransaction(userId, v.Source, v.ExternalId);
         if (existing is not null)
         {
-            var same = existing.Symbol == v.Symbol
-                       && existing.AssetType == v.AssetType
-                       && existing.Action == v.Action
-                       && existing.Quantity == v.Quantity
-                       && existing.Price == v.Price
-                       && existing.Fees == v.Fees
-                       && existing.TradedAt == v.TradedAt
-                       && (v.CashSymbol is null || existing.CashSymbol == v.CashSymbol)
-                       && existing.Note == v.Note;
-            if (!same)
-            {
-                throw new ArgumentException("相同成交来源与编号对应不同内容");
-            }
-
+            LedgerIdempotency.RequireSame(repository.ReadRecordedRequest(userId, "transaction", existing.Id.ToString()),
+                LedgerRequests.Transaction(v, v.CashSymbol ?? existing.CashSymbol, instrumentName));
             return existing.Id;
         }
 
@@ -117,7 +105,8 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
 
         repository.WriteCashPosition(userId, cash.Symbol, newCash, v.TradeDate, recordedAt);
 
-        repository.InsertAudit(userId, "transaction", transactionId.ToString(), recordedAt, BeforeJson(current), AfterJson(v, cash, newCash, recordedAt));
+        repository.InsertAudit(userId, "transaction", transactionId.ToString(), recordedAt, BeforeJson(current),
+            LedgerIdempotency.WithRequest(AfterJson(v, cash, newCash, recordedAt), LedgerRequests.Transaction(v, cash.Symbol, instrumentName)));
         return transactionId;
     }
 
@@ -137,8 +126,15 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         var existing = repository.FindDividend(userId, v.Source, v.ExternalId);
         if (existing is not null)
         {
+            var request = repository.ReadRecordedRequest(userId, "dividend", existing.Value.ToString());
+            LedgerIdempotency.RequireSame(request, LedgerRequests.Dividend(v, v.CashSymbol ?? LedgerIdempotency.RecordedCash(request)));
             return existing.Value;
         }
+
+        var paidDate = DateOnly.FromDateTime(v.PaidAt.UtcDateTime.Add(ShanghaiOffset));
+        var latestValuation = repository.LatestValuationDate(userId);
+        if (latestValuation is not null && paidDate <= latestValuation)
+            throw new ApplicationFailure("dividend_date_invalid", 422, "分红到账日期不得早于或等于最近已确认估值日，请使用冲正或历史重算流程。");
 
         repository.RequireKnownInstrument(userId, v.Symbol, v.AssetType);
         var cash = repository.GetCashState(userId, v.CashSymbol);
@@ -149,7 +145,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
 
         var dividendId = repository.InsertDividend(userId, v, cash.Symbol, recordedAt);
         repository.WriteCashPosition(userId, cash.Symbol, cash.Balance + v.NetAmount, DateOnly.FromDateTime(v.PaidAt.UtcDateTime.Add(ShanghaiOffset)), recordedAt);
-        repository.InsertAudit(userId, "dividend", dividendId.ToString(), recordedAt, null, JsonSerializer.Serialize(new
+        repository.InsertAudit(userId, "dividend", dividendId.ToString(), recordedAt, null, LedgerIdempotency.WithRequest(JsonSerializer.Serialize(new
         {
             symbol = v.Symbol,
             asset_type = v.AssetType.ToString().ToLowerInvariant(),
@@ -159,7 +155,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             paid_at = v.PaidAt,
             source = v.Source,
             external_id = v.ExternalId,
-        }));
+        }), LedgerRequests.Dividend(v, cash.Symbol)));
         return dividendId;
     }
 
@@ -209,6 +205,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         var duplicate = repository.FindCorrection(userId, source, externalId);
         if (duplicate is not null)
         {
+            LedgerIdempotency.RequireSame(repository.ReadRecordedRequest(userId, "ledger_correction", duplicate.Value.ToString()), LedgerRequests.Correction(item));
             return duplicate.Value;
         }
 
@@ -228,12 +225,12 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             correctionId = CorrectDividend(userId, item, recordedAt, source, externalId, note);
         }
 
-        repository.InsertAudit(userId, "ledger_correction", correctionId.ToString(), recordedAt, null, JsonSerializer.Serialize(new
+        repository.InsertAudit(userId, "ledger_correction", correctionId.ToString(), recordedAt, null, LedgerIdempotency.WithRequest(JsonSerializer.Serialize(new
         {
             target_type = targetType,
             target_id = item.TargetId,
             reason = item.Reason,
-        }));
+        }), LedgerRequests.Correction(item)));
         return correctionId;
     }
 
@@ -425,6 +422,10 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         var duplicate = repository.FindCorporateAction(userId, source, externalId);
         if (duplicate is not null)
         {
+            var request = repository.ReadRecordedRequest(userId, "corporate_action", duplicate.Value.ToString());
+            LedgerIdempotency.RequireSame(request,
+                LedgerRequests.Corporate(item, item.CashSymbol?.Trim().ToUpperInvariant() ?? LedgerIdempotency.RecordedCash(request)),
+                null, "quantity", "target_quantity");
             return duplicate.Value;
         }
 
@@ -573,7 +574,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             actionType, symbol, targetSymbol, item.AssetType, storedQuantity, storedTargetQuantity, price, targetPrice,
             item.GrossAmount, item.Fees, cashDelta, storedRatio, item.EffectiveAt, source, externalId, storedCashSymbol,
             item.FromAccount, item.ToAccount, note));
-        repository.InsertAudit(userId, "corporate_action", actionId.ToString(), recordedAt, null, JsonSerializer.Serialize(new
+        repository.InsertAudit(userId, "corporate_action", actionId.ToString(), recordedAt, null, LedgerIdempotency.WithRequest(JsonSerializer.Serialize(new
         {
             action_type = actionType,
             symbol,
@@ -582,7 +583,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             target_quantity = storedTargetQuantity,
             cash_delta = cashDelta,
             external_id = externalId,
-        }));
+        }), LedgerRequests.Corporate(item, storedCashSymbol)));
         return actionId;
     }
 
@@ -614,6 +615,9 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         var existing = repository.FindPortfolioEvent(userId, eventId);
         if (existing is not null)
         {
+            var request = repository.ReadRecordedRequest(userId, "external_cash_flow", eventId);
+            LedgerIdempotency.RequireSame(request,
+                LedgerRequests.Flow(item, item.CashSymbol?.Trim().ToUpperInvariant() ?? LedgerIdempotency.RecordedCash(request)));
             return eventId;
         }
 
@@ -638,7 +642,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         repository.WriteCashPosition(userId, cash.Symbol, newCash, item.EffectiveDate, recordedAt);
         var detailsJson = JsonSerializer.Serialize(new { cash_symbol = cash.Symbol });
         repository.InsertCashFlowEvent(userId, eventId, item.FlowType == CashFlowType.Deposit ? "deposit" : "withdrawal", item.EffectiveDate, signedAmount, item.Reason.Trim(), detailsJson, recordedAt);
-        repository.InsertAudit(userId, "external_cash_flow", eventId, recordedAt, null, JsonSerializer.Serialize(new
+        repository.InsertAudit(userId, "external_cash_flow", eventId, recordedAt, null, LedgerIdempotency.WithRequest(JsonSerializer.Serialize(new
         {
             event_id = eventId,
             flow_type = item.FlowType == CashFlowType.Deposit ? "deposit" : "withdrawal",
@@ -648,7 +652,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             cash_before = cash.Balance,
             cash_after = newCash,
             reason = item.Reason.Trim(),
-        }));
+        }), LedgerRequests.Flow(item, cash.Symbol)));
         return eventId;
     }
 
@@ -675,8 +679,8 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             throw new ArgumentException("扣除校准净外部资金流后的组合价值必须为正");
         }
 
-        var ordered = item.Positions.OrderBy(p => p.Symbol).ToList();
-        var snapshotJson = JsonSerializer.Serialize(ordered.Select(p => new
+        // Retain the old digest only to verify untouched historical records.
+        var legacySnapshotJson = JsonSerializer.Serialize(item.Positions.OrderBy(p => p.Symbol).Select(p => new
         {
             symbol = p.Symbol,
             asset_type = p.AssetType.ToString().ToLowerInvariant(),
@@ -684,13 +688,28 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
             average_cost = p.AverageCost,
             market_value = p.MarketValue,
         }));
-        var fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(snapshotJson))).ToLowerInvariant();
+        var legacyFingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(legacySnapshotJson))).ToLowerInvariant();
+        var ordered = item.Positions.Select(p => p with { Symbol = p.Symbol.Trim().ToUpperInvariant() })
+            .OrderBy(p => p.Symbol, StringComparer.Ordinal).ToList();
+        if (ordered.Select(p => p.Symbol).Distinct(StringComparer.Ordinal).Count() != ordered.Count)
+            throw new ArgumentException("校准快照不得包含重复标的");
+        var fingerprint = LedgerIdempotency.Hash(JsonSerializer.SerializeToElement(ordered.Select(p => new
+        {
+            symbol = p.Symbol, asset_type = p.AssetType.ToString().ToLowerInvariant(), quantity = p.Quantity,
+            average_cost = p.AverageCost, market_value = p.MarketValue, as_of_date = p.AsOfDate,
+        })));
         var detailsJson = JsonSerializer.Serialize(new { positions_fingerprint = fingerprint, symbols = ordered.Select(p => p.Symbol) });
         var recordedAt = NowUtc();
 
         var existing = repository.FindPortfolioEvent(userId, eventId);
         if (existing is not null)
         {
+            var request = repository.ReadRecordedRequest(userId, "portfolio_calibration", eventId);
+            try { LedgerIdempotency.RequireSame(request, LedgerRequests.Calibration(item, fingerprint)); }
+            catch (ApplicationFailure) when (request?.Fingerprint is null)
+            {
+                LedgerIdempotency.RequireSame(request, LedgerRequests.Calibration(item, fingerprint), LedgerRequests.Calibration(item, legacyFingerprint));
+            }
             return eventId;
         }
 
@@ -708,14 +727,14 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         var before = repository.ListPositions(userId);
         repository.ReplaceAllPositions(userId, ordered, item.AsOfDate, recordedAt);
         repository.InsertCalibrationEvent(userId, eventId, item.AsOfDate, item.NetExternalFlow, item.Reason.Trim(), detailsJson, recordedAt);
-        repository.InsertAudit(userId, "portfolio_calibration", eventId, recordedAt, JsonSerializer.Serialize(before), JsonSerializer.Serialize(new
+        repository.InsertAudit(userId, "portfolio_calibration", eventId, recordedAt, JsonSerializer.Serialize(before), LedgerIdempotency.WithRequest(JsonSerializer.Serialize(new
         {
             event_id = eventId,
             as_of_date = item.AsOfDate,
             net_external_flow = item.NetExternalFlow,
             positions_fingerprint = fingerprint,
             reason = item.Reason.Trim(),
-        }));
+        }), LedgerRequests.Calibration(item, fingerprint)));
         return eventId;
     }
 

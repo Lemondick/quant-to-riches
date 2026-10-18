@@ -392,6 +392,33 @@ public sealed class LedgerRepository(string connectionString) : ILedgerRepositor
         return result is null or DBNull ? null : Convert.ToInt64(result);
     }
 
+    public RecordedLedgerRequest? ReadRecordedRequest(string userId, string entityType, string entityId)
+    {
+        var (table, column, cast) = entityType switch
+        {
+            "transaction" => ("transactions", "id", "::bigint"),
+            "dividend" => ("dividend_events", "id", "::bigint"),
+            "ledger_correction" => ("ledger_corrections", "id", "::bigint"),
+            "corporate_action" => ("corporate_action_events", "id", "::bigint"),
+            "external_cash_flow" or "portfolio_calibration" => ("portfolio_events", "event_id", ""),
+            _ => throw new ArgumentException("Unknown ledger event type")
+        };
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"""
+            SELECT to_jsonb(entry)::text,
+                (SELECT a.after_json->>'request_fingerprint' FROM audit_log a
+                 WHERE a.user_id=$1 AND a.entity_type=$3 AND a.entity_id=$2
+                   AND a.after_json->>'request_fingerprint' IS NOT NULL ORDER BY a.id LIMIT 1)
+            FROM {table} entry WHERE entry.user_id=$1 AND entry.{column}=$2{cast}
+            """;
+        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(entityId);
+        cmd.Parameters.AddWithValue(entityType);
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? new(reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetString(1)) : null;
+    }
+
     public long InsertDividend(string userId, ValidatedDividend v, string cashSymbol, DateTime recordedAt)
     {
         using var conn = Open();

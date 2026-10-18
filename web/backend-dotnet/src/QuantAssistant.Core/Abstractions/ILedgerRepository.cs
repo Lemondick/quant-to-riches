@@ -22,6 +22,8 @@ public sealed record LedgerEntry(
 
 public sealed record LedgerSnapshot(IReadOnlyList<LedgerEntry> Entries, decimal TotalFees, decimal TotalDividends);
 
+public sealed record RecordedLedgerRequest(string RecordJson, string? Fingerprint);
+
 /// <summary>
 /// 账本仓储契约（P3）：成交、持仓、现金、审计。实现见 Infrastructure.Portfolio.LedgerRepository。
 /// 所有方法均按 user_id 隔离（计划书 §3「所有查询按用户隔离」）。
@@ -54,6 +56,7 @@ public interface ILedgerRepository
     CorrectionTarget? GetTransactionForCorrection(string userId, long targetId);
     DividendTarget? GetDividendForCorrection(string userId, long targetId);
     string? GetAuditBeforeJson(string userId, string entityType, string entityId);
+    RecordedLedgerRequest? ReadRecordedRequest(string userId, string entityType, string entityId);
     bool HasLaterUnreversedSell(string userId, string symbol, DateTimeOffset tradedAt, long targetId);
     bool HasCorrectionDependencies(string userId, string symbol, DateTimeOffset tradedAt);
     long InsertCorrection(string userId, string targetType, long targetId, string reason, DateTimeOffset effectiveAt, DateTime recordedAt, string source, string externalId, string? note);

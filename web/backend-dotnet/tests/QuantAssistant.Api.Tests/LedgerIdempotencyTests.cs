@@ -86,6 +86,7 @@ public sealed class LedgerIdempotencyTests
 
     private static string State(PgTestUser user) => new AccountDatabase(user.Connection).Read(sql => FinancialSnapshot.Hash(FinancialSnapshot.Read(sql, user.Id)));
     private static long Audits(Scenario value) => (long)value.User.Query("SELECT count(*) FROM audit_log WHERE user_id=$1 AND entity_type=$2", value.User.Id, value.Entity)!;
+    private static string Holdings(PgTestUser user) => (string)user.Query("SELECT jsonb_agg(jsonb_build_array(symbol,asset_type,quantity,average_cost,market_value,as_of_date) ORDER BY symbol)::text FROM positions WHERE user_id=$1", user.Id)!;
 
     private static object Change(object input, string name, object? value)
     {
@@ -157,6 +158,10 @@ public sealed class LedgerIdempotencyTests
         var results = await Task.WhenAll(Run(), Run());
         Assert.Equal(results[0], results[1]);
         Assert.Equal(1, Audits(scenario));
+        using var expectedUser = new PgTestUser();
+        var expected = Prepare(expectedUser, kind);
+        expected.Run(expected.Input);
+        Assert.Equal(Holdings(expectedUser), Holdings(user));
     }
 
     [PgTheory]
@@ -178,6 +183,11 @@ public sealed class LedgerIdempotencyTests
         var conflict = Assert.IsType<ApplicationFailure>(Assert.Single(results, error => error is not null));
         Assert.Equal((409, "idempotency_conflict"), ExceptionTranslator.Translate(conflict));
         Assert.Equal(1, Audits(scenario));
+        using var expectedUser = new PgTestUser();
+        var expected = Prepare(expectedUser, kind);
+        var winner = results[0] is null ? expected.Input : Change(expected.Input, mutation.Field, mutation.Value);
+        expected.Run(winner);
+        Assert.Equal(Holdings(expectedUser), Holdings(user));
     }
 
     [PgTheory]
@@ -202,9 +212,77 @@ public sealed class LedgerIdempotencyTests
         var scenario = Prepare(user, kind);
         var id = scenario.Run(scenario.Input);
         user.Execute("UPDATE audit_log SET after_json=after_json::jsonb-'request_fingerprint' WHERE user_id=$1 AND entity_type=$2", user.Id, scenario.Entity);
+        if (scenario.Input is PortfolioCalibrationInput calibration)
+        {
+            var oldJson = JsonSerializer.Serialize(calibration.Positions.OrderBy(p => p.Symbol).Select(p => new
+            {
+                symbol = p.Symbol, asset_type = p.AssetType.ToString().ToLowerInvariant(), quantity = p.Quantity,
+                average_cost = p.AverageCost, market_value = p.MarketValue,
+            }));
+            var oldHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(oldJson))).ToLowerInvariant();
+            user.Execute("UPDATE portfolio_events SET details_json=jsonb_set(details_json::jsonb,'{positions_fingerprint}',to_jsonb($3::text)) WHERE user_id=$1 AND event_id=$2", user.Id, id, oldHash);
+        }
         var legacy = State(user);
         Assert.Equal(id, scenario.Run(scenario.Input));
         Assert.Equal(legacy, State(user));
+        foreach (var (field, value) in Mutations(scenario.Input))
+        {
+            // Legacy split rows store quantities derived from account state rather than the omitted input.
+            // The explicit quantity is checked against that recorded value; unavailable original intent is not invented.
+            var error = Assert.Throws<ApplicationFailure>(() => scenario.Run(Change(scenario.Input, field, value)));
+            Assert.Equal("idempotency_conflict", error.Code);
+            Assert.Equal(legacy, State(user));
+        }
+    }
+
+    [Fact]
+    public void RequestHashIgnoresPropertyOrderAndDecimalScaleButPreservesValues()
+    {
+        using var first = JsonDocument.Parse("{\"quantity\":100.000,\"nested\":{\"b\":2,\"a\":1}}");
+        using var reordered = JsonDocument.Parse("{\"nested\":{\"a\":1.00,\"b\":2},\"quantity\":100}");
+        using var changed = JsonDocument.Parse("{\"nested\":{\"a\":1,\"b\":2},\"quantity\":100.00000001}");
+        Assert.Equal(LedgerIdempotency.Hash(first.RootElement), LedgerIdempotency.Hash(reordered.RootElement));
+        Assert.NotEqual(LedgerIdempotency.Hash(first.RootElement), LedgerIdempotency.Hash(changed.RootElement));
+    }
+
+    [PgTheory]
+    [InlineData("transaction"), InlineData("dividend"), InlineData("flow")]
+    public void ReplayUsesOriginalCashCurrencyEvenAfterAnotherCurrencyIsAdded(string kind)
+    {
+        using var user = new PgTestUser();
+        var scenario = Prepare(user, kind);
+        user.Execute("UPDATE positions SET symbol='USD' WHERE user_id=$1 AND symbol='CNY'", user.Id);
+        var id = scenario.Run(scenario.Input);
+        user.Execute("INSERT INTO positions(user_id,symbol,asset_type,quantity,average_cost,market_value,as_of_date,updated_at) VALUES ($1,'CNY','cash',50,1,50,'2026-01-03',now())", user.Id);
+        var before = State(user);
+        Assert.Equal(id, scenario.Run(scenario.Input));
+        Assert.Equal(id, scenario.Run(Change(scenario.Input, "CashSymbol", " usd ")));
+        Assert.Equal(before, State(user));
+    }
+
+    [PgFact]
+    public void DividendReplayIsReadonlyAfterValuationAdvances()
+    {
+        using var user = new PgTestUser();
+        var scenario = Prepare(user, "dividend");
+        var id = scenario.Run(scenario.Input);
+        user.Execute("UPDATE portfolio_valuations SET as_of_date='2026-01-04' WHERE user_id=$1", user.Id);
+        var before = State(user);
+        Assert.Equal(id, scenario.Run(scenario.Input));
+        Assert.Equal(before, State(user));
+    }
+
+    [PgFact]
+    public void InstrumentNameChangeWithSameTransactionKeyConflicts()
+    {
+        using var user = new PgTestUser();
+        var scenario = Prepare(user, "transaction");
+        var input = (TransactionInput)scenario.Input;
+        var id = scenario.Service.RecordTransaction(user.Id, input, "name");
+        var before = State(user);
+        Assert.Equal(id, scenario.Service.RecordTransaction(user.Id, input, " name "));
+        Assert.Equal("idempotency_conflict", Assert.Throws<ApplicationFailure>(() => scenario.Service.RecordTransaction(user.Id, input, "other")).Code);
+        Assert.Equal(before, State(user));
     }
 
     [PgTheory]
