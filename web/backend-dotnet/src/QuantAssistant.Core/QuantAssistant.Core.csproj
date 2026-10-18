@@ -10,4 +10,7 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../../../backend/src/quant_assistant/providers/exchange_calendars.json" LogicalName="QuantAssistant.ExchangeCalendars" />
+  </ItemGroup>
 </Project>

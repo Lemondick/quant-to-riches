@@ -7,16 +7,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
-SOURCE_2026 = "https://www.sse.com.cn/disclosure/announcement/general/c/c_20251222_10802507.shtml"
-HOLIDAYS_2026 = (
-    ("01-01", "01-03"),
-    ("02-15", "02-23"),
-    ("04-04", "04-06"),
-    ("05-01", "05-05"),
-    ("06-19", "06-21"),
-    ("09-25", "09-27"),
-    ("10-01", "10-07"),
-)
+from quant_assistant.providers.market_calendar import MarketCalendars
 
 
 class TradingCalendar:
@@ -51,23 +42,14 @@ class TradingCalendar:
                 return payload if payload["year"] == year else None
             except (ValueError, OSError, TypeError, AttributeError):
                 return None
-        if year == 2026:
+        builtin = MarketCalendars.builtin().load(year)
+        if builtin is not None:
             return {
                 "year": year,
-                "source": SOURCE_2026,
-                "holidays": [
-                    date(year, month, day).isoformat()
-                    for month in range(1, 13)
-                    for day in range(1, 32)
-                    if self._holiday_2026(month, day)
-                ],
+                "source": builtin.source,
+                "holidays": [day.isoformat() for day in sorted(builtin.holidays)],
             }
         return None
-
-    @staticmethod
-    def _holiday_2026(month, day):
-        text = f"{month:02}-{day:02}"
-        return any(start <= text <= end for start, end in HOLIDAYS_2026)
 
     def trading_day(self, value):
         payload = self.load(value.year)

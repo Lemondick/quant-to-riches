@@ -13,7 +13,7 @@ namespace QuantAssistant.Api.Controllers;
 
 [ApiController]
 [Route("internal/v1/worker")]
-public sealed class WorkerController(ComputeJobRepository jobs, IConfiguration configuration, ModelConnectionService connections, ModelCostRepository costs, PublicSnapshotRepository publicData) : ControllerBase
+public sealed class WorkerController(ComputeJobRepository jobs, IConfiguration configuration, ModelConnectionService connections, ModelCostRepository costs, PublicSnapshotRepository publicData, TradingCalendarRepository calendars) : ControllerBase
 {
     public sealed record ClaimBody(string WorkerId, string[] Capabilities);
     public sealed record LeaseBody(string UserId, string JobId, int Attempt, string OwnerToken);
@@ -42,6 +42,8 @@ public sealed class WorkerController(ComputeJobRepository jobs, IConfiguration c
             job = await jobs.ClaimAsync(body.WorkerId, body.Capabilities, cancellation);
         }
         var input = job is null ? null : JsonNode.Parse(job.InputJson)!.AsObject();
+        if (job is not null && ComputeJobRepository.IndependentPublicKinds.Contains(job.Kind))
+            input!["_calendars"] = (await calendars.SnapshotAsync(DateTime.UtcNow.AddHours(8).Year, cancellation)).ToJson();
         if (job?.Kind == "fund.valuations")
         {
             var symbols = input!["symbols"]!.AsArray().Select(value => value!.GetValue<string>()).ToArray();

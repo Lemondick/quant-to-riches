@@ -1,14 +1,42 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using QuantAssistant.Infrastructure.Jobs;
+using QuantAssistant.Core.Market;
+using QuantAssistant.Infrastructure.Runtime;
 using Xunit;
 
 namespace QuantAssistant.Api.Tests;
 
 public sealed class MarketCalendarTests
 {
+    [Fact]
+    public void BuiltinCalendarDoesNotImputeUnknownMarketsOrYears()
+    {
+        var calendars = MarketCalendars.Builtin;
+        Assert.False(calendars.TradingDay("CN", new(2026, 10, 5)));
+        Assert.True(calendars.TradingDay("CN", new(2026, 10, 19)));
+        Assert.Null(calendars.TradingDay("HK", new(2026, 10, 5)));
+        Assert.Null(calendars.TradingDay("CN", new(2027, 1, 4)));
+    }
+
+    [Fact]
+    public void ImmutableSnapshotKeepsMarketsSeparateAndRejectsConflictingVersions()
+    {
+        var payload = JsonNode.Parse("""{"format_version":1,"calendars":[{"market":"CN","year":2026,"source":"https://www.sse.com.cn/test","revision":"cn-v1","holidays":["2026-10-19"]},{"market":"HK","year":2026,"source":"https://www.hkex.com.hk/test","revision":"hk-v1","holidays":[]}]}""")!;
+        var calendars = MarketCalendars.FromJson(payload);
+        Assert.False(calendars.TradingDay("CN", new(2026, 10, 19)));
+        Assert.True(calendars.TradingDay("HK", new(2026, 10, 19)));
+        Assert.Null(calendars.TradingDay("US", new(2026, 10, 19)));
+        payload["calendars"]!.AsArray().Add(payload["calendars"]![0]!.DeepClone());
+        Assert.Null(MarketCalendars.FromJson(payload).TradingDay("CN", new(2026, 10, 19)));
+        Assert.False(calendars.TradingDay("CN", new(2026, 10, 19)));
+        Assert.False(MarketCalendars.FromJson(calendars.ToJson()).TradingDay("CN", new(2026, 10, 19)));
+    }
+
     private const string WorkerSecret = "synthetic-calendar-worker-secret-for-tests";
     private static WebApplicationFactory<Program> Factory(PgTestUser user) => new WebApplicationFactory<Program>()
         .WithWebHostBuilder(builder => builder.UseSetting("QUANT_PG_CONNECTION", user.Connection).UseSetting("QUANT_WORKER_SECRET", WorkerSecret));
@@ -68,6 +96,7 @@ public sealed class MarketCalendarTests
             using var factory = Factory(admin);
             using var client = factory.CreateClient();
             PgTestUser.AttachSession(client, admin.Connection, admin.Id);
+            await factory.Services.GetRequiredService<TradingCalendarRepository>().SnapshotAsync(year);
             var prior = await Json(await client.GetAsync("/api/v1/admin/calendar?year=" + year));
             var closure = new DateOnly(year, 10, 19).ToString("yyyy-MM-dd");
             var saved = await Json(await client.PutAsJsonAsync("/api/v1/admin/calendar", new
