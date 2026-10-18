@@ -19,9 +19,9 @@ public sealed class MarketFreshnessTests
     }
 
     [Theory]
-    [InlineData("2026-10-16T01:30:00Z", true, "trading")]
-    [InlineData("2026-10-16T03:30:00Z", true, "break")]
-    [InlineData("2026-10-16T05:00:00Z", true, "trading")]
+    [InlineData("2026-10-16T01:30:00Z", true, "continuous_trading")]
+    [InlineData("2026-10-16T03:30:00Z", true, "lunch_break")]
+    [InlineData("2026-10-16T05:00:00Z", true, "continuous_trading")]
     [InlineData("2026-10-16T08:00:00Z", true, "closed")]
     [InlineData("2026-10-18T02:00:00Z", false, "closed")]
     [InlineData("2026-10-18T02:00:00Z", null, "unknown")]

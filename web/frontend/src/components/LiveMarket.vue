@@ -87,7 +87,7 @@ const breadthStats = computed(() => {
     { label: '较前日成交比', value: value?.turnover_ratio == null ? '—' : Number(value.turnover_ratio).toFixed(2) + ' 倍', title: value?.previous_trade_date ? `统计日成交额 / ${value.previous_trade_date} 全天成交额` : '统计日成交额 / 前一交易日全天成交额' },
   ]
 })
-const sessionLabel = computed(() => ({ trading: '交易时段', break: '午间休市', closed: '休市 · 展示最近有效行情', unknown: '交易日状态待确认' })[data.value?.market_session ?? 'unknown'])
+const sessionLabel = computed(() => ({ pre_market: '盘前 · 展示最近有效行情', auction: '集合竞价 · 以来源支持为准', continuous_trading: '连续交易', lunch_break: '午间休市', trading: '交易时段', break: '午间休市', closed: '休市 · 展示最近有效行情', unknown: '交易日状态待确认' })[data.value?.market_session ?? 'unknown'])
 const sourceLabel = (source: string) => ({ eastmoney: '东方财富', sina: '新浪财经', unknown: '原始快照' })[source as 'eastmoney' | 'sina' | 'unknown'] ?? source
 const displayTime = (value?: string | null) => value ? value.slice(0, 19).replace('T', ' ') : '未取得'
 const subIndexDelta = (name: string) => { const item = data.value?.indices.find(item => item.name === name); return item ? percent(Number(item.change_rate)) : '暂无快照' }
@@ -102,7 +102,7 @@ const sectorStatus = computed(() => {
   if (!catalog?.complete) return '该数据源目录暂不可用'
   if (catalog.stale) return catalog.unquoted === catalog.received ? '目录已核对 · 行情源暂不可用，暂无报价' : '更新失败 · 显示原始快照'
   if (!catalog.observed_at) return '已重新抓取 · 行情时间未提供，延迟未知'
-  if (data.value?.market_session === 'trading' && Date.now() - Date.parse(catalog.observed_at) > 90000) return '行情延迟 · 保留原始时间'
+  if (['continuous_trading', 'auction', 'trading'].includes(data.value?.market_session ?? '') && Date.now() - Date.parse(catalog.observed_at) > 90000) return '行情延迟 · 保留原始时间'
   return `${catalog.received} / ${catalog.total} 个板块 · ${catalog.unquoted ?? 0} 个暂无报价 · ${sessionLabel.value}`
 })
 const previewSource = computed(() => data.value?.sector_catalogs?.find(item => item.category === 'industry' && item.complete && !item.stale)?.source ?? data.value?.sector_rankings[0]?.source ?? 'unknown')

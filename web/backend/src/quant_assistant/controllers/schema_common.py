@@ -21,6 +21,13 @@ class ApiModel(BaseModel):
 
 
 class ObservationModel(ApiModel):
+    auction_supported: bool = False
+    market: str = "CN"
+    market_timezone: str | None = None
+    market_session: str = "unknown"
+    calendar_revision: str | None = None
+    calendar_source: str | None = None
+    quality_reason: str | None = None
     instrument_type: str | None = None
     data_type: str | None = None
     source_family: str | None = None

@@ -2,10 +2,12 @@ using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using QuantAssistant.Core.Errors;
 using QuantAssistant.Infrastructure.Jobs;
+using QuantAssistant.Infrastructure.Runtime;
+using QuantAssistant.Core.Market;
 
 namespace QuantAssistant.Api.Services;
 
-public sealed class PublicMarketSnapshot(TimeProvider clock)
+public sealed class PublicMarketSnapshot(TimeProvider clock, TradingCalendarRepository? calendars = null)
 {
     private readonly object gate = new();
     private PublicSnapshot? snapshot;
@@ -25,14 +27,7 @@ public sealed class PublicMarketSnapshot(TimeProvider clock)
     }
     public void SetTradingDay(DateOnly day, bool? trading) { lock (gate) { calendarDay = day; tradingDay = trading; } }
     public static string SessionState(DateTimeOffset now, DateOnly day, bool? trading)
-    {
-        var local = now.ToOffset(TimeSpan.FromHours(8));
-        if (day != DateOnly.FromDateTime(local.DateTime) || trading is null) return "unknown";
-        if (trading == false) return "closed";
-        var time = TimeOnly.FromDateTime(local.DateTime);
-        if (time >= new TimeOnly(11, 30) && time < new TimeOnly(13, 0)) return "break";
-        return time >= new TimeOnly(9, 15) && time <= new TimeOnly(15, 5) ? "trading" : "closed";
-    }
+        => MarketSessions.Classify(now, day, trading);
     public ValueTask<bool> WaitForRefresh(CancellationToken cancellation) => refresh.Reader.ReadAsync(cancellation);
     public void Publish(JsonObject data, DateTime completedAt)
     {
@@ -71,9 +66,9 @@ public sealed class PublicMarketSnapshot(TimeProvider clock)
             var data = snapshot.Data.DeepClone().AsObject();
             var stale = refreshFailed || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > TimeSpan.FromSeconds(60);
             data["stale"] = stale;
-            data["market_session"] = SessionState(clock.GetUtcNow(), calendarDay, tradingDay);
+            data["market_session"] = calendars is null ? SessionState(clock.GetUtcNow(), calendarDay, tradingDay) : MarketSessions.Classify(clock.GetUtcNow(), calendars.CurrentSnapshot);
             data["refresh_interval_seconds"] = 30;
-            PublicDataQuality.Apply("market.snapshot",data,clock.GetUtcNow());
+            PublicDataQuality.Apply("market.snapshot",data,clock.GetUtcNow(),calendars:calendars?.CurrentSnapshot);
             if (section is not null)
             {
                 if (section != "indices") data["indices"] = new JsonArray();

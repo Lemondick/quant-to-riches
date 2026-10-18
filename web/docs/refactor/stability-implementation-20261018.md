@@ -80,6 +80,29 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 本地编译零警告/错误；非数据库测试 85 通过、152 因缺少 PostgreSQL 跳过。通过结论采用上面的真实 Linux 全量结果。无密钥扫描通过。未修改生产环境或原工作区。
 
+## 《01》阶段 C：BUG-005 至 BUG-009 — 进行中
+
+计划：`docs/superpowers/plans/2026-10-18-public-data-quality.md`，按已授权顺序在 `codex/public-data-quality` 分支执行。
+
+### 日历证据链 — 子任务 1 PASS
+
+- 先在 `b0d7f97` 新增真实 HTTP/PG 回归：[红灯 39121190851](https://github.com/Lemondick/quant-to-riches/actions/runs/39121190851)，274 实际执行，272 通过、2 失败、0 跳过，复现 HK 误用 CN 与 Worker 缺少权威日历。
+- `e169b5fe43b99c6448ce903a3a59c69d35830295`：[绿灯 39121691596](https://github.com/Lemondick/quant-to-riches/actions/runs/39121691596)，.NET/PG 276、Worker 109、Python 446、数据库工具 15、报告 5 均通过且 0 跳过；前端和独立编译通过。
+- `TradingCalendarRepository` 保持权威来源。旧 `calendar:<year>` 键继续代表 CN，HK/US/JP 独立键；官方来源域名按市场校验，保存保留 revision 冲突检查和管理员审计，并使快照缓存失效。
+- 原 CN 2026 内置兜底移至唯一 `exchange_calendars.json`，C# 嵌入资源和 Python wheel 复用；wheel 已实测包含同一资源，不为其他市场或年份编造假日。
+- 已认证 Worker claim 注入只读 `_calendars`（市场、年份、来源、修订和休市日），覆盖任务自带的同名内容，不改变原查询缓存键，不提供数据库凭据。
+
+### 时段与时间解析 — 子任务 2 等待 Linux 验证
+
+- 共用 `tests/fixtures/public-quality-cases.json`：本地先复现 C# 23 项边界/解析失败、Python 无时区误判，以及 Worker 未使用任务日历；均保留 RED 日志。
+- 实现六类时段与严格 ISO 偏移解析，删除 quality 中重复的假日表；明确偏移按 UTC instant 比较，无时区为 `unknown_time`。缺少日历或已核验市场时段时保持未知，不能套用 A 股规则。
+- 竞价能力缺省 false。能力随 Observation 与只读快照传递，两端使用一致判断；当前公开来源未被证实支持竞价，没有把测试中的合成能力声明当作真实供应商能力。
+- provider 实例按不可变日历快照使用有界缓存；并发任务不改进程全局日历。缓存读取重新评估时效，保持原 source_time 和 fetched_at。
+- 本地最终结果：.NET 128 通过、155 数据库项跳过；Worker 114/114；前端 43/43，lint/typecheck/build 通过；Python source verify 通过（运行准入仍按原配置阻断，不代表已接入生产）。
+- 前端只补充时段标签并兼容旧 `trading`/`break` 值，不调整布局、CSS 或主题。
+
+正式净值发布频率策略和板块目录完整性仍在后续子任务中；阶段 C 整体尚未宣告完成。
+
 ## 《01》后续进度
 
 - [x] B：BUG-003 / BUG-004，账本幂等与分红估值日约束。

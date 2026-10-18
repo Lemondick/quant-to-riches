@@ -22,6 +22,7 @@ from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.providers._lazy_akshare import ak
 from quant_assistant.providers.base import ProviderUnavailable
 from quant_assistant.providers.data_quality import ObservationMetadata, metadata
+from quant_assistant.providers.market_calendar import MarketCalendars
 from quant_assistant.providers.public_http import PublicHttp, log_validation
 
 DEFAULT_EASTMONEY_ESTIMATE_URL = "https://fundgz.1234567.com.cn/js/{symbol}.js"
@@ -92,6 +93,7 @@ class EastmoneyFundValuationProvider:
         timeout: float = 8.0,
         http_get=None,
         now=None,
+        calendar: MarketCalendars | None = None,
     ) -> None:
         if not isinstance(endpoint_template, str) or not endpoint_template.strip():
             raise ValueError("estimate endpoint must be a non-empty string")
@@ -101,6 +103,7 @@ class EastmoneyFundValuationProvider:
         self._timeout = float(timeout)
         self._http = PublicHttp() if http_get is None else PublicHttp(http_get)
         self._now = now or (lambda: datetime.now(SHANGHAI_TZ))
+        self._calendar = calendar if calendar is not None else MarketCalendars.builtin()
 
     def estimate(self, symbol: str) -> FundIntradayEstimate:
         code = normalize_fund_symbol(symbol)
@@ -118,7 +121,9 @@ class EastmoneyFundValuationProvider:
         raw = response.content
         try:
             payload = _decode_jsonp(raw.decode("utf-8"))
-            result = parse_eastmoney_estimate(payload, code, source=self.name, now=self._now())
+            result = parse_eastmoney_estimate(
+                payload, code, source=self.name, now=self._now(), calendar=self._calendar
+            )
             log_validation(
                 "fund_estimate",
                 "eastmoney",
@@ -145,12 +150,14 @@ class AkshareFundNavProvider:
         akshare_module: object = ak,
         now: Callable[[], datetime] | None = None,
         max_nav_age_days: int = 14,
+        calendar: MarketCalendars | None = None,
     ) -> None:
         if isinstance(max_nav_age_days, bool) or not 1 <= max_nav_age_days <= 90:
             raise ValueError("max NAV age must be between 1 and 90 days")
         self._ak = akshare_module
         self._now = now or (lambda: datetime.now(SHANGHAI_TZ))
         self._max_nav_age = timedelta(days=max_nav_age_days)
+        self._calendar = calendar if calendar is not None else MarketCalendars.builtin()
 
     def estimate(self, symbol: str) -> FundIntradayEstimate:
         code = normalize_fund_symbol(symbol)
@@ -205,7 +212,13 @@ class AkshareFundNavProvider:
             valuation_type="latest_nav",
             official_nav=latest_nav,
             official_change_rate=change_rate,
-            **metadata("official_nav", self.name, latest_date.isoformat(), observed_at),
+            **metadata(
+                "official_nav",
+                self.name,
+                latest_date.isoformat(),
+                observed_at,
+                calendar=self._calendar,
+            ),
         )
 
 
@@ -214,8 +227,9 @@ class LocalFundNavProvider:
 
     name = "local_official_nav"
 
-    def __init__(self, observations: Mapping[str, object], *, now=None) -> None:
+    def __init__(self, observations: Mapping[str, object], *, now=None, calendar=None) -> None:
         self._observations = observations
+        self._calendar = calendar if calendar is not None else MarketCalendars.builtin()
         self._now = now or (lambda: datetime.now(SHANGHAI_TZ))
 
     def estimate(self, symbol: str) -> FundIntradayEstimate:
@@ -268,7 +282,11 @@ class LocalFundNavProvider:
             valuation_type="latest_nav",
             official_nav=latest,
             **metadata(
-                "official_nav", str(points[-1]["source"]), values[1][0].isoformat(), observed
+                "official_nav",
+                str(points[-1]["source"]),
+                values[1][0].isoformat(),
+                observed,
+                calendar=self._calendar,
             ),
         )
 
@@ -350,6 +368,7 @@ def parse_eastmoney_estimate(
     *,
     source: str = "eastmoney_fundgz",
     now: datetime | None = None,
+    calendar: MarketCalendars | None = None,
 ) -> FundIntradayEstimate:
     """Normalize the public ``fundgz`` fields without silently filling values."""
 
@@ -372,7 +391,13 @@ def parse_eastmoney_estimate(
     precision = (
         "seconds" if re.search(r"[T ]\d{2}:\d{2}:\d{2}", str(payload.get("gztime"))) else "minutes"
     )
-    meta = metadata("intraday_estimate", source, observed_at.isoformat(timespec=precision), fetched)
+    meta = metadata(
+        "intraday_estimate",
+        source,
+        observed_at.isoformat(timespec=precision),
+        fetched,
+        calendar=calendar,
+    )
     if meta["quality_status"] == "invalid":
         raise FundValuationError("估值时间无效")
     nav_date = str(payload.get("jzrq", "") or "").strip() or None

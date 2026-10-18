@@ -2,12 +2,77 @@
 
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from functools import cache
 from importlib.resources import files
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 MARKETS = frozenset({"CN", "HK", "US", "JP"})
+ZONES = {
+    "CN": "Asia/Shanghai",
+    "HK": "Asia/Hong_Kong",
+    "US": "America/New_York",
+    "JP": "Asia/Tokyo",
+}
+
+
+def market_session(now, calendars, market="CN"):
+    zone = ZONES.get(market)
+    if zone is None:
+        return "unknown"
+    local = now.astimezone(ZoneInfo(zone))
+    trading = calendars.trading_day(local.date(), market)
+    if trading is None:
+        return "unknown"
+    if not trading:
+        return "closed"
+    if market != "CN":
+        return "unknown"
+    clock = local.time()
+    if clock < time(9, 15):
+        return "pre_market"
+    if clock < time(9, 25):
+        return "auction"
+    if clock < time(9, 30):
+        return "pre_market"
+    if clock < time(11, 30):
+        return "continuous_trading"
+    if clock < time(13):
+        return "lunch_break"
+    if clock < time(14, 57):
+        return "continuous_trading"
+    return "auction" if clock < time(15) else "closed"
+
+
+def latest_session(now, calendars, market="CN", auction_supported=False):
+    if market != "CN":
+        return None
+    now = now.astimezone(ZoneInfo(ZONES[market]))
+    day = now.date()
+    trading = calendars.trading_day(day, market)
+    if trading is None:
+        return None
+    if trading and now.time() >= (time(9, 15) if auction_supported else time(9, 30)):
+        return day
+    for _ in range(370):
+        day -= timedelta(days=1)
+        previous = calendars.trading_day(day, market)
+        if previous is None:
+            return None
+        if previous:
+            return day
+    return None
+
+
+def session_boundary(now, session, auction_supported=False):
+    if session != now.date() or now.time() >= time(15):
+        return datetime.combine(session, time(15), now.tzinfo)
+    if auction_supported and now.time() < time(9, 30):
+        return min(now, datetime.combine(session, time(9, 25), now.tzinfo))
+    if time(11, 30) <= now.time() < time(13):
+        return datetime.combine(session, time(11, 30), now.tzinfo)
+    return now
 
 
 @dataclass(frozen=True, slots=True)

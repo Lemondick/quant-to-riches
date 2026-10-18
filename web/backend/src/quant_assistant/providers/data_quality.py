@@ -1,7 +1,7 @@
 """Source clocks and small process-memory caches for anonymous public data.
 
-The 2026 closures mirror the existing gateway SSE calendar fallback. Unknown
-calendar years fail closed; fetch times never manufacture a source clock.
+Calendars come from the gateway or its shared legacy resource. Unknown market
+years fail closed; fetch times never manufacture a source clock.
 """
 
 from __future__ import annotations
@@ -15,19 +15,22 @@ from datetime import date, datetime, timedelta
 from datetime import time as day_time
 from hashlib import sha256
 from threading import RLock
+from zoneinfo import ZoneInfo
 
 from quant_assistant.common.time import SHANGHAI_TZ
+from quant_assistant.providers.market_calendar import (
+    ZONES,
+    MarketCalendars,
+    market_session,
+    session_boundary,
+)
+from quant_assistant.providers.market_calendar import latest_session as _latest_session
 
 logger = logging.getLogger(__name__)
-_CLOSURES_2026 = (
-    ("01-01", "01-03"),
-    ("02-15", "02-23"),
-    ("04-04", "04-06"),
-    ("05-01", "05-05"),
-    ("06-19", "06-21"),
-    ("09-25", "09-27"),
-    ("10-01", "10-07"),
+_INSTANT = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,7})?)?(?:Z|[+-]\d{2}:\d{2})"
 )
+_NO_ZONE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,7})?)?")
 SOURCE_FAMILIES = {
     "eastmoney_fundgz": "eastmoney",
     "tiantian": "eastmoney",
@@ -36,24 +39,21 @@ SOURCE_FAMILIES = {
 }
 
 
-def trading_day(day: date) -> bool | None:
-    if day.year != 2026:
-        return None
-    text = day.strftime("%m-%d")
-    return day.weekday() < 5 and not any(a <= text <= b for a, b in _CLOSURES_2026)
+def trading_day(day: date, calendar=None, market="CN") -> bool | None:
+    return (calendar if calendar is not None else MarketCalendars.builtin()).trading_day(
+        day, market
+    )
 
 
-def latest_session(now: datetime) -> date | None:
-    day = now.date()
-    if trading_day(day) is None:
-        return None
-    if now.time() < day_time(9, 30):
-        day -= timedelta(days=1)
-    for _ in range(40):
-        if trading_day(day):
-            return day
-        day -= timedelta(days=1)
-    return None
+def latest_session(
+    now: datetime, calendar=None, market="CN", auction_supported=False
+) -> date | None:
+    return _latest_session(
+        now,
+        calendar if calendar is not None else MarketCalendars.builtin(),
+        market,
+        auction_supported,
+    )
 
 
 def metadata(
@@ -65,13 +65,21 @@ def metadata(
     instrument_type: str = "fund",
     fallback_used=False,
     fallback_reason=None,
+    calendar: MarketCalendars | None = None,
+    market="CN",
+    auction_supported=False,
+    as_of: datetime | None = None,
 ) -> dict:
-    now = (
+    fetched = (
         fetched_at.replace(tzinfo=SHANGHAI_TZ)
         if fetched_at.tzinfo is None
         else fetched_at.astimezone(SHANGHAI_TZ)
     )
-    status, stamp, day, updated = "unknown_time", None, None, None
+    calendar = calendar if calendar is not None else MarketCalendars.builtin()
+    market = market.strip().upper()
+    zone_id = ZONES.get(market)
+    now = (as_of or fetched).astimezone(ZoneInfo(zone_id or "UTC"))
+    status, stamp, day, updated, reason = "unknown_time", None, None, None, None
     if source_value:
         try:
             if re.fullmatch(r"\d{4}-\d{2}-\d{2}", source_value):
@@ -80,53 +88,79 @@ def metadata(
                 day = date.fromisoformat(source_value)
                 updated = day.isoformat()
                 status = "invalid" if day > now.date() else "valid"
-            else:
+            elif len(source_value) <= 64 and _INSTANT.fullmatch(source_value):
                 parsed = datetime.fromisoformat(source_value)
-                if parsed.tzinfo is None:
-                    raise ValueError("source clock requires a timezone")
-                parsed = parsed.astimezone(SHANGHAI_TZ)
+                parsed = parsed.astimezone(ZoneInfo(zone_id or "UTC"))
                 stamp, updated, day = source_value, source_value, parsed.date()
                 status = "invalid" if parsed > now + timedelta(minutes=1) else "valid"
                 if status == "valid" and data_type in {"realtime_quote", "intraday_estimate"}:
-                    session = latest_session(now)
+                    session = latest_session(now, calendar, market, auction_supported)
                     if session is None:
-                        status = "unknown_time"
+                        status, reason = "unknown_time", "calendar_or_session_unavailable"
+                    elif (
+                        not auction_supported
+                        and day == now.date()
+                        and (
+                            day_time(9, 15) <= now.time() < day_time(9, 30)
+                            and parsed.time() >= day_time(9, 15)
+                            or day_time(14, 57) <= now.time() < day_time(15)
+                            and parsed.time() >= day_time(14, 57)
+                        )
+                    ):
+                        status, reason = "unavailable", "auction_not_supported"
                     elif day < session:
                         status = "stale"
                     elif day > session:
                         status = "invalid"
-                    elif trading_day(now.date()) and now.time() >= day_time(9, 30):
-                        # Lunch and after close use the most recent session boundary.
-                        boundary = min(now, datetime.combine(now.date(), day_time(15), SHANGHAI_TZ))
-                        if day_time(11, 30) <= now.time() < day_time(13):
-                            boundary = datetime.combine(now.date(), day_time(11, 30), SHANGHAI_TZ)
+                    else:
+                        boundary = session_boundary(now, session, auction_supported)
                         tolerance = timedelta(minutes=15 if data_type == "intraday_estimate" else 2)
                         if boundary - parsed > tolerance:
                             status = "stale"
+            elif len(source_value) <= 64 and _NO_ZONE.fullmatch(source_value):
+                datetime.fromisoformat(source_value)  # Validate its wall-clock syntax only.
+                status, reason = "unknown_time", "source_timezone_missing"
+            else:
+                raise ValueError("invalid source time")
             if status == "valid" and data_type == "official_nav" and (now.date() - day).days > 14:
                 status = "stale"
         except (ValueError, TypeError):
             status, stamp, updated, day = "invalid", None, None, None
     if status == "invalid":
-        stamp, updated = None, None
+        stamp, updated, day, reason = None, None, None, "invalid_source_time"
+    year = calendar.load(now.year, market)
     return dict(
         instrument_type=instrument_type,
         data_type=data_type,
         source_family=SOURCE_FAMILIES.get(source, source.removeprefix("local:")),
         source_time=stamp,
         updated_at=updated,
-        fetched_at=now,
+        fetched_at=fetched,
         trade_date=day.isoformat() if day else None,
         is_estimate=data_type == "intraday_estimate",
         is_stale=status == "stale",
         fallback_used=bool(fallback_used),
         fallback_reason=fallback_reason,
         quality_status=status,
+        market=market,
+        market_timezone=zone_id,
+        market_session=market_session(now, calendar, market),
+        calendar_revision=year.revision if year else None,
+        calendar_source=year.source if year else None,
+        quality_reason=reason,
+        auction_supported=bool(auction_supported),
     )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ObservationMetadata:
+    auction_supported: bool = False
+    market: str = "CN"
+    market_timezone: str | None = None
+    market_session: str = "unknown"
+    calendar_revision: str | None = None
+    calendar_source: str | None = None
+    quality_reason: str | None = None
     instrument_type: str | None = None
     data_type: str | None = None
     source_family: str | None = None
@@ -188,7 +222,7 @@ class MemoryCache:
             )
 
 
-def enrich_payload(kind: str, data: dict) -> dict:
+def enrich_payload(kind: str, data: dict, *, calendar=None, as_of=None) -> dict:
     """Add metadata after DTO serialization; collection clocks stay separate."""
 
     def apply(row, data_type, source_value, instrument="fund", fetched=None):
@@ -207,10 +241,35 @@ def enrich_payload(kind: str, data: dict) -> dict:
             instrument_type=instrument,
             fallback_used=row.get("fallback_used", False),
             fallback_reason=row.get("fallback_reason"),
+            calendar=calendar,
+            market=row.get("market", "CN"),
+            as_of=as_of or datetime.now(SHANGHAI_TZ),
+            auction_supported=row.get("auction_supported") is True,
         )
         info["fetched_at"] = info["fetched_at"].isoformat()
         row.update(info)
 
+    if kind == "market.quotes":
+        for row in data.get("items", []):
+            source_time = row.get("source_time") or (
+                row.get("observed_at") if row.get("trade_time_verified") else None
+            )
+            apply(
+                row,
+                "realtime_quote",
+                source_time,
+                row.get("instrument_type") or row.get("asset_type", "stock"),
+            )
+    if kind == "fund.valuations":
+        for row in data.get("items", []):
+            official = row.get("valuation_type") == "latest_nav"
+            apply(
+                row,
+                "official_nav" if official else "intraday_estimate",
+                row.get("nav_date")
+                if official
+                else row.get("source_time") or row.get("observed_at"),
+            )
     if kind == "market.snapshot":
         for row in data.get("indices", []):
             apply(row, "realtime_quote", row.get("source_time"), "index")

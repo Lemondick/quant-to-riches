@@ -1,10 +1,12 @@
 using System.Text.Json.Nodes;
 using QuantAssistant.Core.Errors;
 using QuantAssistant.Infrastructure.Db;
+using QuantAssistant.Infrastructure.Runtime;
+using QuantAssistant.Core.Market;
 
 namespace QuantAssistant.Api.Services;
 
-public sealed class DashboardSummaryService(AccountDatabase database, PublicMarketSnapshot market, TimeProvider clock, AccountDisplayCache? cache = null)
+public sealed class DashboardSummaryService(AccountDatabase database, PublicMarketSnapshot market, TimeProvider clock, AccountDisplayCache? cache = null, TradingCalendarRepository? calendars = null)
 {
     // One statement provides a consistent MVCC view without repeated network round trips.
     private const string Query = """
@@ -71,8 +73,8 @@ public sealed class DashboardSummaryService(AccountDatabase database, PublicMark
         if (result["quotes"]!["unavailable"]!.AsArray().Count > 0) unavailable.Add("market.quotes");
         result["unavailable"] = unavailable;
         result["generated_at"] = clock.GetUtcNow().ToString("O");
-        if(result["valuations"] is JsonObject valuations)PublicDataQuality.Apply("fund.valuations",valuations,clock.GetUtcNow());
-        if(result["quotes"] is JsonObject quotes)PublicDataQuality.Apply("market.quotes",quotes,clock.GetUtcNow());
+        if(result["valuations"] is JsonObject valuations)PublicDataQuality.Apply("fund.valuations",valuations,clock.GetUtcNow(),calendars:calendars?.CurrentSnapshot ?? MarketCalendars.Empty);
+        if(result["quotes"] is JsonObject quotes)PublicDataQuality.Apply("market.quotes",quotes,clock.GetUtcNow(),calendars:calendars?.CurrentSnapshot ?? MarketCalendars.Empty);
         return result;
     }
 }

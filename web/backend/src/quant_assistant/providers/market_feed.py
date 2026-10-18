@@ -30,6 +30,7 @@ from quant_assistant.providers._lazy_akshare import ak
 from quant_assistant.providers.base import ProviderDataError, ProviderUnavailable
 from quant_assistant.providers.data_quality import MemoryCache, ObservationMetadata, metadata
 from quant_assistant.providers.market_breadth import MarketBreadth, read_market_breadth
+from quant_assistant.providers.market_calendar import MarketCalendars
 from quant_assistant.providers.market_feed_parsing import (
     _MAIN_INDEX_IDS as _MAIN_INDEX_IDS,
 )
@@ -203,10 +204,12 @@ class AkshareMarketFeedProvider:
         monotonic_clock: Callable[[], float] = time.monotonic,
         akshare_module: object = ak,
         http_get: Callable[..., object] = requests.get,
+        calendar: MarketCalendars | None = None,
     ) -> None:
         if ttl_seconds <= 0 or ttl_seconds > 3600:
             raise ValueError("market cache ttl must be between 0 and 3600 seconds")
         self._ttl_seconds = float(ttl_seconds)
+        self._calendar = calendar if calendar is not None else MarketCalendars.builtin()
         self._now = now or (lambda: datetime.now(SHANGHAI_TZ))
         self._monotonic = monotonic_clock
         self._ak = akshare_module
@@ -493,6 +496,7 @@ class AkshareMarketFeedProvider:
                     "eastmoney",
                     _optional_date_text(row["日期"]),
                     self._observed_at(),
+                    calendar=self._calendar,
                 ),
             )
             for row in selected.to_dict("records")
@@ -750,6 +754,7 @@ class AkshareMarketFeedProvider:
                     observed.isoformat(),
                     self._observed_at(),
                     instrument_type=_instrument_type(symbol, asset_type),
+                    calendar=self._calendar,
                 )
                 if meta["quality_status"] == "invalid":
                     continue
@@ -822,6 +827,7 @@ class AkshareMarketFeedProvider:
                     observed.isoformat(),
                     self._observed_at(),
                     instrument_type=_instrument_type(symbol, kind),
+                    calendar=self._calendar,
                 )
                 if meta["quality_status"] == "invalid":
                     continue

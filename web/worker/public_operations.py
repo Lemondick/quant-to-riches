@@ -2,7 +2,7 @@
 
 import json
 import logging
-from functools import cache
+from functools import lru_cache
 
 _public_logger = logging.getLogger("quant_assistant.providers")
 if not _public_logger.handlers:
@@ -19,37 +19,51 @@ PUBLIC_CAPABILITIES = (
 IN_PROCESS_CAPABILITIES = (*PUBLIC_CAPABILITIES, "fund.valuations")
 
 
-@cache
-def _detail_provider():
+@lru_cache(maxsize=4)
+def _detail_provider(snapshot=None):
     from quant_assistant.common.performance import traced_get
     from quant_assistant.providers.fund_detail import PublicFundDetailProvider
 
-    return PublicFundDetailProvider(http_get=traced_get)
+    return PublicFundDetailProvider(http_get=traced_get, calendar=_calendar(snapshot))
 
 
-@cache
-def _market_provider():
+@lru_cache(maxsize=4)
+def _market_provider(snapshot=None):
     from quant_assistant.common.performance import traced_get
     from quant_assistant.providers.market_feed import AkshareMarketFeedProvider
 
-    return AkshareMarketFeedProvider(http_get=traced_get)
+    return AkshareMarketFeedProvider(http_get=traced_get, calendar=_calendar(snapshot))
 
 
-@cache
-def _valuation_provider():
+@lru_cache(maxsize=4)
+def _valuation_provider(snapshot=None):
     from quant_assistant.providers.fund_valuation import EastmoneyFundValuationProvider
     from quant_assistant.services.runtime_limits import PublicReadCache
 
-    return PublicReadCache(EastmoneyFundValuationProvider(), 60)
+    return PublicReadCache(EastmoneyFundValuationProvider(calendar=_calendar(snapshot)), 60)
+
+
+def _calendar(snapshot):
+    from quant_assistant.providers.market_calendar import MarketCalendars
+
+    return MarketCalendars.from_payload(json.loads(snapshot) if snapshot is not None else None)
 
 
 def execute_public(kind: str, payload: dict) -> dict:
+    snapshot = (
+        json.dumps(payload["_calendars"], sort_keys=True) if "_calendars" in payload else None
+    )
+    calendar = _calendar(snapshot)
+
+    def get(factory):
+        return factory() if snapshot is None else factory(snapshot)
+
     if kind == "market.history":
         from public_charts import index_history
 
         from quant_assistant.common.performance import traced_get
 
-        return index_history(payload["symbol"], http_get=traced_get)
+        return index_history(payload["symbol"], http_get=traced_get, calendar=calendar)
     from quant_assistant.controllers.schemas import (
         FundDetailResponse,
         FundValuationsResponse,
@@ -60,8 +74,8 @@ def execute_public(kind: str, payload: dict) -> dict:
 
     if kind == "fund.detail":
         if payload.get("_refresh"):
-            _detail_provider().expire_cache()
-        result = _detail_provider().detail(payload["symbol"])
+            get(_detail_provider).expire_cache()
+        result = get(_detail_provider).detail(payload["symbol"])
         schema = FundDetailResponse
     elif kind == "fund.valuations":
         from quant_assistant.providers.fund_valuation import (
@@ -75,14 +89,14 @@ def execute_public(kind: str, payload: dict) -> dict:
             _valuation_provider.cache_clear()
         query = _PortfolioMixin()
         query._fund_valuation_provider = FallbackFundValuationProvider(
-            primary=_valuation_provider(),
-            fallback=LocalFundNavProvider(payload.get("local_nav", {})),
+            primary=get(_valuation_provider),
+            fallback=LocalFundNavProvider(payload.get("local_nav", {}), calendar=calendar),
         )
         symbols = payload["symbols"]
         result = query.fund_valuations(symbols) if symbols else FundValuationsView((), ())
         schema = FundValuationsResponse
     elif kind in PUBLIC_CAPABILITIES:
-        provider = _market_provider()
+        provider = get(_market_provider)
         if payload.get("_refresh"):
             provider.expire_cache()
         if kind == "market.snapshot":
@@ -98,7 +112,9 @@ def execute_public(kind: str, payload: dict) -> dict:
         raise ValueError("unsupported_public_operation")
     from quant_assistant.providers.data_quality import enrich_payload
 
-    data = enrich_payload(kind, schema.model_validate(result).model_dump(mode="json"))
+    data = enrich_payload(
+        kind, schema.model_validate(result).model_dump(mode="json"), calendar=calendar
+    )
     from quant_assistant.providers.public_http import log_validation
 
     records = data.get("items", data.get("nav_history", data.get("indices", [])))

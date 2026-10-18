@@ -97,6 +97,7 @@ from quant_assistant.providers.fund_detail_parsing import (
     _stale as _stale,
 )
 from quant_assistant.providers.fund_valuation import normalize_fund_symbol
+from quant_assistant.providers.market_calendar import MarketCalendars
 from quant_assistant.providers.public_http import PublicHttp, log_validation
 
 logger = logging.getLogger(__name__)
@@ -112,10 +113,12 @@ class PublicFundDetailProvider:
         now: Callable[[], datetime] | None = None,
         monotonic_clock: Callable[[], float] = time.monotonic,
         ttl_seconds: float = 300.0,
+        calendar: MarketCalendars | None = None,
     ) -> None:
         if ttl_seconds <= 0 or ttl_seconds > 3600:
             raise ValueError("fund detail cache ttl must be between 0 and 3600 seconds")
         self._http = PublicHttp(http_get)
+        self._calendar = calendar if calendar is not None else MarketCalendars.builtin()
 
         def get(url, **kwargs):
             return self._http.get(
@@ -415,6 +418,7 @@ class PublicFundDetailProvider:
                     datetime.fromisoformat(self._nav_clocks[code])
                     if code in self._nav_clocks
                     else observed_at,
+                    calendar=self._calendar,
                     fallback_used=bool(history and history[-1].source == "tencent"),
                     fallback_reason="primary_nav_unavailable_or_invalid"
                     if history and history[-1].source == "tencent"
@@ -426,6 +430,7 @@ class PublicFundDetailProvider:
                 str(basic.get("_source", "unknown")),
                 None,
                 datetime.fromisoformat(str(basic.get("_fetched_at", observed_at.isoformat()))),
+                calendar=self._calendar,
                 fallback_used=bool(basic.get("_fallback_used")),
                 fallback_reason=basic.get("_fallback_reason"),
             ),
@@ -620,7 +625,7 @@ class PublicFundDetailProvider:
                     errors.append("daily_return_inconsistent")
                 missing = previous.nav_date + timedelta(days=1)
                 while missing < current.nav_date:
-                    scheduled = trading_day(missing)
+                    scheduled = trading_day(missing, self._calendar)
                     if scheduled is True or scheduled is None and missing.weekday() < 5:
                         errors.append(
                             "missing_trading_date" if scheduled else "calendar_gap_unverified"

@@ -43,11 +43,11 @@
 - claim input 增加 `_calendars`（版本、market、year、source、revision、holidays）；不进入原查询缓存键，不允许普通查询参数覆盖。
 - 旧 `calendar:<year>` 仍表示 CN；其他市场键为 `calendar:<market>:<year>`。现有管理员接口缺省 market=CN；来源域名按市场验证。
 
-- [ ] 写失败测试：CN 临时休市覆盖内置值；2099 未导入返回 None；同日 CN/HK 结果互不替代；跨年碰到未知日历返回 None；两个并发任务各用自己的修订。
-- [ ] 运行上述测试，保存失败证据；现有管理员鉴权、revision 冲突测试保持有效。
-- [ ] 最小实现资源、仓储快照、claim 注入和 Python 只读类型。生产 Worker 缺少快照时使用空快照；旧本地入口可读取同一内置资源。
-- [ ] 运行 Python calendar tests、.NET calendar tests；Linux PG 验证管理员保存和已认证 claim，确认响应没有数据库连接信息。
-- [ ] 提交独立变更。
+- [x] 写失败测试：CN 临时休市覆盖内置值；2099 未导入返回 None；同日 CN/HK 结果互不替代；跨年碰到未知日历返回 None；两个并发任务各用自己的修订。
+- [x] 运行上述测试，保存失败证据；现有管理员鉴权、revision 冲突测试保持有效。
+- [x] 最小实现资源、仓储快照、claim 注入和 Python 只读类型。生产 Worker 缺少快照时使用空快照；旧本地入口可读取同一内置资源。
+- [x] 运行 Python calendar tests、.NET calendar tests；Linux PG 验证管理员保存和已认证 claim，确认响应没有数据库连接信息。
+- [x] 提交独立变更。
 
 ## Task 2: 一致的市场时段与严格时间解析
 

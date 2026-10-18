@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\QuantAssistant.Api\QuantAssistant.Api.csproj" />
+    <Content Include="../../../../tests/fixtures/public-quality-cases.json" Link="public-quality-cases.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

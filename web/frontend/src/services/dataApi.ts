@@ -37,7 +37,7 @@ export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
 export type BackendSession = { user: { id: string; username: string; role: 'admin' | 'user' }; csrf_token: string; cache_scope: string }
 
 export type Position = { symbol: string; asset_type: string; name: string; quantity: string; average_cost: string; market_value: string; as_of_date: string }
-export type Observation = { updated_at?: string | null; source_time?: string | null; fetched_at?: string | null; quality_status?: string; is_stale?: boolean }
+export type Observation = { updated_at?: string | null; source_time?: string | null; fetched_at?: string | null; quality_status?: string; is_stale?: boolean; market?: string; market_timezone?: string | null; market_session?: string; calendar_revision?: string | null; calendar_source?: string | null; quality_reason?: string | null; auction_supported?: boolean }
 export type Quote = Observation & { symbol: string; name: string; asset_type: string; price: string; change_rate: string; observed_at: string; source: string }
 export type Valuation = Observation & { symbol: string; estimate_nav: string | null; official_nav?: string | null; official_change_rate?: string | null; change_rate: string | null; observed_at: string | null; source: string; nav_date: string | null; valuation_type: 'intraday_estimate' | 'latest_nav' }
 export type MarketBreadth = Observation & { advancing: number; declining: number; unchanged: number; limit_up: number; limit_down: number; observed_at: string; source: string; turnover: string | null; previous_turnover: string | null; turnover_ratio: string | null; previous_trade_date: string | null; stale: boolean; unavailable: string[] }

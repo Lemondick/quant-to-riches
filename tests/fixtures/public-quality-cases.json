@@ -1,0 +1,35 @@
+{
+  "sessions": [
+    {"now":"2026-10-19T09:14:59+08:00","trading":true,"phase":"pre_market"},
+    {"now":"2026-10-19T09:15:00+08:00","trading":true,"phase":"auction"},
+    {"now":"2026-10-19T09:20:00+08:00","trading":true,"phase":"auction"},
+    {"now":"2026-10-19T09:25:00+08:00","trading":true,"phase":"pre_market"},
+    {"now":"2026-10-19T09:29:59+08:00","trading":true,"phase":"pre_market"},
+    {"now":"2026-10-19T09:30:00+08:00","trading":true,"phase":"continuous_trading"},
+    {"now":"2026-10-19T11:29:59+08:00","trading":true,"phase":"continuous_trading"},
+    {"now":"2026-10-19T11:30:00+08:00","trading":true,"phase":"lunch_break"},
+    {"now":"2026-10-19T12:00:00+08:00","trading":true,"phase":"lunch_break"},
+    {"now":"2026-10-19T12:59:59+08:00","trading":true,"phase":"lunch_break"},
+    {"now":"2026-10-19T13:00:00+08:00","trading":true,"phase":"continuous_trading"},
+    {"now":"2026-10-19T14:56:59+08:00","trading":true,"phase":"continuous_trading"},
+    {"now":"2026-10-19T14:57:00+08:00","trading":true,"phase":"auction"},
+    {"now":"2026-10-19T14:59:59+08:00","trading":true,"phase":"auction"},
+    {"now":"2026-10-19T15:00:00+08:00","trading":true,"phase":"closed"},
+    {"now":"2026-10-19T15:05:00+08:00","trading":true,"phase":"closed"},
+    {"now":"2026-10-18T10:00:00+08:00","trading":false,"phase":"closed"},
+    {"now":"2026-10-19T10:00:00+08:00","trading":false,"phase":"closed"},
+    {"now":"2027-01-04T10:00:00+08:00","trading":null,"phase":"unknown"}
+  ],
+  "timestamps": [
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-10-16T20:00:00Z","quality":"valid"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-10-17T04:00:00+08:00","quality":"valid"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-10-16T16:00:00-04:00","quality":"valid"},
+    {"now":"2026-11-02T10:00:00+08:00","value":"2026-11-01T01:30:00-04:00","quality":"valid"},
+    {"now":"2026-11-02T10:00:00+08:00","value":"2026-11-01T01:30:00-05:00","quality":"valid"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-10-16T15:00:00","quality":"unknown_time"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-10-16T15:00:00+25:00","quality":"invalid"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-02-30T15:00:00+08:00","quality":"invalid"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"2026-10-19T15:00:00+08:00","quality":"invalid"},
+    {"now":"2026-10-18T10:00:00+08:00","value":"not-a-time","quality":"invalid"}
+  ]
+}

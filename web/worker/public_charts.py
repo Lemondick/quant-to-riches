@@ -19,7 +19,7 @@ INDICES = {
 }
 
 
-def index_history(symbol, *, http_get=requests.get):
+def index_history(symbol, *, http_get=requests.get, calendar=None):
     if symbol not in INDICES:
         raise ValueError("unsupported index symbol")
     ticker, name = INDICES[symbol]
@@ -79,6 +79,7 @@ def index_history(symbol, *, http_get=requests.get):
                 max(items, key=lambda item: item["date"])["date"],
                 now,
                 instrument_type="index",
+                calendar=calendar,
             ).items()
         },
     }
