@@ -16,14 +16,17 @@ import os
 import re
 import subprocess
 import sys
+import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 BACKEND = Path(__file__).resolve().parents[1]
 WORKER_DIR = BACKEND / "src" / "quant_assistant" / "integrations" / "tradingagents_worker"
 EVIDENCE = BACKEND / "src" / "quant_assistant" / "analysis" / "research_evidence.py"
 sys.path.insert(0, str(BACKEND / "src"))
 
+from quant_assistant.integrations.tradingagents_worker import main as adapter  # noqa: E402
 from quant_assistant.integrations.tradingagents_worker.contract import (  # noqa: E402
     ROLES,
     validate_report,
@@ -133,7 +136,11 @@ class WorkerSubprocessTest(unittest.TestCase):
     """The adapter must degrade to a stable error code, never to a fake report."""
 
     def run_worker(self, task, env=None):
-        environment = {**os.environ, **(env or {})}
+        environment = {
+            **os.environ,
+            "QUANT_AGENT_PARENT_PID": str(os.getpid()),
+            **(env or {}),
+        }
         process = subprocess.run(
             [sys.executable, "-I", str(WORKER_DIR / "main.py")],
             input=json.dumps(task, ensure_ascii=False).encode("utf-8"),
@@ -182,6 +189,26 @@ class WorkerSubprocessTest(unittest.TestCase):
             )
             self.assertEqual(result, {"error_code": "model_not_configured"}, endpoint)
 
+    def test_missing_key_never_resolves_or_opens_a_connection(self):
+        with (
+            patch.dict(os.environ, {"QUANT_AGENT_KEY_FILE": ""}),
+            patch("socket.getaddrinfo", side_effect=AssertionError("unexpected DNS")),
+            patch.object(
+                adapter.http.client,
+                "HTTPSConnection",
+                side_effect=AssertionError("unexpected connection"),
+            ),
+            self.assertRaisesRegex(adapter.WorkerError, "^model_not_configured$"),
+        ):
+            adapter.call_model(
+                {"endpoint": "https://example.invalid/v1", "model": "synthetic"},
+                "bull",
+                REQUEST,
+                {},
+                time.monotonic() + 3,
+                [1],
+            )
+
     def test_oversized_stdin_is_invalid_output(self):
         task = self.mock_task()
         task["request"] = {**REQUEST, "warnings": ["x" * 70000]}
@@ -193,9 +220,28 @@ class WorkerSubprocessTest(unittest.TestCase):
             input=b"{not json",
             capture_output=True,
             timeout=60,
+            env={**os.environ, "QUANT_AGENT_PARENT_PID": str(os.getpid())},
         )
         self.assertEqual(process.returncode, 0)
         self.assertEqual(json.loads(process.stdout), {"error_code": "invalid_output"})
+
+    @unittest.skipUnless(sys.platform == "linux", "Linux parent-death protection")
+    def test_missing_or_wrong_parent_pid_is_rejected_before_reading_a_task(self):
+        for parent in (None, str(os.getpid() + 1)):
+            with self.subTest(parent="missing" if parent is None else "wrong"):
+                environment = dict(os.environ)
+                environment.pop("QUANT_AGENT_PARENT_PID", None)
+                if parent is not None:
+                    environment["QUANT_AGENT_PARENT_PID"] = parent
+                process = subprocess.run(
+                    [sys.executable, "-I", str(WORKER_DIR / "main.py")],
+                    input=json.dumps(self.mock_task()).encode("utf-8"),
+                    capture_output=True,
+                    timeout=15,
+                    env=environment,
+                )
+                self.assertEqual(process.returncode, 1)
+                self.assertEqual(process.stdout, b"")
 
 
 class FactLabelContractTest(unittest.TestCase):

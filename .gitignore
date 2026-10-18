@@ -44,4 +44,5 @@ htmlcov/
 .superpowers/
 output/
 tmp-check/
+/test-results/
 /web/frontend/browser-results/

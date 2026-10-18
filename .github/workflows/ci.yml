@@ -4,9 +4,13 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  source:
-    runs-on: ubuntu-latest
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -15,35 +19,49 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: uv sync --frozen --dev
+        working-directory: web/backend
+      - run: uv run python -B scripts/verify.py
+        working-directory: web/backend
+      - name: Verify result reporting
+        run: uv run --project web/backend python .github/scripts/test_report.py --start .github/scripts --pattern 'test_*tests.py' --report test-results/reporting.json --title 'CI result accounting'
+      - name: Python business tests (Linux subprocess protection included)
+        run: uv run python -B ../../.github/scripts/test_report.py --start scripts --pattern 'verify_*.py' --report ../../test-results/python.json --title 'Python business tests'
+        working-directory: web/backend
+      - name: Source lint
+        run: uv run --project web/backend ruff check --config web/backend/pyproject.toml .github/scripts web/worker web/backend-dotnet/tools/migrate_site.py web/backend-dotnet/tools/site_archive.py web/backend-dotnet/tools/site_files.py web/backend-dotnet/tools/site_lock.py web/backend-dotnet/tools/export_legacy_site.py web/backend-dotnet/tools/tests
+      - name: Source format
+        run: uv run --project web/backend ruff format --config web/backend/pyproject.toml --check .github/scripts web/worker web/backend-dotnet/tools/migrate_site.py web/backend-dotnet/tools/site_archive.py web/backend-dotnet/tools/site_files.py web/backend-dotnet/tools/site_lock.py web/backend-dotnet/tools/export_legacy_site.py web/backend-dotnet/tools/tests
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-test-results
+          path: test-results/
+          retention-days: 7
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web/frontend
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/frontend/package-lock.json
-      - run: uv sync --frozen --dev
-        working-directory: web/backend
-      - run: uv run python -B scripts/verify.py
-        working-directory: web/backend
-      - run: uv run python -B -m unittest discover -s scripts -p 'verify_*.py' -v
-        working-directory: web/backend
       - run: npm ci
-        working-directory: web/frontend
       - run: npm run lint
-        working-directory: web/frontend
       - run: npm run format:check
-        working-directory: web/frontend
       - run: npm run typecheck
-        working-directory: web/frontend
       - run: npm test
-        working-directory: web/frontend
       - run: npm run build
-        working-directory: web/frontend
       - name: Install native Chromium for browser regression
         run: npx playwright install --with-deps chromium
-        working-directory: web/frontend
       - name: Verify the supplied native Vue pages and local interactions
         run: npm run verify:ui
-        working-directory: web/frontend
         env:
           QUANT_BROWSER_OUTPUT: browser-results
       - uses: actions/upload-artifact@v4
@@ -52,11 +70,21 @@ jobs:
           name: browser-regression
           path: web/frontend/browser-results
           retention-days: 7
-      - run: uv run --project web/backend ruff check --config web/backend/pyproject.toml web/worker web/backend-dotnet/tools/migrate_site.py web/backend-dotnet/tools/site_archive.py web/backend-dotnet/tools/site_files.py web/backend-dotnet/tools/site_lock.py web/backend-dotnet/tools/export_legacy_site.py web/backend-dotnet/tools/tests
-      - run: uv run --project web/backend ruff format --config web/backend/pyproject.toml --check web/worker web/backend-dotnet/tools/migrate_site.py web/backend-dotnet/tools/site_archive.py web/backend-dotnet/tools/site_files.py web/backend-dotnet/tools/site_lock.py web/backend-dotnet/tools/export_legacy_site.py web/backend-dotnet/tools/tests
 
-  dotnet:
+  dotnet-build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet build QuantAssistant.slnx -c Release
+        working-directory: web/backend-dotnet
+
+  postgres-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     env:
       QUANT_TEST_PG_CONNECTION: Host=127.0.0.1;Port=55439;Database=quant_test;Username=quant_test
       QUANT_PG_CONNECTION: Host=127.0.0.1;Port=55439;Database=quant_test;Username=quant_test
@@ -76,21 +104,53 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: Install and start native PostgreSQL 18
+        shell: bash
         run: |
+          set -euo pipefail
           sudo install -d /usr/share/postgresql-common/pgdg
           curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
           echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update
           sudo apt-get install -y postgresql-18 postgresql-client-18
-          sudo pg_createcluster 18 quant-ci --port 55439 --start -- --auth-local=trust --auth-host=trust
+          # Avoid dashes in cluster names: systemd unescapes them as path separators.
+          sudo pg_createcluster 18 quantci --port 55439 --start -- --auth-local=trust --auth-host=trust
+          ready=false
+          for attempt in $(seq 1 30); do
+            if /usr/lib/postgresql/18/bin/pg_isready -h 127.0.0.1 -p 55439 -U postgres; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true
+          /usr/lib/postgresql/18/bin/psql -h 127.0.0.1 -p 55439 -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'SELECT 1'
           /usr/lib/postgresql/18/bin/createuser -h 127.0.0.1 -p 55439 -U postgres --createdb quant_test
           /usr/lib/postgresql/18/bin/createdb -h 127.0.0.1 -p 55439 -U postgres -O quant_test quant_test
+          /usr/lib/postgresql/18/bin/psql -v ON_ERROR_STOP=1 -c 'SELECT current_database(), current_user'
       - run: uv sync --project web/backend --frozen --dev
       - run: dotnet build QuantAssistant.slnx -c Release
         working-directory: web/backend-dotnet
       - run: dotnet src/QuantAssistant.Api/bin/Release/net10.0/QuantAssistant.Api.dll --migrate migrations
         working-directory: web/backend-dotnet
-      - run: dotnet test QuantAssistant.slnx -c Release --no-build
+      - name: PostgreSQL .NET integration tests
+        id: dotnet-tests
+        run: dotnet test QuantAssistant.slnx -c Release --no-build --logger 'trx;LogFileName=dotnet.trx' --results-directory ../../test-results
         working-directory: web/backend-dotnet
-      - run: uv run --project web/backend python -m unittest discover -s web/backend-dotnet/tools/tests -v
-      - run: uv run --project web/backend python -m unittest discover -s web/worker/tests -v
+      - name: Report .NET tests, failures and skip reasons
+        if: always() && steps.dotnet-tests.outcome != 'skipped'
+        run: uv run --project web/backend python .github/scripts/test_report.py --trx test-results/dotnet.trx --report test-results/dotnet.json --title '.NET PostgreSQL tests' --require-database
+      - name: Native database tools tests
+        run: uv run --project web/backend python .github/scripts/test_report.py --start web/backend-dotnet/tools/tests --report test-results/native-tools.json --title 'Native PostgreSQL tools'
+      - name: Python worker tests
+        run: uv run --project web/backend python .github/scripts/test_report.py --start web/worker/tests --report test-results/worker.json --title 'Python worker tests'
+      - name: PostgreSQL failure diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          pg_lsclusters || true
+          sudo systemctl status postgresql@18-quantci.service --no-pager || true
+          sudo journalctl -u postgresql@18-quantci.service --no-pager -n 100 || true
+          sudo tail -n 100 /var/log/postgresql/postgresql-18-quantci.log || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postgres-test-results
+          path: test-results/
+          retention-days: 7
