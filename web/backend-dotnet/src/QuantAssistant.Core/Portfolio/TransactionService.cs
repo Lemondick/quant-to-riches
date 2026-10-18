@@ -34,7 +34,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         if (existing is not null)
         {
             LedgerIdempotency.RequireSame(repository.ReadRecordedRequest(userId, "transaction", existing.Id.ToString()),
-                LedgerRequests.Transaction(v, v.CashSymbol ?? existing.CashSymbol, instrumentName));
+                LedgerRequests.Transaction(v, v.CashSymbol ?? existing.CashSymbol));
             return existing.Id;
         }
 
@@ -106,7 +106,7 @@ public sealed class TransactionService(ILedgerRepository repository, TimeProvide
         repository.WriteCashPosition(userId, cash.Symbol, newCash, v.TradeDate, recordedAt);
 
         repository.InsertAudit(userId, "transaction", transactionId.ToString(), recordedAt, BeforeJson(current),
-            LedgerIdempotency.WithRequest(AfterJson(v, cash, newCash, recordedAt), LedgerRequests.Transaction(v, cash.Symbol, instrumentName)));
+            LedgerIdempotency.WithRequest(AfterJson(v, cash, newCash, recordedAt), LedgerRequests.Transaction(v, cash.Symbol)));
         return transactionId;
     }
 

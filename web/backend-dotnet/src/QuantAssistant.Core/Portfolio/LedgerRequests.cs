@@ -9,11 +9,11 @@ internal static class LedgerRequests
     private static string At(DateTimeOffset value) => value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture);
     private static string Day(DateOnly value) => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
-    internal static JsonElement Transaction(ValidatedTransaction v, string? cash, string? name) => JsonSerializer.SerializeToElement(new
+    internal static JsonElement Transaction(ValidatedTransaction v, string? cash) => JsonSerializer.SerializeToElement(new
     {
         symbol = v.Symbol, asset_type = v.AssetType.ToString().ToLowerInvariant(), action = v.Action.ToString().ToLowerInvariant(),
         quantity = v.Quantity, price = v.Price, fees = v.Fees, traded_at = At(v.TradedAt), cash_symbol = cash,
-        source = v.Source, external_id = v.ExternalId, note = v.Note, instrument_name = Text(name)
+        source = v.Source, external_id = v.ExternalId, note = v.Note
     });
 
     internal static JsonElement Dividend(ValidatedDividend v, string? cash) => JsonSerializer.SerializeToElement(new

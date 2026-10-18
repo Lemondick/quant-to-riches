@@ -71,7 +71,6 @@ public static class LedgerIdempotency
         using var document = JsonDocument.Parse(value.RecordJson);
         foreach (var property in (legacyRequest ?? request).EnumerateObject())
         {
-            if (property.Name == "instrument_name" && property.Value.ValueKind == JsonValueKind.Null) continue;
             if (property.Value.ValueKind == JsonValueKind.Null && derivedNullable.Contains(property.Name)) continue;
             if (!Equivalent(property.Name, property.Value, Field(document.RootElement, property.Name))) throw Conflict();
         }

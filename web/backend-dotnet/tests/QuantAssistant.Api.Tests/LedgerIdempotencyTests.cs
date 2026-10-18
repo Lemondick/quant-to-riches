@@ -273,7 +273,7 @@ public sealed class LedgerIdempotencyTests
     }
 
     [PgFact]
-    public void InstrumentNameChangeWithSameTransactionKeyConflicts()
+    public void DisplayNameDoesNotChangeRecordedTransactionOrInstrumentOnReplay()
     {
         using var user = new PgTestUser();
         var scenario = Prepare(user, "transaction");
@@ -281,7 +281,8 @@ public sealed class LedgerIdempotencyTests
         var id = scenario.Service.RecordTransaction(user.Id, input, "name");
         var before = State(user);
         Assert.Equal(id, scenario.Service.RecordTransaction(user.Id, input, " name "));
-        Assert.Equal("idempotency_conflict", Assert.Throws<ApplicationFailure>(() => scenario.Service.RecordTransaction(user.Id, input, "other")).Code);
+        Assert.Equal(id, scenario.Service.RecordTransaction(user.Id, input, "other"));
+        Assert.Equal("Synthetic", user.Query("SELECT name FROM instruments WHERE user_id=$1 AND symbol='510300'", user.Id));
         Assert.Equal(before, State(user));
     }
 
