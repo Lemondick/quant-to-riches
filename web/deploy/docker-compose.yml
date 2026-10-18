@@ -1,0 +1,56 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      QUANT_DATA_DIR: /var/lib/quant-assistant
+      QUANT_API_HOST: 0.0.0.0
+      QUANT_API_PORT: 8765
+      QUANT_REQUIRE_AUTH: "true"
+      QUANT_RATE_LIMIT_PER_MINUTE: "120"
+      QUANT_CORS_ORIGINS: ${QUANT_CORS_ORIGINS:-https://${QUANT_DOMAIN:?Set QUANT_DOMAIN in deploy/.env}}
+    expose:
+      - "8765"
+    volumes:
+      - quant-data:/var/lib/quant-assistant
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "uv", "run", "python", "scripts/healthcheck.py", "--url", "http://127.0.0.1:8765/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      QUANT_DOMAIN: ${QUANT_DOMAIN:?Set QUANT_DOMAIN in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    security_opt:
+      - no-new-privileges:true
+
+
+volumes:
+  quant-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/QuantAssistant.Api/QuantAssistant.Api.csproj" />
+    <Project Path="src/QuantAssistant.Core/QuantAssistant.Core.csproj" />
+    <Project Path="src/QuantAssistant.Infrastructure/QuantAssistant.Infrastructure.csproj" />
+    <Project Path="src/QuantAssistant.NativeService/QuantAssistant.NativeService.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/QuantAssistant.Api.Tests/QuantAssistant.Api.Tests.csproj" />
+  </Folder>
+</Solution>

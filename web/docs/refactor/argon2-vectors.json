@@ -1,0 +1,35 @@
+{
+  "algorithm": "Argon2id",
+  "version": 19,
+  "parameters": {
+    "time_cost": 2,
+    "memory_cost_kib": 19456,
+    "parallelism": 1,
+    "hash_len_bytes": 32,
+    "salt_len_bytes": 16
+  },
+  "source": "web/backend/src/quant_assistant/services/auth.py (PasswordHasher time_cost=2 memory_cost=19456 parallelism=1 type=Type.ID)",
+  "password_policy": {
+    "min_length": 15,
+    "max_length": 128,
+    "username_pattern": "^[a-z][a-z0-9_]{2,31}$"
+  },
+  "fixed_salt_b64": "AAECAwQFBgcICQoLDA0ODw==",
+  "fixed_salt_hex": "000102030405060708090a0b0c0d0e0f",
+  "vectors": [
+    {
+      "id": "ascii_password",
+      "password": "CorrectHorseBattery",
+      "hash_hex": "5c2faebb48c5bb8cc67dc5627eea03ea5bc80dcf9cfd470c502db5d6f191fdb3"
+    },
+    {
+      "id": "unicode_password",
+      "password": "密码Password_12345",
+      "hash_hex": "9b400396da21cb29606c05c96b2b4d97202e9a4acef4d8db787044a53c962634"
+    }
+  ],
+  "phc_examples": {
+    "ascii_password": "$argon2id$v=19$m=19456,t=2,p=1$AAECAwQFBgcICQoLDA0ODw==$XC+uu0jFu4zGfcVifuoD6lvIDc+c/UcMUC211vGR/bM=",
+    "unicode_password": "$argon2id$v=19$m=19456,t=2,p=1$AAECAwQFBgcICQoLDA0ODw==$m0ADltohyylgbAXJaytNlyAumkrO9NjbeHBEpTyWJjQ="
+  }
+}

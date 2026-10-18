@@ -1,0 +1,25 @@
+/* Collapse unused tracks instead of reserving four columns on wide screens. */
+.stats-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr))}
+.kpi-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+.cards-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+@media(max-width:1200px){
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cards-list{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:640px){.stats-grid,.kpi-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Keep hover feedback; route content should be visible on its first paint. */
+.page-shell>*,
+.page-shell .page-head,
+.page-shell .stat-card,
+.page-shell .stat-value,
+.page-shell .chart-panel,
+.page-shell .donut-panel,
+.page-shell .table-panel,
+.page-shell .metric-card,
+.page-shell .metric-value,
+.page-shell .filter-bar,
+.page-shell .news-card,
+.page-shell .ai-hero,
+.page-shell .market-page .tab-content-fade,
+.page-shell .market-page .fund-kpi-card{animation:none}

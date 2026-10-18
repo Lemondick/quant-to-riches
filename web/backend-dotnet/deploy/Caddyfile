@@ -1,0 +1,31 @@
+{$QUANT_DOMAIN} {
+    log {
+        output stdout
+        format json
+    }
+    encode gzip
+
+    @backend path /api/* /healthz /readyz /metrics /openapi.json
+    handle @backend {
+        reverse_proxy api:8080
+    }
+
+    # 前端静态站点（web 构建产物挂载 /srv/quant-web）
+    handle {
+        root * /srv/quant-web
+        header {
+            X-Content-Type-Options nosniff
+            X-Frame-Options DENY
+            Referrer-Policy no-referrer
+            Cache-Control no-store
+        }
+        try_files {path} /index.html
+        file_server
+    }
+
+    # 安全响应头（后端 SecurityHeadersMiddleware 之外再兜底一层）
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+}

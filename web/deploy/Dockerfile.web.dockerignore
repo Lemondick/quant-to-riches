@@ -1,0 +1,17 @@
+# Include only public H5 build inputs.
+**
+!frontend
+frontend/*
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/vite.config.js
+!frontend/scripts
+!frontend/scripts/**
+!frontend/src
+!frontend/src/**
+!deploy
+deploy/*
+!deploy/Caddyfile
+!deploy/Dockerfile.web
+!deploy/Dockerfile.web.dockerignore

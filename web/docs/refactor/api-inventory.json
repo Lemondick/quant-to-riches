@@ -1,0 +1,2649 @@
+{
+  "generated_at": "2026-10-05T01:12:21.154270+00:00",
+  "baseline_commit": "29568a8a0a8aa9def7241d5d199bdf5d8a111adc",
+  "source": "static AST extraction of web/backend/src/quant_assistant/controllers/*.py",
+  "notes": [
+    "response_model 为装饰器显式声明值；未声明的接口由 FastAPI 按返回值推断，需以运行时 OpenAPI 复核。",
+    "auth_dependency 为路由级依赖；业务应用另有全局中间件（请求ID、限流、鉴权、安全头），认证网关负责会话。",
+    "params.in=body 表示 Pydantic 请求体模型或 Body() 显式声明；query 为查询参数；path 为路径参数。"
+  ],
+  "route_count": 131,
+  "routes": [
+    {
+      "file": "admin_routes.py",
+      "function": "audit",
+      "method": "GET",
+      "path": "/api/v1/admin/audit",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "calendar",
+      "method": "PUT",
+      "path": "/api/v1/admin/calendar",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CalendarBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "registration",
+      "method": "POST",
+      "path": "/api/v1/admin/registration",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "RegistrationBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "runtime",
+      "method": "GET",
+      "path": "/api/v1/admin/runtime",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "users",
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "search",
+          "type": "str",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "details",
+      "method": "GET",
+      "path": "/api/v1/admin/users/{user_id}/details",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "section",
+          "type": "Literal[]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "start",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "end",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "export_details",
+      "method": "GET",
+      "path": "/api/v1/admin/users/{user_id}/export",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "section",
+          "type": "Literal[]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "start",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "end",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "recovery_token",
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/recovery-token",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "report",
+      "method": "GET",
+      "path": "/api/v1/admin/users/{user_id}/reports/{source}/{report_id}",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "source",
+          "type": "Literal[]",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "report_id",
+          "type": "str",
+          "in": "path",
+          "required": false
+        },
+        {
+          "name": "attempt_no",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "revoke",
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/revoke-sessions",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "status",
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/status",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "UserStatusBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "events",
+      "method": "GET",
+      "path": "/api/v1/admin/users/{user_id}/timeline",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "category",
+          "type": "Literal[]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "start",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "end",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "admin_routes.py",
+      "function": "usage",
+      "method": "GET",
+      "path": "/api/v1/admin/users/{user_id}/usage",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "user_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": [
+        "Depends"
+      ]
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "jev_connection",
+      "method": "PUT",
+      "path": "/api/v1/advisor/jev-connection",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "JevInput",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "model_settings",
+      "method": "GET",
+      "path": "/api/v1/advisor/model-settings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "save_models",
+      "method": "PUT",
+      "path": "/api/v1/advisor/model-settings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "SaveAdvisorModels",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "discover_models",
+      "method": "POST",
+      "path": "/api/v1/advisor/models/discover",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "ProviderInput",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "notifications",
+      "method": "GET",
+      "path": "/api/v1/advisor/notifications",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "acknowledge",
+      "method": "POST",
+      "path": "/api/v1/advisor/notifications/{notice_id}/acknowledge",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "notice_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "reports",
+      "method": "GET",
+      "path": "/api/v1/advisor/reports",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "kind",
+          "type": "Literal[] | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "report_date",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "create",
+      "method": "POST",
+      "path": "/api/v1/advisor/reports",
+      "status_code": 202,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CreateAdvisorReport",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "background",
+          "type": "BackgroundTasks",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "report",
+      "method": "GET",
+      "path": "/api/v1/advisor/reports/{report_id}",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "report_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "advisor_routes.py",
+      "function": "schedule",
+      "method": "GET",
+      "path": "/api/v1/advisor/schedule",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "read_alerts",
+      "method": "GET",
+      "path": "/api/v1/alerts",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "read_settings",
+      "method": "GET",
+      "path": "/api/v1/alerts/settings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "save_settings",
+      "method": "PUT",
+      "path": "/api/v1/alerts/settings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "AlertSettings",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "acknowledge",
+      "method": "POST",
+      "path": "/api/v1/alerts/{alert_id}/acknowledge",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "alert_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "explain",
+      "method": "POST",
+      "path": "/api/v1/analysis/explain",
+      "status_code": 201,
+      "response_model": "AnalysisResponseModel",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "AnalysisExplainBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "login",
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "Credentials",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "logout",
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "password",
+      "method": "POST",
+      "path": "/api/v1/auth/password",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "NewPassword",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "redeem_recovery",
+      "method": "POST",
+      "path": "/api/v1/auth/recovery/redeem",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "RecoveryPassword",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "register",
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "Credentials",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "session",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "sessions",
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "revoke_others",
+      "method": "POST",
+      "path": "/api/v1/auth/sessions/revoke-others",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "revoke_session",
+      "method": "POST",
+      "path": "/api/v1/auth/sessions/{session_id}/revoke",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "session_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "auth_routes.py",
+      "function": "status",
+      "method": "GET",
+      "path": "/api/v1/auth/status",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "latest_backtest",
+      "method": "GET",
+      "path": "/api/v1/backtests/latest",
+      "status_code": 200,
+      "response_model": "BacktestResponse | None",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "data_status",
+      "method": "GET",
+      "path": "/api/v1/data/status",
+      "status_code": 200,
+      "response_model": "DataStatusResponse",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "latest_decision",
+      "method": "GET",
+      "path": "/api/v1/decisions/latest",
+      "status_code": 200,
+      "response_model": "DecisionResponse | None",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_candidates",
+      "method": "GET",
+      "path": "/api/v1/funds/candidates",
+      "status_code": 200,
+      "response_model": "CandidateListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "run_id",
+          "type": "RunId",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_lifecycle_events",
+      "method": "GET",
+      "path": "/api/v1/funds/lifecycle/events",
+      "status_code": 200,
+      "response_model": "FundLifecycleEventsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "FundLifecycleEventLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_style_drift_events",
+      "method": "GET",
+      "path": "/api/v1/funds/style-drift/events",
+      "status_code": 200,
+      "response_model": "FundStyleDriftEventsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "FundStyleDriftEventLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_valuations",
+      "method": "GET",
+      "path": "/api/v1/funds/valuations",
+      "status_code": 200,
+      "response_model": "FundValuationsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbols",
+          "type": "Annotated[list[str] | None]",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_valuation_alerts",
+      "method": "GET",
+      "path": "/api/v1/funds/valuations/alerts",
+      "status_code": 200,
+      "response_model": "FundValuationAlertsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "FundValuationAlertLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_detail",
+      "method": "GET",
+      "path": "/api/v1/funds/{symbol}/detail",
+      "status_code": 200,
+      "response_model": "FundDetailResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_fee_evidence",
+      "method": "GET",
+      "path": "/api/v1/funds/{symbol}/fee-evidence",
+      "status_code": 200,
+      "response_model": "FundFeeEvidenceResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "save_fund_fee_evidence",
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/fee-evidence",
+      "status_code": 201,
+      "response_model": "FundFeeEvidenceResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "FundFeeEvidenceBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_fee_quote",
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/fee-quote",
+      "status_code": 201,
+      "response_model": "FundFeeQuoteResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "FundFeeQuoteBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_lot_routes.py",
+      "function": "lots",
+      "method": "GET",
+      "path": "/api/v1/funds/{symbol}/holding-lots",
+      "status_code": 200,
+      "response_model": "LotsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_lot_routes.py",
+      "function": "save_lots",
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/holding-lots",
+      "status_code": 201,
+      "response_model": "LotsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "LotsBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_lot_routes.py",
+      "function": "quote",
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/holding-redemption-quote",
+      "status_code": 201,
+      "response_model": "QuoteResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "QuoteBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_redemption_quote",
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/redemption-quote",
+      "status_code": 201,
+      "response_model": "FundRedemptionQuoteResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "FundRedemptionQuoteBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "health",
+      "method": "GET",
+      "path": "/api/v1/health",
+      "status_code": 200,
+      "response_model": "HealthResponse",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "history_routes.py",
+      "function": "records",
+      "method": "GET",
+      "path": "/api/v1/history/{section}",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "section",
+          "type": "Literal[]",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "start",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "end",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "export",
+          "type": "bool",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "history_routes.py",
+      "function": "export_records",
+      "method": "GET",
+      "path": "/api/v1/history/{section}/export",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "section",
+          "type": "Literal[]",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "symbol",
+          "type": "str",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "start",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "end",
+          "type": "date | None",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "commit",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/commit",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CommitBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "confirm",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/confirm",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "ConfirmBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "holdings_commit",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/holdings-commit",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CommitBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "holdings_review",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/holdings-review",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "HoldingsReviewBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "manual",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/manual",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "ManualBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "merge",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/merge",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "MergeBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "preview",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/preview",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "PreviewBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "review",
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/review",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "ReviewBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "ledger",
+      "method": "GET",
+      "path": "/api/v1/ledger",
+      "status_code": 200,
+      "response_model": "LedgerResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "LedgerLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "corporate_actions",
+      "method": "GET",
+      "path": "/api/v1/ledger/actions",
+      "status_code": 200,
+      "response_model": "CorporateActionListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "ActionLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "record_corporate_action",
+      "method": "POST",
+      "path": "/api/v1/ledger/actions",
+      "status_code": 201,
+      "response_model": "CorporateActionResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CorporateActionBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "profit_attribution",
+      "method": "GET",
+      "path": "/api/v1/ledger/attribution",
+      "status_code": 200,
+      "response_model": "ProfitAttributionResponse",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "ledger_corrections",
+      "method": "GET",
+      "path": "/api/v1/ledger/corrections",
+      "status_code": 200,
+      "response_model": "LedgerCorrectionListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "ActionLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "correct_ledger_entry",
+      "method": "POST",
+      "path": "/api/v1/ledger/corrections",
+      "status_code": 201,
+      "response_model": "LedgerCorrectionResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "LedgerCorrectionBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "record_ledger_dividend",
+      "method": "POST",
+      "path": "/api/v1/ledger/dividends",
+      "status_code": 201,
+      "response_model": "LedgerEntryResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "LedgerDividendBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "accounts",
+      "method": "GET",
+      "path": "/api/v1/ledger/reconciliation/accounts",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "compare",
+      "method": "POST",
+      "path": "/api/v1/ledger/reconciliation/compare",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CompareBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "history",
+      "method": "GET",
+      "path": "/api/v1/ledger/reconciliation/history",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "resolve",
+      "method": "POST",
+      "path": "/api/v1/ledger/reconciliation/{identity}/resolve",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "identity",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "ResolutionBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "confirm",
+      "method": "POST",
+      "path": "/api/v1/ledger/replay/confirm",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "ConfirmBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "replay_history",
+      "method": "GET",
+      "path": "/api/v1/ledger/replay/history",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "ledger_review_routes.py",
+      "function": "preview",
+      "method": "POST",
+      "path": "/api/v1/ledger/replay/preview",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "HistoricalTradeBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "record_ledger_trade",
+      "method": "POST",
+      "path": "/api/v1/ledger/transactions",
+      "status_code": 201,
+      "response_model": "LedgerEntryResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "LedgerTradeBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "market_news",
+      "method": "GET",
+      "path": "/api/v1/market/news",
+      "status_code": 200,
+      "response_model": "MarketNewsFeedResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "NewsLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "market_quotes",
+      "method": "GET",
+      "path": "/api/v1/market/quotes",
+      "status_code": 200,
+      "response_model": "MarketQuoteListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "stocks",
+          "type": "Annotated[list[str] | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "indices",
+          "type": "Annotated[list[str] | None]",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "market_snapshot",
+      "method": "GET",
+      "path": "/api/v1/market/snapshot",
+      "status_code": 200,
+      "response_model": "MarketSnapshotResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "section",
+          "type": "Literal[] | None",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "history_routes.py",
+      "function": "onboarding",
+      "method": "GET",
+      "path": "/api/v1/onboarding",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "user_context.py",
+      "function": "readiness",
+      "method": "GET",
+      "path": "/api/v1/operations/readiness",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "minimum_paper_sessions",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "minimum_backups",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null,
+      "app_level": true,
+      "include_in_schema": true
+    },
+    {
+      "file": "routes.py",
+      "function": "operational_trends",
+      "method": "GET",
+      "path": "/api/v1/operations/trends",
+      "status_code": 200,
+      "response_model": "OperationalTrendsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "OperationalTrendLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "watchdog",
+      "method": "GET",
+      "path": "/api/v1/operations/watchdog",
+      "status_code": 200,
+      "response_model": "WatchdogResponse",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "watchdog_heartbeat",
+      "method": "POST",
+      "path": "/api/v1/operations/watchdog/heartbeat",
+      "status_code": 201,
+      "response_model": "WatchdogHeartbeatResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "WatchdogHeartbeatBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "cash_flow_plans",
+      "method": "GET",
+      "path": "/api/v1/planning/cash-flows",
+      "status_code": 200,
+      "response_model": "CashFlowPlanListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "status",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "FeatureLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "create_cash_flow_plan",
+      "method": "POST",
+      "path": "/api/v1/planning/cash-flows",
+      "status_code": 201,
+      "response_model": "CashFlowPlanResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CashFlowPlanBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "cash_flow_due",
+      "method": "GET",
+      "path": "/api/v1/planning/cash-flows/due",
+      "status_code": 200,
+      "response_model": "CashFlowDueResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "as_of",
+          "type": "Annotated[date | None]",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "portfolio",
+      "method": "GET",
+      "path": "/api/v1/portfolio",
+      "status_code": 200,
+      "response_model": "PortfolioResponse",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "drawdown_validation",
+      "method": "GET",
+      "path": "/api/v1/portfolio/drawdown",
+      "status_code": 200,
+      "response_model": "DrawdownValidationResponse | None",
+      "tags": null,
+      "params": [
+        {
+          "name": "run_id",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "validate_drawdown",
+      "method": "POST",
+      "path": "/api/v1/portfolio/drawdown/validate",
+      "status_code": 201,
+      "response_model": "DrawdownValidationResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "DrawdownValidationBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "fund_portfolio_nav",
+      "method": "POST",
+      "path": "/api/v1/portfolio/fund-nav",
+      "status_code": 201,
+      "response_model": "FundPortfolioNavResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "FundPortfolioNavBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "portfolio_history",
+      "method": "GET",
+      "path": "/api/v1/portfolio/history",
+      "status_code": 200,
+      "response_model": "PortfolioHistoryResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "HistoryLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "photo_routes.py",
+      "function": "photo_holdings",
+      "method": "GET",
+      "path": "/api/v1/portfolio/photo-holdings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "user_preferences",
+      "method": "GET",
+      "path": "/api/v1/preferences",
+      "status_code": 200,
+      "response_model": "UserPreferencesResponse",
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "mark_news_read",
+      "method": "POST",
+      "path": "/api/v1/preferences/news/read",
+      "status_code": 201,
+      "response_model": "UserPreferencesResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "NewsReadBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "replace_watchlist",
+      "method": "PUT",
+      "path": "/api/v1/preferences/watchlist",
+      "status_code": 200,
+      "response_model": "UserPreferencesResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "WatchlistReplaceBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "research_routes.py",
+      "function": "create",
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CreateResearch",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "research_routes.py",
+      "function": "get",
+      "method": "GET",
+      "path": "/api/v1/research/agent-runs/{job_id}",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "job_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "research_routes.py",
+      "function": "cancel",
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs/{job_id}/cancel",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "job_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "research_routes.py",
+      "function": "retry",
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs/{job_id}/retry",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "job_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "body",
+          "type": "RetryResearch",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "benchmarks",
+      "method": "GET",
+      "path": "/api/v1/research/benchmarks",
+      "status_code": 200,
+      "response_model": "BenchmarkConfigListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "FeatureLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "create_benchmark",
+      "method": "POST",
+      "path": "/api/v1/research/benchmarks",
+      "status_code": 201,
+      "response_model": "BenchmarkConfigResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "BenchmarkConfigBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "compare_benchmark",
+      "method": "GET",
+      "path": "/api/v1/research/benchmarks/{benchmark_id}/compare",
+      "status_code": 200,
+      "response_model": "BenchmarkCompareResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "benchmark_id",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "start_date",
+          "type": "Annotated[date | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "end_date",
+          "type": "Annotated[date | None]",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "factor_alerts",
+      "method": "GET",
+      "path": "/api/v1/research/factors/alerts",
+      "status_code": 200,
+      "response_model": "FactorAlertsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "factor",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "FeatureLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "record_factor_observation",
+      "method": "POST",
+      "path": "/api/v1/research/factors/observations",
+      "status_code": 201,
+      "response_model": "FactorObservationResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "FactorObservationBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "factor_monitor",
+      "method": "GET",
+      "path": "/api/v1/research/factors/{factor}",
+      "status_code": 200,
+      "response_model": "FactorMonitorResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "factor",
+          "type": "str",
+          "in": "query",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "FactorLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_profit_routes.py",
+      "function": "advisor_tracking",
+      "method": "GET",
+      "path": "/api/v1/research/funds/advisor-tracking",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "page",
+          "type": "int",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_study_routes.py",
+      "function": "study",
+      "method": "GET",
+      "path": "/api/v1/research/funds/cost-study",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_study_routes.py",
+      "function": "curves",
+      "method": "GET",
+      "path": "/api/v1/research/funds/cost-study/curves",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "symbol",
+          "type": "Annotated[str]",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "period",
+          "type": "Literal[]",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "purchase_rate",
+          "type": "Literal[]",
+          "in": "body",
+          "required": true
+        },
+        {
+          "name": "version",
+          "type": "Annotated[str]",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_study_routes.py",
+      "function": "update_status",
+      "method": "GET",
+      "path": "/api/v1/research/funds/cost-study/update",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_study_routes.py",
+      "function": "update",
+      "method": "POST",
+      "path": "/api/v1/research/funds/cost-study/update",
+      "status_code": 202,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_profit_routes.py",
+      "function": "portfolio_risk",
+      "method": "GET",
+      "path": "/api/v1/research/funds/portfolio-risk",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "fund_profit_routes.py",
+      "function": "refresh",
+      "method": "POST",
+      "path": "/api/v1/research/funds/public-observations",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "RefreshFundResearch",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "macro_context",
+      "method": "GET",
+      "path": "/api/v1/research/macro/context",
+      "status_code": 200,
+      "response_model": "MacroContextResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "as_of",
+          "type": "Annotated[date | None]",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "macro_observations",
+      "method": "GET",
+      "path": "/api/v1/research/macro/observations",
+      "status_code": 200,
+      "response_model": "MacroObservationsResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "indicator",
+          "type": "Annotated[str | None]",
+          "in": "query",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "type": "FeatureLimit",
+          "in": "query",
+          "required": false
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "record_macro_observation",
+      "method": "POST",
+      "path": "/api/v1/research/macro/observations",
+      "status_code": 201,
+      "response_model": "MacroObservationResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "MacroObservationBody",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "strategy_settings",
+      "method": "GET",
+      "path": "/api/v1/research/strategy-settings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "save_strategy_settings",
+      "method": "PUT",
+      "path": "/api/v1/research/strategy-settings",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "StrategyParameters",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "preview_strategy_settings",
+      "method": "POST",
+      "path": "/api/v1/research/strategy-settings/preview",
+      "status_code": 201,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "StrategyParameters",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "read_costs",
+      "method": "GET",
+      "path": "/api/v1/runtime/costs",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "runtime_routes.py",
+      "function": "save_costs",
+      "method": "PUT",
+      "path": "/api/v1/runtime/costs",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [
+        {
+          "name": "body",
+          "type": "CostSettings",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "routes.py",
+      "function": "stock_candidates",
+      "method": "GET",
+      "path": "/api/v1/stocks/candidates",
+      "status_code": 200,
+      "response_model": "CandidateListResponse",
+      "tags": null,
+      "params": [
+        {
+          "name": "run_id",
+          "type": "RunId",
+          "in": "body",
+          "required": true
+        }
+      ],
+      "summary": null,
+      "auth_dependency": null
+    },
+    {
+      "file": "app.py",
+      "function": "healthz",
+      "method": "GET",
+      "path": "/healthz",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null,
+      "app_level": true,
+      "include_in_schema": false
+    },
+    {
+      "file": "auth_app.py",
+      "function": "health",
+      "method": "GET",
+      "path": "/healthz",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null,
+      "app_level": true,
+      "include_in_schema": false
+    },
+    {
+      "file": "app.py",
+      "function": "metrics_endpoint",
+      "method": "GET",
+      "path": "/metrics",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null,
+      "app_level": true,
+      "include_in_schema": false
+    },
+    {
+      "file": "app.py",
+      "function": "readyz",
+      "method": "GET",
+      "path": "/readyz",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null,
+      "app_level": true,
+      "include_in_schema": false
+    },
+    {
+      "file": "auth_app.py",
+      "function": "ready",
+      "method": "GET",
+      "path": "/readyz",
+      "status_code": 200,
+      "response_model": null,
+      "tags": null,
+      "params": [],
+      "summary": null,
+      "auth_dependency": null,
+      "app_level": true,
+      "include_in_schema": false
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+[project]
+name = "quant-investment-assistant"
+version = "0.1.0"
+description = "Local, fail-closed quantitative investment decision assistant"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  "akshare>=1.18,<2",
+  "duckdb>=1.3,<2",
+  "editables>=0.5,<1",
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "numpy>=2,<3",
+  "pandas>=2.2,<3",
+  "pydantic>=2.11,<3",
+  "pyarrow>=19,<22",
+  "psycopg2-binary>=2.9,<3",
+  "python-multipart>=0.0.32,<1",
+  "requests>=2.32,<3",
+  "urllib3>=2.7,<3",
+  "uvicorn>=0.35,<1",
+  "argon2-cffi>=25.1,<26",
+]
+
+[project.optional-dependencies]
+public-data = ["baostock>=0.9.4,<0.10"]
+
+[project.scripts]
+quant-assistant = "quant_assistant.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quant_assistant"]
+
+[tool.hatch.build]
+# Use an import hook instead of a raw UTF-8 path in .pth. Python 3.11 on
+# Chinese Windows otherwise decodes editable paths with the legacy code page.
+dev-mode-exact = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["quant_assistant"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_errors = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+  "quant_assistant.models",
+  "quant_assistant.models.entities",
+  "quant_assistant.common.*",
+  "quant_assistant.analysis.models",
+]
+ignore_errors = false
+strict = true
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15,<2",
+    "ruff>=0.12,<1",
+]

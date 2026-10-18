@@ -1,0 +1,16 @@
+{
+  "serviceName": "QuantAssistantNative",
+  "release": "C:/Quant/releases/20261007",
+  "dotnet": "C:/Program Files/dotnet/dotnet.exe",
+  "workers": 3,
+  "environment": {
+    "QUANT_PG_CONNECTION": "Host=127.0.0.1;Port=5432;Database=quant_assistant;Username=quant",
+    "QUANT_SITE_ROOT": "C:/Quant/site",
+    "QUANT_SECRET_ROOT": "C:/Quant/private",
+    "QUANT_LOG_DIR": "C:/Quant/logs",
+    "QUANT_BACKUP_DIR": "C:/Quant/backups",
+    "QUANT_WORKER_SECRET": "replace-with-a-random-secret-at-least-32-characters",
+    "QUANT_INTERNAL_API_URL": "http://127.0.0.1:8765",
+    "ASPNETCORE_URLS": "http://127.0.0.1:8765"
+  }
+}

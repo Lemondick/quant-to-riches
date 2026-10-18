@@ -1,0 +1,11 @@
+[Unit]
+Description=Guanlan stopped-site backup and service recovery
+After=quant-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/quant/current/backend/.venv/bin/python /usr/local/lib/quant/backup-linux.py
+TimeoutStartSec=1800
+TimeoutStopSec=60
+KillMode=mixed
+UMask=0077

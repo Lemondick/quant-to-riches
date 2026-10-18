@@ -1,0 +1,238 @@
+using Microsoft.AspNetCore.Mvc;
+using QuantAssistant.Api.Contracts;
+using QuantAssistant.Api.Errors;
+using QuantAssistant.Api.Middleware;
+using QuantAssistant.Api.Serialization;
+using QuantAssistant.Core.Abstractions;
+using QuantAssistant.Core.Auth;
+using QuantAssistant.Core.Errors;
+using QuantAssistant.Core.History;
+using QuantAssistant.Core.Jobs;
+using QuantAssistant.Core.Operations;
+using QuantAssistant.Core.Portfolio;
+using QuantAssistant.Core.Runtime;
+using QuantAssistant.Infrastructure.Auth;
+using QuantAssistant.Infrastructure.Health;
+using QuantAssistant.Infrastructure.History;
+using QuantAssistant.Infrastructure.Jobs;
+using QuantAssistant.Infrastructure.Operations;
+using QuantAssistant.Infrastructure.Portfolio;
+using QuantAssistant.Infrastructure.Runtime;
+using QuantAssistant.Infrastructure.Security;
+using Serilog;
+using OpenTelemetry.Trace;
+using Npgsql;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.DataProtection;
+using System.Threading.RateLimiting;
+using QuantAssistant.Infrastructure.Db;
+
+var webRoot = Environment.GetEnvironmentVariable("QUANT_WEB_ROOT");
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = string.IsNullOrWhiteSpace(webRoot) ? null : Path.GetFullPath(webRoot),
+});
+if (builder.Configuration["QUANT_SITE_ROOT"] is { Length: > 0 } siteRoot) Directory.CreateDirectory(Path.GetFullPath(siteRoot));
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1; // Default trusted proxies are loopback only.
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        HttpMethods.IsPost(context.Request.Method) && context.Request.Path.Value?.TrimEnd('/').ToLowerInvariant() is
+            "/api/v1/auth/login" or "/api/v1/auth/register" or "/api/v1/auth/recovery/redeem" or "/api/v1/auth/password"
+            ? RateLimitPartition.GetTokenBucketLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new()
+            { TokenLimit = 20, TokensPerPeriod = 20, ReplenishmentPeriod = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+            : RateLimitPartition.GetNoLimiter("other"));
+    options.OnRejected = async (context, cancellation) =>
+    {
+        context.HttpContext.Response.StatusCode = 429;
+        await context.HttpContext.Response.WriteAsJsonAsync(new ErrorResponse("rate_limited", "请求过于频繁，请稍后重试。", context.HttpContext.GetRequestId()), cancellation);
+    };
+});
+var connectionString = builder.Configuration["ConnectionStrings:Default"]
+    ?? Environment.GetEnvironmentVariable("QUANT_PG_CONNECTION")
+    ?? "Host=localhost;Port=5432;Database=quant_assistant;Username=postgres";
+
+if (args is ["--migrate", var directory])
+{
+    foreach (var migration in new MigrationRunner(connectionString).Apply(directory)) Console.WriteLine($"Applied {migration}");
+    return;
+}
+if (QuantAssistant.Api.NativeCommands.Execute(args, connectionString)) return;
+
+// 配置 Serilog
+builder.Host.UseSerilog((context, services, configuration) =>
+{
+    var formatter = new Serilog.Formatting.Compact.CompactJsonFormatter();
+    configuration.ReadFrom.Configuration(context.Configuration).ReadFrom.Services(services)
+        .Enrich.FromLogContext().WriteTo.Console(formatter);
+    if (context.Configuration["QUANT_LOG_DIR"] is { Length: > 0 } logDirectory)
+    {
+        var path = Path.GetFullPath(logDirectory);
+        Directory.CreateDirectory(path);
+        configuration.WriteTo.File(formatter, Path.Combine(path, "api-.jsonl"), rollingInterval: RollingInterval.Day,
+            fileSizeLimitBytes: 20_000_000, rollOnFileSizeLimit: true, retainedFileCountLimit: 30);
+    }
+});
+
+
+// JSON 契约：snake_case + 拒绝额外字段（旧站点封闭模型行为）。
+builder.Services
+    .AddControllers(options => options.OutputFormatters.RemoveType<Microsoft.AspNetCore.Mvc.Formatters.HttpNoContentOutputFormatter>())
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = new SnakeCaseNamingPolicy();
+        options.JsonSerializerOptions.UnmappedMemberHandling =
+            System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow;
+        options.JsonSerializerOptions.Converters.Add(new FinanceJson.DecimalConverter());
+    });
+
+// 模型校验失败 → 422 invalid_request（旧站点语义，而非默认 400 ProblemDetails）。
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var requestId = context.HttpContext.GetRequestId();
+        var payload = new ErrorResponse(
+            ErrorCodes.InvalidRequest,
+            ErrorMessages.Get(ErrorCodes.InvalidRequest),
+            requestId);
+        return new JsonResult(payload) { StatusCode = StatusCodes.Status422UnprocessableEntity };
+    };
+});
+
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.AccountDisplayCache>();
+builder.Services.AddSingleton<NativeMetrics>();
+builder.Services.AddHostedService<QuantAssistant.Api.Services.ThreadPoolMonitor>();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddOpenApi();
+
+builder.Services.AddSingleton<IReadinessProbe>(_ => new PostgresReadinessProbe(connectionString));
+
+// P2 账号认证依赖：连接串来自配置 ConnectionStrings:Default 或环境 QUANT_PG_CONNECTION。
+builder.Services.AddSingleton<IAccountRepository>(_ => new AccountRepository(connectionString));
+builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.UsageCounterService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<QuantAssistant.Api.Services.UsageCounterService>());
+
+// P3 账本 + P4 任务/运行 + P5 历史/运行维护仓储。
+builder.Services.AddSingleton<ILedgerRepository>(_ => new LedgerRepository(connectionString));
+builder.Services.AddSingleton<IJobRepository>(_ => new JobRepository(connectionString));
+builder.Services.AddSingleton<IOperationRepository>(_ => new OperationRepository(connectionString));
+builder.Services.AddSingleton<IHistoryRepository>(_ => new HistoryRepository(connectionString));
+builder.Services.AddSingleton<IRuntimeRepository>(_ => new RuntimeRepository(connectionString));
+builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IFactorRepository>(sp => new QuantAssistant.Infrastructure.Portfolio.FactorRepository(connectionString, sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
+builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IDcaRepository>(_ => new QuantAssistant.Infrastructure.Portfolio.DcaRepository(connectionString));
+builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IPeerRepository>(sp => new QuantAssistant.Infrastructure.Portfolio.PeerRepository(connectionString, sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
+builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IAttributionRepository>(_ => new QuantAssistant.Infrastructure.Portfolio.AttributionRepository(connectionString));
+builder.Services.AddSingleton<TransactionService>();
+builder.Services.AddSingleton(_ => new QuantAssistant.Infrastructure.Documents.UserDocumentRepository(connectionString));
+builder.Services.AddSingleton(_ => new ComputeJobRepository(connectionString));
+builder.Services.AddSingleton(_ => new AccountDatabase(connectionString));
+builder.Services.AddSingleton<ModelCostRepository>();
+builder.Services.AddSingleton<FundFeeRepository>();
+builder.Services.AddSingleton<FundLotRepository>();
+builder.Services.AddSingleton<ReconciliationRepository>();
+builder.Services.AddSingleton<AnalysisSnapshotRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.ComputeService>();
+builder.Services.AddSingleton<PublicSnapshotRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.PublicMarketSnapshot>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.DashboardSummaryService>();
+builder.Services.AddHostedService<QuantAssistant.Api.Services.PublicSnapshotRefresher>();
+builder.Services.AddHostedService(provider => new QuantAssistant.Api.Services.ComputeNotificationListener(connectionString, provider.GetRequiredService<ILogger<QuantAssistant.Api.Services.ComputeNotificationListener>>()));
+builder.Services.AddSingleton<QuantAssistant.Api.Services.AutomaticAttributionService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.LinkedAttributionService>();
+builder.Services.AddSingleton<AdminDataRepository>();
+builder.Services.AddSingleton<TradingCalendarRepository>();
+var keyProtection = builder.Services.AddDataProtection().SetApplicationName("QuantAssistant.Native");
+if (builder.Configuration["QUANT_SECRET_ROOT"] is { Length: > 0 })
+{
+    var secretRoot = QuantAssistant.Api.Services.PrivateSecretStore.PrepareRoot(builder.Configuration);
+    keyProtection.PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(secretRoot, "protection-keys")));
+    if (OperatingSystem.IsWindows()) keyProtection.ProtectKeysWithDpapi();
+}
+builder.Services.AddSingleton<QuantAssistant.Api.Services.PrivateSecretStore>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.PublicModelCatalog>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.ModelConnectionService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.AdvisorExecutionService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.ResearchExecutionService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.PhotoMigrationService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.FundNavMigrationService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.LedgerReplayMigrationService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.NativeBackupEvidence>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.NativeOperationsMonitor>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.NativeRuntimeMaintenance>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<QuantAssistant.Api.Services.NativeRuntimeMaintenance>());
+builder.Services.AddSingleton<QuantAssistant.Api.Services.NativeSiteLock>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.NativeScheduler>();
+builder.Services.AddHostedService(provider=>provider.GetRequiredService<QuantAssistant.Api.Services.NativeScheduler>());
+
+// 配置 OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing =>
+    {
+        tracing.AddAspNetCoreInstrumentation().AddNpgsql();
+        if (builder.Configuration["QUANT_TRACE_CONSOLE"] == "1" || builder.Environment.IsDevelopment() && builder.Configuration["QUANT_TRACE_CONSOLE"] != "0")
+            tracing.AddConsoleExporter();
+    });
+
+
+var app = builder.Build();
+var siteLock = app.Services.GetRequiredService<QuantAssistant.Api.Services.NativeSiteLock>();
+if(QuantAssistant.Api.NativeSecretCommands.Execute(args,app.Services,connectionString))return;
+if (siteLock.Held && builder.Configuration["QUANT_WORKER_SECRET"] is { Length: >= 32 })
+    app.Services.GetRequiredService<AccountDatabase>().Write("compute:reaper", sql => sql.Execute("UPDATE worker_heartbeats SET stopping=true"));
+
+app.UseForwardedHeaders();
+app.UseMiddleware<NativeMetricsMiddleware>();
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (context, _, error) => error is not null || context.Response.StatusCode >= 500 ? Serilog.Events.LogEventLevel.Error
+        : context.Request.Path.StartsWithSegments("/internal/v1/worker") && context.Response.StatusCode < 400
+            ? Serilog.Events.LogEventLevel.Debug : Serilog.Events.LogEventLevel.Information;
+    options.EnrichDiagnosticContext = (diagnostic, context) => diagnostic.Set("TraceId", context.Response.Headers["X-Trace-Id"].ToString());
+});
+app.UseMiddleware<RequestIdMiddleware>();
+app.UseMiddleware<PerformanceMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseRouting();
+app.UseExceptionHandler();
+app.UseRateLimiter();
+app.UseMiddleware<SessionAuthenticationMiddleware>();
+app.UseMiddleware<AccountUsageMiddleware>();
+app.UseDefaultFiles();
+app.UseStaticFiles();
+app.UseStatusCodePages(async statusContext =>
+{
+    var response = statusContext.HttpContext.Response;
+    if (response.StatusCode is not (404 or 405))
+    {
+        return;
+    }
+
+    var code = response.StatusCode == 404 ? ErrorCodes.RouteNotFound : ErrorCodes.MethodNotAllowed;
+    var requestId = statusContext.HttpContext.GetRequestId();
+    var payload = new ErrorResponse(code, ErrorMessages.Get(code), requestId);
+    response.ContentType = "application/json; charset=utf-8";
+    await response.WriteAsJsonAsync(payload, JsonDefaults.Options);
+});
+
+app.MapControllers();
+// Serve the Vue entry for its declared history routes. Unknown APIs and assets
+// keep their existing JSON 404 contract.
+foreach (var route in new[] { "/portfolio", "/ledger", "/watchlist", "/market", "/ai-stock", "/fund-review", "/quant", "/news", "/admin", "/settings" })
+    app.MapFallbackToFile(route, "index.html");
+if (app.Environment.IsDevelopment()) app.MapOpenApi("/openapi.json");
+
+app.Run();
+
+// 暴露给集成测试（WebApplicationFactory）。
+public partial class Program;

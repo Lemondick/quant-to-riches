@@ -1,0 +1,50 @@
+{
+  "name": "guanlan-research-ui",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/run-web.mjs dev",
+    "build": "node scripts/run-web.mjs build",
+    "typecheck": "vue-tsc -b",
+    "lint": "eslint src scripts tests --quiet",
+    "format": "prettier --write scripts tests *.json *.ts *.js",
+    "format:check": "prettier --check scripts tests *.json *.ts *.js",
+    "test": "node --test tests/*.test.mjs",
+    "preview": "node scripts/preview-ui.mjs",
+    "preview:ui": "node scripts/preview-ui.mjs",
+    "verify:ui": "node scripts/verify-ui.mjs",
+    "verify:live": "node scripts/verify-live-data.mjs"
+  },
+  "dependencies": {
+    "echarts": "5.6.0",
+    "klinecharts": "10.0.3",
+    "lucide-vue-next": "0.468.0",
+    "vue": "3.5.44",
+    "vue-router": "4.6.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@typescript-eslint/eslint-plugin": "8.48.1",
+    "@typescript-eslint/parser": "8.48.1",
+    "@vitejs/plugin-vue": "5.2.4",
+    "eslint": "9.39.5",
+    "eslint-plugin-vue": "10.10.0",
+    "globals": "16.5.0",
+    "playwright": "1.63.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "vite": "6.4.4",
+    "vue-tsc": "3.3.12"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "overrides": {
+    "postcss": "8.5.30",
+    "esbuild": "0.25.12"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

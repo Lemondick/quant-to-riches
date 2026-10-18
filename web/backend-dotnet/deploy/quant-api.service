@@ -1,0 +1,26 @@
+[Unit]
+Description=QuantAssistant ASP.NET Core API
+After=network.target postgresql.service
+Requires=postgresql.service
+Wants=quant-worker@1.service quant-worker@2.service quant-worker@3.service
+
+[Service]
+Type=simple
+User=quant
+Group=quant
+WorkingDirectory=/opt/quant/current/api
+EnvironmentFile=/etc/quant/environment
+Environment=ASPNETCORE_URLS=http://127.0.0.1:8765
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=QUANT_WEB_ROOT=/opt/quant/current/api/wwwroot
+ExecStartPre=/usr/bin/dotnet /opt/quant/current/api/QuantAssistant.Api.dll --migrate /opt/quant/current/migrations
+ExecStart=/usr/bin/dotnet /opt/quant/current/api/QuantAssistant.Api.dll
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,48 @@
+# Opt-in overlay; original deployment remains disabled without this file.
+services:
+  api:
+    environment:
+      QUANT_AGENT_RESEARCH_ENABLED: "true"
+      QUANT_AGENT_TRANSPORT: exchange
+      QUANT_AGENT_EXCHANGE_DIR: /exchange
+      QUANT_AGENT_PROVIDER: ${QUANT_AGENT_PROVIDER:-mock}
+      QUANT_AGENT_MODEL: ${QUANT_AGENT_MODEL:-mock-v1}
+      QUANT_AGENT_ENDPOINT: ${QUANT_AGENT_ENDPOINT:-}
+      QUANT_AGENT_EVIDENCE_MANIFEST: /run/research/evidence.json
+    volumes:
+      - research-exchange:/exchange
+      - ${QUANT_AGENT_EVIDENCE_FILE:-../../deploy/research-evidence.json}:/run/research/evidence.json:ro
+    depends_on:
+      research-worker:
+        condition: service_healthy
+
+  research-worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.research-worker
+    restart: unless-stopped
+    environment:
+      QUANT_AGENT_EXCHANGE_DIR: /exchange
+      QUANT_AGENT_PROVIDER: ${QUANT_AGENT_PROVIDER:-mock}
+      QUANT_AGENT_MODEL: ${QUANT_AGENT_MODEL:-mock-v1}
+      QUANT_AGENT_ENDPOINT: ${QUANT_AGENT_ENDPOINT:-}
+      QUANT_AGENT_KEY_FILE: /run/research-secrets/model-key.txt
+    volumes:
+      - research-exchange:/exchange
+      - ${QUANT_AGENT_SECRETS_DIR:-../../deploy/research-secrets}:/run/research-secrets:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,time,pathlib; p=pathlib.Path('/exchange/ready.json'); assert time.time()-p.stat().st_mtime<10 and json.loads(p.read_text())['ready']"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  research-exchange:

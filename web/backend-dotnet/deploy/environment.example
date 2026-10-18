@@ -1,0 +1,30 @@
+# Keep the actual file outside source control and readable only by the service account.
+QUANT_PG_CONNECTION=Host=127.0.0.1;Port=5432;Database=quant_assistant;Username=quant
+QUANT_SITE_ROOT=/var/lib/quant/site
+QUANT_SECRET_ROOT=/var/lib/quant/private
+QUANT_BACKUP_DIR=/var/lib/quant/backups
+QUANT_LOG_DIR=/var/log/quant
+# Background retention: public reads 30d, unconfirmed previews expiry+1d, metrics 14d.
+# QUANT_DISABLE_MAINTENANCE=true
+QUANT_EXPECTED_WORKERS=3
+QUANT_BACKUP_MAX_AGE_HOURS=36
+QUANT_QUEUE_WARNING_SECONDS=120
+# Public snapshot warm-up defaults on in Production, off in Development.
+# Uses the verified Shanghai trading calendar and the authenticated Worker.
+# QUANT_PUBLIC_REFRESH_ENABLED=false
+# Optional development OpenTelemetry console export; normal request logs remain.
+# QUANT_TRACE_CONSOLE=0
+QUANT_DISK_MIN_FREE_PERCENT=10
+# Windows supervisor: opt in to a daily stopped-site backup (Shanghai time).
+# QUANT_NATIVE_BACKUP_TIME=02:00
+QUANT_BACKUP_RETAIN=14
+QUANT_BACKUP_TIMEOUT_SECONDS=1800
+QUANT_DOMAIN=quant.example.com
+QUANT_WORKER_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+# Native PostgreSQL tools use the standard libpq variables, separately from .NET.
+QUANT_PG_DSN=host=127.0.0.1 port=5432 dbname=quant_assistant user=quant
+PGHOST=127.0.0.1
+PGPORT=5432
+PGDATABASE=quant_assistant
+PGUSER=quant
+# Prefer a protected .pgpass/PGPASSFILE for the PostgreSQL password.

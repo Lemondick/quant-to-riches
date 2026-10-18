@@ -1,0 +1,58 @@
+{
+  "release": "20261018-quality-v18-1",
+  "activated_at_utc": "2026-10-18T05:15:26Z",
+  "archive_sha256": "ae2fd9b7b16ba10fe5e364fbd01d3c0609bf726aaa5e51f9eacb6319804cc9c2",
+  "files": 69,
+  "automated_tests": {
+    "python_worker_passed": 105,
+    "valuation_script_passed": 9,
+    "profile_script_passed": 2,
+    "frontend_passed": 43,
+    "dotnet_selected_passed": 24,
+    "dotnet_pg_skipped": 19,
+    "browser_geometry_cases_passed": 12,
+    "vue_style_blocks_identical": true
+  },
+  "actual_samples": {
+    "indices": 5,
+    "etfs": 5,
+    "boards": 5,
+    "funds": 5,
+    "official_nav_pairs_equal": 4,
+    "money_fund_unit_nav_unavailable": true,
+    "all_estimates_unavailable_html": true,
+    "same_tick_comparison_claimed": false
+  },
+  "production": {
+    "all_checks_passed": true,
+    "indices": 7,
+    "etfs": 5,
+    "sector_rows": 1299,
+    "local_http_median_ms": 33.18,
+    "local_http_p95_ms": 47.44,
+    "server_to_public_https_ms": 120.3,
+    "public_decoded_bytes": 789136,
+    "public_content_encoding": "gzip",
+    "cache_source_time_unchanged": true,
+    "formal_nav_separated": true,
+    "legacy_null_estimate_avoided": true,
+    "temporary_session_revoked": true
+  },
+  "financial_fingerprints_unchanged": true,
+  "new_services": 0,
+  "database_migrations": 0,
+  "memory_mib": {
+    "quant-api": 149.07,
+    "quant-worker@1": 123.05,
+    "quant-worker@2": 115.7,
+    "quant-worker@3": 103.73
+  },
+  "limitations": [
+    "Sina sector source clock absent: update time unknown and latency unverifiable.",
+    "EM quotation candidates returned302/502; diff object schema not enabled without verified sample.",
+    "fundgz HTML responses: no reliable estimate substituted.",
+    "No2027 holiday fallback table; future-year recency unknown, historical weekday gaps block unverified returns.",
+    "No controlled before/after RSS baseline; no memory reduction claim."
+  ],
+  "evidence_root": "C:\\Users\\admin\\Desktop\\量化\\量化\\output\\data-quality-v18"
+}

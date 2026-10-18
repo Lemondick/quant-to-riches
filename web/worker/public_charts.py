@@ -1,0 +1,84 @@
+"""Bounded true daily OHLC history for the four displayed public indices."""
+
+from datetime import date, datetime
+from decimal import Decimal
+from zoneinfo import ZoneInfo
+
+import requests
+
+from quant_assistant.providers.data_quality import metadata
+from quant_assistant.providers.public_http import PublicHttp
+
+_HTTP = PublicHttp()
+
+INDICES = {
+    "000300": ("sh000300", "沪深300"),
+    "000001": ("sh000001", "上证指数"),
+    "399001": ("sz399001", "深证成指"),
+    "399006": ("sz399006", "创业板指"),
+}
+
+
+def index_history(symbol, *, http_get=requests.get):
+    if symbol not in INDICES:
+        raise ValueError("unsupported index symbol")
+    ticker, name = INDICES[symbol]
+    response = (_HTTP if http_get is requests.get else PublicHttp(http_get)).get(
+        "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+        params={"param": ticker + ",day,,,640,qfq"},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=(3, 10),
+    )
+    response.raise_for_status()
+    payload = response.json()
+    quote = payload.get("data", {}).get(ticker, {})
+    rows = quote.get("day")  # Index OHLC is never silently substituted with adjusted equity prices.
+    if payload.get("code") != 0 or not isinstance(rows, list) or not 1 <= len(rows) <= 640:
+        raise ValueError("missing index history")
+    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    seen, items = set(), []
+    for row in rows:
+        day = date.fromisoformat(row[0])
+        if day > now.date() or day in seen or day.isoformat() != row[0]:
+            raise ValueError("invalid index observation date")
+        seen.add(day)
+        values = [Decimal(str(value)) for value in row[1:6]]
+        if len(values) != 5 or not all(value.is_finite() for value in values):
+            raise ValueError("invalid index observation")
+        opening, close, high, low, volume = values
+        if (
+            min(opening, close, high, low) <= 0
+            or high < max(opening, close)
+            or low > min(opening, close)
+            or volume < 0
+        ):
+            raise ValueError("inconsistent index OHLC")
+        items.append(
+            {
+                "date": day.isoformat(),
+                "open": str(opening),
+                "high": str(high),
+                "low": str(low),
+                "close": str(close),
+                "volume": str(volume),
+            }
+        )
+    return {
+        "symbol": symbol,
+        "name": name,
+        "items": sorted(items, key=lambda item: item["date"]),
+        "source": "tencent",
+        "observed_at": now.isoformat(),
+        "stale": False,
+        "unavailable": [],
+        **{
+            key: value.isoformat() if isinstance(value, datetime) else value
+            for key, value in metadata(
+                "historical_quote",
+                "tencent",
+                max(items, key=lambda item: item["date"])["date"],
+                now,
+                instrument_type="index",
+            ).items()
+        },
+    }

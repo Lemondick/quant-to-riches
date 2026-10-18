@@ -1,0 +1,2497 @@
+{
+  "generated_at": "2026-10-05T01:13:40.755967+00:00",
+  "baseline_commit": "29568a8a0a8aa9def7241d5d199bdf5d8a111adc",
+  "sqlite_auth": {
+    "source": "models/repositories/auth.py",
+    "table_count": 7,
+    "tables": [
+      {
+        "table": "users",
+        "columns": [
+          {
+            "name": "id",
+            "type": "TEXT PRIMARY"
+          },
+          {
+            "name": "username",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "password_hash",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "role",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "status",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "REAL NOT"
+          },
+          {
+            "name": "last_login_at",
+            "type": "REAL"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "sessions",
+        "columns": [
+          {
+            "name": "token_hash",
+            "type": "TEXT PRIMARY"
+          },
+          {
+            "name": "user_id",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "csrf",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "REAL NOT"
+          },
+          {
+            "name": "expires_at",
+            "type": "REAL NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "site_settings",
+        "columns": [
+          {
+            "name": "key",
+            "type": "TEXT PRIMARY"
+          },
+          {
+            "name": "value",
+            "type": "TEXT NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "admin_audit",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER PRIMARY"
+          },
+          {
+            "name": "actor_id",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "action",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "target_id",
+            "type": "TEXT"
+          },
+          {
+            "name": "detail",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "REAL NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "usage_daily",
+        "columns": [
+          {
+            "name": "user_id",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "day",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "category",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "requests",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "errors",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "duration_ms",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "last_activity_at",
+            "type": "REAL NOT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY(user_id,day,category)"
+        ]
+      },
+      {
+        "table": "recovery_tokens",
+        "columns": [
+          {
+            "name": "token_hash",
+            "type": "TEXT PRIMARY"
+          },
+          {
+            "name": "user_id",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "issued_by",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "REAL NOT"
+          },
+          {
+            "name": "expires_at",
+            "type": "REAL NOT"
+          },
+          {
+            "name": "consumed_at",
+            "type": "REAL"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "account_activity",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER PRIMARY"
+          },
+          {
+            "name": "user_id",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "action",
+            "type": "TEXT NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "REAL NOT"
+          }
+        ],
+        "constraints": []
+      }
+    ]
+  },
+  "duckdb_user": {
+    "source": "models/repositories/schema.sql",
+    "table_count": 54,
+    "tables": [
+      {
+        "table": "agent_preview_snapshots",
+        "columns": [
+          {
+            "name": "snapshot_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "content_hash",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "payload_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "expires_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "agent_research_jobs",
+        "columns": [
+          {
+            "name": "job_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "cache_key",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "attempt_no",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "phase",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "deadline",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "error_code",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "agent_research_attempts",
+        "columns": [
+          {
+            "name": "job_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "attempt_no",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "snapshot_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "quota_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "started_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "execution_status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "provider",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "report_json",
+            "type": "JSON"
+          },
+          {
+            "name": "usage_json",
+            "type": "JSON"
+          },
+          {
+            "name": "model",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "prompt_version",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "upstream_commit",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "completed_at",
+            "type": "TIMESTAMPTZ"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (job_id, attempt_no)"
+        ]
+      },
+      {
+        "table": "data_snapshots",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "dataset",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "fetched_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "path",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "sha256",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "row_count",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "issues_json",
+            "type": "JSON NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (dataset, source, as_of_date, sha256)"
+        ]
+      },
+      {
+        "table": "instruments",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "exchange",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "industry",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "board",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "listed_on",
+            "type": "DATE"
+          },
+          {
+            "name": "delisted_on",
+            "type": "DATE"
+          },
+          {
+            "name": "is_st",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "is_suspended",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "instrument_history",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "exchange",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "industry",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "board",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "listed_on",
+            "type": "DATE"
+          },
+          {
+            "name": "delisted_on",
+            "type": "DATE"
+          },
+          {
+            "name": "is_st",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "is_suspended",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (symbol, as_of_date)"
+        ]
+      },
+      {
+        "table": "daily_prices",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "trade_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "open",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "high",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "low",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "close",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "volume",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "amount",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "adjustment_factor",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "suspended",
+            "type": "BOOLEAN"
+          },
+          {
+            "name": "upper_limit",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "lower_limit",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "source_snapshot_id",
+            "type": "BIGINT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (symbol, trade_date)"
+        ]
+      },
+      {
+        "table": "fund_nav",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "nav_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "unit_nav",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "accumulated_nav",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "source_snapshot_id",
+            "type": "BIGINT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (symbol, nav_date)"
+        ]
+      },
+      {
+        "table": "fund_lot_snapshots",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "position_fingerprint",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "request_fingerprint",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "verified_on",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "evidence_reference",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "fund_holding_lots",
+        "columns": [
+          {
+            "name": "snapshot_id",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "lot_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "confirmed_on",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "remaining_units",
+            "type": "DECIMAL(28, 8)"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (snapshot_id, lot_id)"
+        ]
+      },
+      {
+        "table": "fund_valuation_history",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "pe",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "pb",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "source_snapshot_id",
+            "type": "BIGINT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (symbol, as_of_date)",
+          "CHECK (pe IS NOT NULL OR pb IS NOT NULL)"
+        ]
+      },
+      {
+        "table": "fund_manager_history",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "manager_name",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "manager_tenure_years",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "manager_win_rate",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "alpha_stability",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "drawdown_recovery_days",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "source_snapshot_id",
+            "type": "BIGINT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (symbol, as_of_date)"
+        ]
+      },
+      {
+        "table": "fund_profile_history",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "manager_names",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "scale_text",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "scale_value",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "scale_unit",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "purchase_status",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "redemption_status",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "fees_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "fee_fingerprint",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "observed_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "source_snapshot_id",
+            "type": "BIGINT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (symbol, as_of_date)"
+        ]
+      },
+      {
+        "table": "fund_lifecycle_events",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "observed_on",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "event_type",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "fund_holding_history",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "report_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "holding_symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "holding_name",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "weight",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "observed_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "source_snapshot_id",
+            "type": "BIGINT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (symbol, report_date, holding_symbol, asset_type)"
+        ]
+      },
+      {
+        "table": "fund_style_drift_events",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "report_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "previous_report_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "severity",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "overlap_ratio",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "message",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "added_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "removed_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "details_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (symbol, report_date)"
+        ]
+      },
+      {
+        "table": "fund_fee_schedules",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "effective_from",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "effective_to",
+            "type": "DATE"
+          },
+          {
+            "name": "purchase_fee_rate",
+            "type": "DECIMAL(18, 10)"
+          },
+          {
+            "name": "service_fee_rate_annual",
+            "type": "DECIMAL(18, 10)"
+          },
+          {
+            "name": "redemption_tiers_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "verified_on",
+            "type": "DATE NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (symbol, effective_from)"
+        ]
+      },
+      {
+        "table": "fund_share_families",
+        "columns": [
+          {
+            "name": "family_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "share_class",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "benchmark_symbol",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "fund_type",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "is_purchasable",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "is_redeemable",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "purchase_limit",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "positions",
+        "columns": [
+          {
+            "name": "symbol",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "quantity",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "average_cost",
+            "type": "DECIMAL(20, 6)"
+          },
+          {
+            "name": "market_value",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "portfolio_accounts",
+        "columns": [
+          {
+            "name": "account_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "platform",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "currency",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "account_positions",
+        "columns": [
+          {
+            "name": "account_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "quantity",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "average_cost",
+            "type": "DECIMAL(20, 6)"
+          },
+          {
+            "name": "market_value",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (account_id, symbol)"
+        ]
+      },
+      {
+        "table": "account_events",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "account_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "event_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "event_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "effective_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "reason",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "details_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "recorded_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (account_id, event_id)"
+        ]
+      },
+      {
+        "table": "transactions",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "action",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "quantity",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "price",
+            "type": "DECIMAL(20, 6)"
+          },
+          {
+            "name": "fees",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "traded_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "recorded_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "note",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "dividend_events",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "gross_amount",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "fees",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "net_amount",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "paid_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "recorded_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "external_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "cash_symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "note",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (source, external_id)"
+        ]
+      },
+      {
+        "table": "corporate_action_events",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "action_type",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "ledger_corrections",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "target_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "target_id",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "reason",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "effective_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "recorded_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "external_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "note",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (target_type, target_id)",
+          "UNIQUE (source, external_id)"
+        ]
+      },
+      {
+        "table": "strategy_runs",
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "generated_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "data_snapshot_id",
+            "type": "BIGINT"
+          },
+          {
+            "name": "strategy_version",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "parameters_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "data_status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "readiness",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "error_message",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "signals",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "run_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "action",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "score",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "target_weight",
+            "type": "DECIMAL(12, 8)"
+          },
+          {
+            "name": "reasons_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "valid_until",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "strategy_version",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (run_id, symbol)"
+        ]
+      },
+      {
+        "table": "proposed_orders",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "run_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "action",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "amount",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "quantity",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "target_weight",
+            "type": "DECIMAL(12, 8)"
+          },
+          {
+            "name": "reasons_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "valid_until",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "data_snapshot_id",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "strategy_version",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (run_id, symbol)"
+        ]
+      },
+      {
+        "table": "stock_rankings",
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "strategy_version",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "data_snapshot_id",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "momentum_z",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "trend_z",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "low_volatility_z",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "liquidity_z",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "score",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "rank",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "universe_size",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "rank_percentile",
+            "type": "DOUBLE NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "portfolio_events",
+        "columns": [
+          {
+            "name": "event_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "event_type",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "portfolio_valuations",
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "generated_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "data_snapshot_id",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "total_value",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "cash",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "unit_nav",
+            "type": "DECIMAL(28, 12)"
+          },
+          {
+            "name": "high_water_mark",
+            "type": "DECIMAL(28, 12)"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "backtest_runs",
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "started_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "completed_at",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "start_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "end_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "strategy_version",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "parameters_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "metrics_json",
+            "type": "JSON"
+          },
+          {
+            "name": "readiness",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "limitations_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "backtest_nav",
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "total_value",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "unit_nav",
+            "type": "DECIMAL(28, 12)"
+          },
+          {
+            "name": "cash",
+            "type": "DECIMAL(28, 8)"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (run_id, as_of_date)"
+        ]
+      },
+      {
+        "table": "paper_orders",
+        "columns": [
+          {
+            "name": "order_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "proposal_id",
+            "type": "BIGINT NOT"
+          },
+          {
+            "name": "run_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "asset_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "action",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "requested_amount",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "requested_quantity",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "paper_fills",
+        "columns": [
+          {
+            "name": "fill_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "order_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "quantity",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "price",
+            "type": "DECIMAL(20, 6)"
+          },
+          {
+            "name": "fees",
+            "type": "DECIMAL(20, 4)"
+          },
+          {
+            "name": "filled_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "recorded_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "note",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "paper_reconciliations",
+        "columns": [
+          {
+            "name": "reconciliation_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "order_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "details_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "checked_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "operation_locks",
+        "columns": [
+          {
+            "name": "lock_name",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "owner_token",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "acquired_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "expires_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "operational_alerts",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "alert_key",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "severity",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "message",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "first_seen_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "last_seen_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "resolved_at",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "last_notified_at",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "notification_fingerprint",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "silenced_until",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "details_json",
+            "type": "JSON NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (alert_key, status)"
+        ]
+      },
+      {
+        "table": "drawdown_validations",
+        "columns": [
+          {
+            "name": "run_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "threshold",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "max_drawdown",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "observed_sessions",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "breach_count",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "passed",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "research_only",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "reasons_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "validated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "cash_flow_plans",
+        "columns": [
+          {
+            "name": "plan_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "direction",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "amount",
+            "type": "DECIMAL(28, 8)"
+          },
+          {
+            "name": "frequency",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "start_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "end_date",
+            "type": "DATE"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "note",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "CHECK (end_date IS NULL OR end_date >= start_date)"
+        ]
+      },
+      {
+        "table": "factor_observations",
+        "columns": [
+          {
+            "name": "factor",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "as_of_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "ic",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "ir",
+            "type": "DOUBLE"
+          },
+          {
+            "name": "sample_count",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY (factor, as_of_date)"
+        ]
+      },
+      {
+        "table": "factor_alerts",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "factor",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "alert_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "severity",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "message",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "observed_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "details_json",
+            "type": "JSON NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (factor, alert_type, observed_at)"
+        ]
+      },
+      {
+        "table": "benchmark_configs",
+        "columns": [
+          {
+            "name": "benchmark_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "name",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "components_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "is_default",
+            "type": "BOOLEAN NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "macro_observations",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "indicator",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "observed_on",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "value",
+            "type": "DOUBLE NOT"
+          },
+          {
+            "name": "unit",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "source",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": [
+          "UNIQUE (indicator, observed_on, source)"
+        ]
+      },
+      {
+        "table": "job_heartbeats",
+        "columns": [
+          {
+            "name": "job_name",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "expected_interval_minutes",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "last_started_at",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "last_completed_at",
+            "type": "TIMESTAMPTZ"
+          },
+          {
+            "name": "last_status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "last_error",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "audit_log",
+        "columns": [
+          {
+            "name": "id",
+            "type": "BIGINT PRIMARY"
+          },
+          {
+            "name": "entity_type",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "entity_id",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "changed_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "before_json",
+            "type": "JSON"
+          },
+          {
+            "name": "after_json",
+            "type": "JSON"
+          },
+          {
+            "name": "actor",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "market_advisor_reports",
+        "columns": [
+          {
+            "name": "report_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "report_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "kind",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "input_json",
+            "type": "JSON"
+          },
+          {
+            "name": "report_json",
+            "type": "JSON"
+          },
+          {
+            "name": "error_code",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "advisor_model_settings",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER PRIMARY"
+          },
+          {
+            "name": "models_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "revision",
+            "type": "INTEGER NOT"
+          },
+          {
+            "name": "updated_at",
+            "type": "TIMESTAMPTZ NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "advisor_decision_snapshots",
+        "columns": [
+          {
+            "name": "report_id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "captured_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "snapshot_json",
+            "type": "JSON NOT"
+          },
+          {
+            "name": "fingerprint",
+            "type": "VARCHAR NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "fund_research_snapshots",
+        "columns": [
+          {
+            "name": "fingerprint",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "symbol",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "observed_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "snapshot_json",
+            "type": "JSON NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "advisor_schedule_runs",
+        "columns": [
+          {
+            "name": "run_date",
+            "type": "DATE NOT"
+          },
+          {
+            "name": "kind",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "started_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "report_id",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "error_code",
+            "type": "VARCHAR"
+          }
+        ],
+        "constraints": [
+          "PRIMARY KEY(run_date, kind)"
+        ]
+      },
+      {
+        "table": "advisor_provider_selection",
+        "columns": [
+          {
+            "name": "id",
+            "type": "INTEGER PRIMARY"
+          },
+          {
+            "name": "provider_revision",
+            "type": "INTEGER NOT"
+          }
+        ],
+        "constraints": []
+      },
+      {
+        "table": "advisor_notifications",
+        "columns": [
+          {
+            "name": "id",
+            "type": "VARCHAR PRIMARY"
+          },
+          {
+            "name": "kind",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "report_id",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "status",
+            "type": "VARCHAR NOT"
+          },
+          {
+            "name": "error_code",
+            "type": "VARCHAR"
+          },
+          {
+            "name": "created_at",
+            "type": "TIMESTAMPTZ NOT"
+          },
+          {
+            "name": "acknowledged",
+            "type": "BOOLEAN NOT"
+          }
+        ],
+        "constraints": []
+      }
+    ]
+  },
+  "file_references": [
+    {
+      "kind": "json_config",
+      "file": "backup.py",
+      "literal": "settings.json"
+    },
+    {
+      "kind": "duckdb",
+      "file": "backup.py",
+      "literal": "quant_assistant.duckdb"
+    },
+    {
+      "kind": "duckdb",
+      "file": "config.py",
+      "literal": "quant_assistant.duckdb"
+    },
+    {
+      "kind": "duckdb",
+      "file": "deployment.py",
+      "literal": "quant_assistant.duckdb"
+    },
+    {
+      "kind": "duckdb",
+      "file": "site_backup.py",
+      "literal": "*.duckdb"
+    },
+    {
+      "kind": "sqlite",
+      "file": "site_backup.py",
+      "literal": "auth/accounts.sqlite3"
+    },
+    {
+      "kind": "sqlite",
+      "file": "site_backup.py",
+      "literal": "accounts.sqlite3"
+    },
+    {
+      "kind": "parquet",
+      "file": "data\\snapshots.py",
+      "literal": "{dataset}-{payload_hash[:12]}.parquet"
+    },
+    {
+      "kind": "json_config",
+      "file": "services\\admin_user_details.py",
+      "literal": "preferences.json"
+    },
+    {
+      "kind": "json_config",
+      "file": "services\\admin_user_details.py",
+      "literal": "watchlist.json"
+    },
+    {
+      "kind": "json_config",
+      "file": "services\\composition.py",
+      "literal": "preferences.json"
+    },
+    {
+      "kind": "json_config",
+      "file": "services\\composition.py",
+      "literal": "watchlist.json"
+    },
+    {
+      "kind": "json_config",
+      "file": "services\\composition.py",
+      "literal": "strategy-settings.json"
+    },
+    {
+      "kind": "duckdb",
+      "file": "services\\ledger_replay_engine.py",
+      "literal": "replay.duckdb"
+    },
+    {
+      "kind": "duckdb",
+      "file": "services\\site_backup_evidence.py",
+      "literal": "quant_assistant.duckdb"
+    },
+    {
+      "kind": "duckdb",
+      "file": "services\\site_backup_evidence.py",
+      "literal": "*.duckdb"
+    },
+    {
+      "kind": "sqlite",
+      "file": "services\\site_backup_evidence.py",
+      "literal": "auth/accounts.sqlite3"
+    },
+    {
+      "kind": "duckdb",
+      "file": "services\\user_context.py",
+      "literal": "quant_assistant.duckdb"
+    },
+    {
+      "kind": "sqlite",
+      "file": "models\\repositories\\auth.py",
+      "literal": "accounts.sqlite3"
+    }
+  ],
+  "data_dir_structure": {
+    "exists": true,
+    "entries": {
+      "backups/": {
+        "files": 2,
+        "bytes": 12986671
+      },
+      "evidence-completion-20261005/": {
+        "files": 240,
+        "bytes": 27816248
+      },
+      "evidence-completion-20261005.zip": {
+        "bytes": 2826574
+      },
+      "fund-scenario-study/": {
+        "files": 23,
+        "bytes": 3964934
+      },
+      "logs/": {
+        "files": 1,
+        "bytes": 32072
+      },
+      "preferences.json": {
+        "bytes": 707
+      },
+      "production/": {
+        "files": 2450,
+        "bytes": 360336803
+      },
+      "public-api-paper-pilot-20261001/": {
+        "files": 1,
+        "bytes": 1585152
+      },
+      "public-api-paper-pilot-20261001-research/": {
+        "files": 15,
+        "bytes": 11410058
+      },
+      "public-api-paper-pilot-20261001-verified/": {
+        "files": 2,
+        "bytes": 2640710
+      },
+      "public-fund-evidence-20261002-readiness/": {
+        "files": 37,
+        "bytes": 6286853
+      },
+      "public-fund-nav-reference-20261002/": {
+        "files": 3,
+        "bytes": 76825
+      },
+      "public-stock-simulation-20261001/": {
+        "files": 31,
+        "bytes": 21612866
+      },
+      "quant_assistant.duckdb": {
+        "bytes": 18886656
+      },
+      "real-research-pilot/": {
+        "files": 17,
+        "bytes": 16797542
+      },
+      "runtime/": {
+        "files": 61,
+        "bytes": 822043
+      },
+      "strategy-settings.json": {
+        "bytes": 647
+      },
+      "watchlist.json": {
+        "bytes": 2
+      }
+    }
+  }
+}

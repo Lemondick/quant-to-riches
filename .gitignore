@@ -1,0 +1,47 @@
+# Private account state and credentials
+/data/
+/deploy/
+/web/deploy/.env
+/web/deploy/secrets/
+/web/deploy/research-secrets/
+/web/deploy/research-evidence.json
+.env
+.env.*
+!.env.example
+*.duckdb
+*.duckdb.wal
+*.pem
+*.key
+/agent_credentials.env
+/agent_key.txt
+/test_real_agent.py
+/tmp.json
+
+# Dependencies and generated files
+.venv/
+node_modules/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.uv-cache/
+web/frontend/dist/
+web/frontend/*.tsbuildinfo
+web/backend/data/
+*.log
+
+# Accidental legacy test or local tool output
+.pytest_cache/
+.pytest-tmp-*/
+.coverage*
+coverage*.json
+coverage*.xml
+htmlcov/
+.playwright-cli/
+.workbuddy/
+.worktrees/
+.superpowers/
+output/
+tmp-check/
+/web/frontend/browser-results/

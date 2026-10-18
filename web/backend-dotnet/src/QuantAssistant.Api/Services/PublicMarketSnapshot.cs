@@ -1,0 +1,87 @@
+using System.Text.Json.Nodes;
+using System.Threading.Channels;
+using QuantAssistant.Core.Errors;
+using QuantAssistant.Infrastructure.Jobs;
+
+namespace QuantAssistant.Api.Services;
+
+public sealed class PublicMarketSnapshot(TimeProvider clock)
+{
+    private readonly object gate = new();
+    private PublicSnapshot? snapshot;
+    private bool refreshFailed;
+    private DateOnly calendarDay;
+    private bool? tradingDay;
+    private DateTimeOffset nextRequest;
+    private readonly Channel<bool> refresh = Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
+    public void RequestRefresh()
+    {
+        lock (gate)
+        {
+            if (clock.GetUtcNow() < nextRequest) return;
+            nextRequest = clock.GetUtcNow().AddSeconds(30);
+            refresh.Writer.TryWrite(true);
+        }
+    }
+    public void SetTradingDay(DateOnly day, bool? trading) { lock (gate) { calendarDay = day; tradingDay = trading; } }
+    public static string SessionState(DateTimeOffset now, DateOnly day, bool? trading)
+    {
+        var local = now.ToOffset(TimeSpan.FromHours(8));
+        if (day != DateOnly.FromDateTime(local.DateTime) || trading is null) return "unknown";
+        if (trading == false) return "closed";
+        var time = TimeOnly.FromDateTime(local.DateTime);
+        if (time >= new TimeOnly(11, 30) && time < new TimeOnly(13, 0)) return "break";
+        return time >= new TimeOnly(9, 15) && time <= new TimeOnly(15, 5) ? "trading" : "closed";
+    }
+    public ValueTask<bool> WaitForRefresh(CancellationToken cancellation) => refresh.Reader.ReadAsync(cancellation);
+    public void Publish(JsonObject data, DateTime completedAt)
+    {
+        if (data["indices"] is not JsonArray || data["fund_rankings"] is not JsonArray || data["sector_rankings"] is not JsonArray || data["observed_at"] is not JsonValue || data["unavailable"] is not JsonArray { Count: < 3 } || data["stale"]?.GetValue<bool>() == true) { Failed(); return; }
+        lock (gate)
+        {
+            if (snapshot is not null && snapshot.CompletedAt >= completedAt) return;
+            snapshot = new(data.DeepClone().AsObject(), completedAt);
+            refreshFailed = false;
+        }
+    }
+    public void Failed() { lock (gate) refreshFailed = true; }
+    public static void UseLegacySectors(JsonObject data)
+    {
+        // Older tabs treat null percentages as zero and know only industry rows.
+        // Keep that contract until a client explicitly requests the full catalog.
+        var rows = (data["sector_rankings"]?.AsArray() ?? []).OfType<JsonObject>()
+            .Where(row => (row["category"]?.GetValue<string>() ?? "industry") == "industry" && row["change_rate"] is JsonValue)
+            .ToArray();
+        var source = rows.FirstOrDefault()?["source"]?.GetValue<string>() ?? "unknown";
+        data["sector_rankings"] = new JsonArray(rows.Where(row => (row["source"]?.GetValue<string>() ?? "unknown") == source)
+            .OrderByDescending(row => decimal.TryParse(row["change_rate"]?.GetValue<string>(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rate) ? rate : decimal.MinValue)
+            .Select(row => row.DeepClone()).ToArray());
+    }
+    public PublicReadResult Read(string? section, bool forceRefresh = false)
+    {
+        if (section is not (null or "indices" or "funds" or "sectors")) throw new ArgumentException("行情分区无效");
+        if (forceRefresh) RequestRefresh();
+        lock (gate)
+        {
+            if (snapshot is null || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > TimeSpan.FromDays(1))
+            {
+                RequestRefresh();
+                throw new ApplicationFailure("public_snapshot_unavailable", 503, "行情快照正在准备，请稍后刷新。");
+            }
+            var data = snapshot.Data.DeepClone().AsObject();
+            var stale = refreshFailed || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > TimeSpan.FromSeconds(60);
+            data["stale"] = stale;
+            data["market_session"] = SessionState(clock.GetUtcNow(), calendarDay, tradingDay);
+            data["refresh_interval_seconds"] = 30;
+            PublicDataQuality.Apply("market.snapshot",data,clock.GetUtcNow());
+            if (section is not null)
+            {
+                if (section != "indices") data["indices"] = new JsonArray();
+                if (section != "funds") data["fund_rankings"] = new JsonArray();
+                if (section != "sectors") data["sector_rankings"] = new JsonArray();
+                data["unavailable"] = new JsonArray((data["unavailable"]?.AsArray() ?? []).Where(item => item?.GetValue<string>() == section).Select(item => item?.DeepClone()).ToArray());
+            }
+            return new(data, stale ? "stale" : forceRefresh ? "refreshing" : "hit");
+        }
+    }
+}

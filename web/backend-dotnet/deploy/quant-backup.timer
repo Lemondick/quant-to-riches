@@ -1,0 +1,11 @@
+[Unit]
+Description=Guanlan native backup maintenance windows
+
+[Timer]
+OnCalendar=*-*-* 02,03,04:00:00 Asia/Shanghai
+RandomizedDelaySec=60
+Persistent=true
+Unit=quant-backup.service
+
+[Install]
+WantedBy=timers.target

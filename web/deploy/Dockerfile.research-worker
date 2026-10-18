@@ -1,0 +1,8 @@
+FROM python:3.12-slim-bookworm
+WORKDIR /worker
+COPY backend/src/quant_assistant/integrations/tradingagents_worker/ /worker/
+RUN useradd --uid 10001 --create-home quant \
+    && mkdir /exchange && chown quant:quant /exchange
+USER quant
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 QUANT_AGENT_EXCHANGE_DIR=/exchange
+CMD ["python", "-B", "exchange.py"]

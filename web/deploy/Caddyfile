@@ -1,0 +1,22 @@
+{$QUANT_DOMAIN} {
+    log {
+        output stdout
+        format json
+    }
+    encode gzip
+    @backend path /api/* /healthz /readyz /metrics /openapi.json
+    handle @backend {
+        reverse_proxy api:8765
+    }
+    handle {
+        root * /srv/quant-web
+        header {
+            X-Content-Type-Options nosniff
+            X-Frame-Options DENY
+            Referrer-Policy no-referrer
+            Cache-Control no-store
+        }
+        try_files {path} /index.html
+        file_server
+    }
+}

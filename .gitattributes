@@ -1,0 +1,5 @@
+web/backend-dotnet/deploy/*.sh text eol=lf
+web/backend-dotnet/deploy/tests/*.sh text eol=lf
+web/backend-dotnet/deploy/*.service text eol=lf
+web/backend-dotnet/deploy/Caddyfile* text eol=lf
+web/backend-dotnet/deploy/environment.example text eol=lf

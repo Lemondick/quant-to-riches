@@ -1,0 +1,12 @@
+# Replace this example domain; keep certificate material outside the release.
+quant.example.com {
+    log {
+        output stdout
+        format json
+    }
+    tls /etc/caddy/quant-tls/fullchain.pem /etc/caddy/quant-tls/privkey.pem
+    encode zstd gzip
+    @internal path /internal/* /openapi.json
+    respond @internal 404
+    reverse_proxy 127.0.0.1:8765
+}

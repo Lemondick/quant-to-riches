@@ -1,0 +1,25 @@
+[Unit]
+Description=QuantAssistant Python compute worker %i
+After=quant-api.service
+Requires=quant-api.service
+PartOf=quant-api.service
+
+[Service]
+Type=simple
+User=quant
+Group=quant
+WorkingDirectory=/opt/quant/current
+EnvironmentFile=/etc/quant/environment
+Environment=QUANT_INTERNAL_API_URL=http://127.0.0.1:8765
+UnsetEnvironment=PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD PGPASSFILE PGSERVICE PGSERVICEFILE QUANT_PG_CONNECTION QUANT_PG_DSN QUANT_SECRET_ROOT QUANT_INIT_ADMIN_PASSWORD ConnectionStrings__Default
+ExecStart=/opt/quant/current/backend/.venv/bin/python /opt/quant/current/worker/run_worker.py --worker-id native-%i
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

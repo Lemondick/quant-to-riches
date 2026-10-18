@@ -1,0 +1,10 @@
+{$QUANT_DOMAIN} {
+    log {
+        output stdout
+        format json
+    }
+    encode zstd gzip
+    @internal path /internal/* /openapi.json
+    respond @internal 404
+    reverse_proxy 127.0.0.1:8765
+}
