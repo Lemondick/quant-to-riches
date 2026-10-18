@@ -25,6 +25,7 @@ from quant_assistant.providers.market_calendar import (
     session_boundary,
 )
 from quant_assistant.providers.market_calendar import latest_session as _latest_session
+from quant_assistant.providers.nav_freshness import nav_freshness, policy_for_fund
 
 logger = logging.getLogger(__name__)
 _INSTANT = re.compile(
@@ -69,6 +70,11 @@ def metadata(
     market="CN",
     auction_supported=False,
     as_of: datetime | None = None,
+    nav_policy=None,
+    fund_type=None,
+    nav_publication_frequency=None,
+    nav_valuation_weekday=None,
+    nav_publication_lag_sessions=None,
 ) -> dict:
     fetched = (
         fetched_at.replace(tzinfo=SHANGHAI_TZ)
@@ -122,14 +128,12 @@ def metadata(
                 status, reason = "unknown_time", "source_timezone_missing"
             else:
                 raise ValueError("invalid source time")
-            if status == "valid" and data_type == "official_nav" and (now.date() - day).days > 14:
-                status = "stale"
         except (ValueError, TypeError):
             status, stamp, updated, day = "invalid", None, None, None
     if status == "invalid":
         stamp, updated, day, reason = None, None, None, "invalid_source_time"
     year = calendar.load(now.year, market)
-    return dict(
+    result = dict(
         instrument_type=instrument_type,
         data_type=data_type,
         source_family=SOURCE_FAMILIES.get(source, source.removeprefix("local:")),
@@ -150,10 +154,31 @@ def metadata(
         quality_reason=reason,
         auction_supported=bool(auction_supported),
     )
+    if data_type == "official_nav" and day is not None and status != "invalid":
+        result.update(
+            nav_freshness(
+                day,
+                now,
+                calendar,
+                policy=nav_policy
+                if nav_policy is not None
+                else policy_for_fund(fund_type, nav_publication_frequency),
+                weekday=nav_valuation_weekday,
+                market=market,
+                publication_lag=nav_publication_lag_sessions,
+            )
+        )
+    return result
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ObservationMetadata:
+    nav_publication_lag_sessions: int | None = None
+    nav_freshness_policy: str | None = None
+    nav_age_sessions: int | None = None
+    nav_freshness_status: str | None = None
+    nav_valuation_weekday: int | None = None
+    nav_policy_basis: str | None = None
     auction_supported: bool = False
     market: str = "CN"
     market_timezone: str | None = None
@@ -245,6 +270,11 @@ def enrich_payload(kind: str, data: dict, *, calendar=None, as_of=None) -> dict:
             market=row.get("market", "CN"),
             as_of=as_of or datetime.now(SHANGHAI_TZ),
             auction_supported=row.get("auction_supported") is True,
+            nav_policy=row.get("nav_freshness_policy"),
+            fund_type=row.get("fund_type"),
+            nav_publication_frequency=row.get("nav_publication_frequency"),
+            nav_valuation_weekday=row.get("nav_valuation_weekday"),
+            nav_publication_lag_sessions=row.get("nav_publication_lag_sessions"),
         )
         info["fetched_at"] = info["fetched_at"].isoformat()
         row.update(info)

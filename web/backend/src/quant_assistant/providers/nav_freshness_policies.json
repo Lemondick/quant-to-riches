@@ -1,0 +1,8 @@
+{
+  "format_version": 1,
+  "policies": {
+    "daily_t1": {"max_age_sessions": 1},
+    "qdii_t3": {"max_age_sessions": 3},
+    "weekly": {"requires_valuation_weekday": true, "publication_lag_sessions": 1}
+  }
+}

@@ -504,7 +504,7 @@ class AkshareMarketFeedProvider:
         if not items:
             raise ProviderDataError("fund_rankings: provider returned no valid rows")
         if any(
-            item.unit_nav <= 0 or item.quality_status in {"invalid", "unknown_time"}
+            item.unit_nav <= 0 or item.nav_date is None or item.quality_status == "invalid"
             for item in items
         ):
             raise ProviderDataError("invalid ranked NAV")

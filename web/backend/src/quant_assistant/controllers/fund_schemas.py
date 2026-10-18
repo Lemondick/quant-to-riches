@@ -8,7 +8,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator
 
-from .schema_common import ApiModel, DecimalString, ObservationModel
+from .schema_common import ApiModel, DecimalString, NavObservationModel, ObservationModel
 
 
 class FundPortfolioNavBody(ApiModel):
@@ -128,7 +128,7 @@ class FundStyleDriftEventsResponse(ApiModel):
     items: tuple[FundStyleDriftEventResponse, ...]
 
 
-class FundValuationResponse(ObservationModel):
+class FundValuationResponse(NavObservationModel):
     symbol: str
     estimate_nav: DecimalString | None
     previous_nav: DecimalString

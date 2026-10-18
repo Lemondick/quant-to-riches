@@ -16,6 +16,7 @@ from decimal import Decimal
 from quant_assistant.analysis.models import PortfolioBucket
 from quant_assistant.models.entities import AssetType
 from quant_assistant.models.repositories.database import Database
+from quant_assistant.providers.data_quality import ObservationMetadata
 from quant_assistant.providers.fund_detail import FundDetail
 from quant_assistant.providers.fund_valuation import normalize_fund_symbol
 from quant_assistant.services.fund_fee_evidence import FundFeeEvidenceService
@@ -194,21 +195,7 @@ class _PortfolioMixin:
                     key: getattr(estimate, key)
                     for key in estimate.__dataclass_fields__
                     if key in FundValuationView.__dataclass_fields__
-                    and key
-                    in {
-                        "instrument_type",
-                        "data_type",
-                        "source_family",
-                        "source_time",
-                        "updated_at",
-                        "fetched_at",
-                        "trade_date",
-                        "is_estimate",
-                        "is_stale",
-                        "fallback_used",
-                        "fallback_reason",
-                        "quality_status",
-                    }
+                    and key in ObservationMetadata.__dataclass_fields__
                 },
             )
 

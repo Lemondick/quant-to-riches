@@ -1,4 +1,10 @@
 export type Observation = { updated_at?: string | null; quality_status?: string; is_stale?: boolean }
+export type NavObservation = Observation & { nav_freshness_status?: string | null; nav_freshness_policy?: string | null; nav_age_sessions?: number | null; nav_valuation_weekday?: number | null; nav_publication_lag_sessions?: number | null }
+
+export function navFreshnessLabel(value?: NavObservation | null) {
+  if (!value?.nav_freshness_status || value.nav_freshness_status === 'unknown') return value?.is_stale ? '旧净值 · 时效待确认' : '净值时效待确认'
+  return value.nav_freshness_status === 'stale' || value.is_stale ? '旧官方净值 · 保留原日期' : '最近有效官方净值'
+}
 
 export function updateTime(value?: string | null) {
   const unknown = '更新时间：未知'

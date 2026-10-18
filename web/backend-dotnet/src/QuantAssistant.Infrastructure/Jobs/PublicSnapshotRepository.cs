@@ -15,17 +15,23 @@ public sealed class PublicSnapshotRepository(AccountDatabase database)
                 FROM public_compute_snapshots WHERE kind='fund.detail' AND input_json->>'symbol'=ANY($1)
                 ORDER BY input_json->>'symbol',completed_at DESC
             ), points AS (
-                SELECT symbol,item,result_json->>'observed_at' AS observed_at,
+                SELECT symbol,item,result_json->>'observed_at' AS observed_at,result_json->>'fund_type' AS fund_type,result_json->'nav_metadata' AS nav_metadata,
                     row_number() OVER(PARTITION BY symbol ORDER BY item->>'nav_date' DESC) AS rank
                 FROM detail CROSS JOIN LATERAL jsonb_array_elements(result_json->'nav_history') item
                 WHERE item->>'source' IN ('eastmoney','tencent','danjuan')
                     AND item->>'nav_date' ~ '^\d{4}-\d{2}-\d{2}$'
                     AND item->>'nav_date' <= to_char(now() AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD')
-            ) SELECT symbol,item,observed_at FROM points WHERE rank<=2 ORDER BY symbol,item->>'nav_date'
+            ) SELECT symbol,item,observed_at,fund_type,nav_metadata FROM points WHERE rank<=2 ORDER BY symbol,item->>'nav_date'
             """, [symbols], cancellation);
         var result = new JsonObject();
         foreach (var group in rows.OfType<JsonObject>().GroupBy(row => row["symbol"]!.GetValue<string>()))
-            result[group.Key] = new JsonObject { ["points"] = new JsonArray(group.Select(row => row["item"]!.DeepClone()).ToArray()), ["observed_at"] = group.First()["observed_at"]?.DeepClone() };
+        {
+            var first = group.First(); var metadata = first["nav_metadata"] as JsonObject;
+            result[group.Key] = new JsonObject { ["points"] = new JsonArray(group.Select(row => row["item"]!.DeepClone()).ToArray()),
+                ["observed_at"] = first["observed_at"]?.DeepClone(), ["fetched_at"] = metadata?["fetched_at"]?.DeepClone() ?? first["observed_at"]?.DeepClone(),
+                ["fund_type"] = first["fund_type"]?.DeepClone(), ["nav_freshness_policy"] = metadata?["nav_freshness_policy"]?.DeepClone(),
+                ["nav_valuation_weekday"] = metadata?["nav_valuation_weekday"]?.DeepClone(), ["nav_publication_lag_sessions"] = metadata?["nav_publication_lag_sessions"]?.DeepClone() };
+        }
         return result;
     }
 

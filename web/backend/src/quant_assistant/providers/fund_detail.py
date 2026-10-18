@@ -419,6 +419,8 @@ class PublicFundDetailProvider:
                     if code in self._nav_clocks
                     else observed_at,
                     calendar=self._calendar,
+                    as_of=observed_at,
+                    fund_type=_optional_text(basic.get("type_desc")),
                     fallback_used=bool(history and history[-1].source == "tencent"),
                     fallback_reason="primary_nav_unavailable_or_invalid"
                     if history and history[-1].source == "tencent"

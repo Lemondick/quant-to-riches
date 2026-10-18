@@ -42,6 +42,15 @@ class ObservationModel(ApiModel):
     quality_status: str = "unknown_time"
 
 
+class NavObservationModel(ObservationModel):
+    nav_publication_lag_sessions: int | None = None
+    nav_freshness_policy: str | None = None
+    nav_age_sessions: int | None = None
+    nav_freshness_status: str | None = None
+    nav_valuation_weekday: int | None = None
+    nav_policy_basis: str | None = None
+
+
 def _decimal_string(value: Decimal) -> str:
     return format(value, "f")
 

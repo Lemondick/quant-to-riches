@@ -56,7 +56,7 @@ from .fund_schemas import PortfolioHistoryPointResponse as PortfolioHistoryPoint
 from .fund_schemas import SourceHealthTrendResponse as SourceHealthTrendResponse
 from .schema_common import ApiModel as ApiModel
 from .schema_common import DecimalString as DecimalString
-from .schema_common import ObservationModel
+from .schema_common import NavObservationModel, ObservationModel
 
 ProviderStatusValue = Literal[
     "disabled",
@@ -331,7 +331,7 @@ class MarketQuoteResponse(ObservationModel):
     turnover_unit: str | None = None
 
 
-class MarketFundRankingResponse(ObservationModel):
+class MarketFundRankingResponse(NavObservationModel):
     symbol: str
     name: str
     unit_nav: DecimalString

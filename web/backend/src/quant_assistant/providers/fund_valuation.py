@@ -149,15 +149,25 @@ class AkshareFundNavProvider:
         *,
         akshare_module: object = ak,
         now: Callable[[], datetime] | None = None,
-        max_nav_age_days: int = 14,
+        max_nav_age_days: int | None = None,
         calendar: MarketCalendars | None = None,
+        fund_type: str | None = None,
+        nav_policy: str | None = None,
+        nav_valuation_weekday: int | None = None,
     ) -> None:
-        if isinstance(max_nav_age_days, bool) or not 1 <= max_nav_age_days <= 90:
+        if max_nav_age_days is not None and (
+            isinstance(max_nav_age_days, bool) or not 1 <= max_nav_age_days <= 90
+        ):
             raise ValueError("max NAV age must be between 1 and 90 days")
         self._ak = akshare_module
         self._now = now or (lambda: datetime.now(SHANGHAI_TZ))
-        self._max_nav_age = timedelta(days=max_nav_age_days)
+        self._max_nav_age = None if max_nav_age_days is None else timedelta(days=max_nav_age_days)
         self._calendar = calendar if calendar is not None else MarketCalendars.builtin()
+        self._fund_type, self._nav_policy, self._nav_weekday = (
+            fund_type,
+            nav_policy,
+            nav_valuation_weekday,
+        )
 
     def estimate(self, symbol: str) -> FundIntradayEstimate:
         code = normalize_fund_symbol(symbol)
@@ -186,9 +196,7 @@ class AkshareFundNavProvider:
         previous_nav = _positive_decimal(previous["单位净值"], "previous official NAV")
         growth = latest["日增长率"]
         change_rate = (
-            _decimal(growth, "latest official NAV change rate")
-            if not pd.isna(growth)
-            else (latest_nav - previous_nav) / previous_nav * Decimal("100")
+            _decimal(growth, "latest official NAV change rate") if not pd.isna(growth) else None
         )
         observed_at = self._now()
         if not isinstance(observed_at, datetime):
@@ -199,8 +207,26 @@ class AkshareFundNavProvider:
             else observed_at.astimezone(SHANGHAI_TZ)
         )
         latest_date = latest["净值日期"].date()
-        if not observed_at.date() - self._max_nav_age <= latest_date <= observed_at.date():
-            raise FundValuationError("最新官方基金净值已经过期")
+        if latest_date > observed_at.date():
+            raise FundValuationError("最新官方基金净值日期无效")
+        info = metadata(
+            "official_nav",
+            self.name,
+            latest_date.isoformat(),
+            observed_at,
+            calendar=self._calendar,
+            fund_type=self._fund_type,
+            nav_policy=self._nav_policy,
+            nav_valuation_weekday=self._nav_weekday,
+        )
+        if self._max_nav_age is not None and observed_at.date() - latest_date > self._max_nav_age:
+            # Explicit old integrations may keep a stricter cap, but historical facts are retained.
+            info.update(
+                quality_status="stale",
+                is_stale=True,
+                nav_freshness_status="stale",
+                quality_reason="configured_legacy_age_cap",
+            )
         return FundIntradayEstimate(
             symbol=code,
             estimate_nav=None,
@@ -212,13 +238,7 @@ class AkshareFundNavProvider:
             valuation_type="latest_nav",
             official_nav=latest_nav,
             official_change_rate=change_rate,
-            **metadata(
-                "official_nav",
-                self.name,
-                latest_date.isoformat(),
-                observed_at,
-                calendar=self._calendar,
-            ),
+            **info,
         )
 
 
@@ -255,8 +275,8 @@ class LocalFundNavProvider:
             }:
                 raise FundValuationError("本地净值缺少可信来源")
             day = date.fromisoformat(str(point.get("nav_date", "")))
-            if not now.date() - timedelta(days=14) <= day <= now.date():
-                raise FundValuationError("本地官方净值日期无效或已过期")
+            if day > now.date():
+                raise FundValuationError("本地官方净值日期无效")
             values.append((day, _positive_decimal(point.get("unit_nav"), "official NAV")))
         if values[0][0] >= values[1][0]:
             raise FundValuationError("本地官方净值日期重复")
@@ -287,6 +307,12 @@ class LocalFundNavProvider:
                 values[1][0].isoformat(),
                 observed,
                 calendar=self._calendar,
+                as_of=now,
+                fund_type=record.get("fund_type"),
+                nav_policy=record.get("nav_freshness_policy"),
+                nav_publication_frequency=record.get("nav_publication_frequency"),
+                nav_valuation_weekday=record.get("nav_valuation_weekday"),
+                nav_publication_lag_sessions=record.get("nav_publication_lag_sessions"),
             ),
         )
 

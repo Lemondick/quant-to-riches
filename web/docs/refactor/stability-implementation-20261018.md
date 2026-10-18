@@ -92,7 +92,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - 原 CN 2026 内置兜底移至唯一 `exchange_calendars.json`，C# 嵌入资源和 Python wheel 复用；wheel 已实测包含同一资源，不为其他市场或年份编造假日。
 - 已认证 Worker claim 注入只读 `_calendars`（市场、年份、来源、修订和休市日），覆盖任务自带的同名内容，不改变原查询缓存键，不提供数据库凭据。
 
-### 时段与时间解析 — 子任务 2 等待 Linux 验证
+### 时段与时间解析 — 子任务 2 PASS
 
 - 共用 `tests/fixtures/public-quality-cases.json`：本地先复现 C# 23 项边界/解析失败、Python 无时区误判，以及 Worker 未使用任务日历；均保留 RED 日志。
 - 实现六类时段与严格 ISO 偏移解析，删除 quality 中重复的假日表；明确偏移按 UTC instant 比较，无时区为 `unknown_time`。缺少日历或已核验市场时段时保持未知，不能套用 A 股规则。
@@ -101,7 +101,20 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - 本地最终结果：.NET 128 通过、155 数据库项跳过；Worker 114/114；前端 43/43，lint/typecheck/build 通过；Python source verify 通过（运行准入仍按原配置阻断，不代表已接入生产）。
 - 前端只补充时段标签并兼容旧 `trading`/`break` 值，不调整布局、CSS 或主题。
 
-正式净值发布频率策略和板块目录完整性仍在后续子任务中；阶段 C 整体尚未宣告完成。
+最终 `8006a8051c98aa2f5a8c0ed88712d9e8f91143de`：[Linux 验收 39123091682](https://github.com/Lemondick/quant-to-riches/actions/runs/39123091682)，.NET/PG 317、Worker 114、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和编译通过。
+
+### 正式净值发布策略 — 子任务 3 等待 Linux 验证
+
+- 用例先复现 C# 14 项策略失败与 Python 3 项旧净值丢失/误报；另验证了视图白名单丢失策略、周频忽略发布滞后的问题，均先 RED 后修复。
+- 共用 `nav_freshness_policies.json` 配置应用阈值：日频 `daily_t1` 最多 1 个已完成交易日，QDII `qdii_t3` 最多 3 个；周频需明确估值星期，另计可配置发布滞后（默认 1 个交易日）。这些是应用时效容忍规则，不代表公开源保证的更新时间。
+- 配置 JSON 同时嵌入 C# 和 Python 包。基金类型取真实 profile 的结构化类型字段，不根据基金名称推断；货币基金、FOF、泛“指数型”和缺少发布信息的情况保持时效未知。未知日历不能靠工作日猜测；旧日期仍保留并显式标为旧证据。
+- 两个 provider 取消默认 14 自然日拒绝。保留原始值、来源与日期，正式 NAV 不写入 estimate_nav；没有源日增长率时不再把两个非连续日期之差称作官方日涨跌幅。
+- 旧 `max_nav_age_days` 参数只在调用方显式提供时增加更严格的旧证据标记，不丢弃历史观测；缺省不再使用该自然日规则。
+- 权威净值资料的类型、策略和原采集时间经 gateway/local provider/只读视图传递；接口读取重新评价净值时效，不修改历史账本。
+- 现有基金资料状态标签和图表说明显示“旧官方净值”或“时效待确认”，没有改动布局、主题或 CSS。
+- 本地全量：.NET 150 通过 / 155 PG 跳过；Worker 120/120；Python 445 通过 / 1 Linux 专属跳过；前端 43/43，typecheck/lint 通过。真实 PG 和 Linux 专属门禁仍等待本次 CI，不把本地跳过计为通过。
+
+板块目录完整性仍在后续子任务中；阶段 C 整体尚未宣告完成。
 
 ## 《01》后续进度
 

@@ -24,7 +24,7 @@ public static class PublicDataQuality
         if (value?.Length == 10 && DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
         {
             if (type is "official_nav" or "historical_quote" or "fund_profile" && day <= today)
-            { updated = tradeDate = value; quality = type == "official_nav" && today.DayNumber - day.DayNumber > 14 ? "stale" : "valid"; }
+            { updated = tradeDate = value; quality = "valid"; }
             else quality = "invalid";
         }
         else if (value is not null && value.Length <= 64 && Instant.IsMatch(value) && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var instant))
@@ -57,10 +57,28 @@ public static class PublicDataQuality
         }
         else if (!string.IsNullOrEmpty(value))
             quality = value.Length <= 64 && NoZone.IsMatch(value) && DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out _) ? "unknown_time" : "invalid";
+        bool? navStale = null;
+        if (type == "official_nav")
+        {
+            row["nav_age_sessions"] = null;
+            row["nav_freshness_status"] = "unknown";
+            if (quality != "invalid" && tradeDate is not null)
+            {
+                var policy = Text(row, "nav_freshness_policy") ?? NavFreshness.PolicyForFund(Text(row, "fund_type"), Text(row, "nav_publication_frequency"));
+                var weekday = row["nav_valuation_weekday"] is JsonValue number && number.TryGetValue<int>(out var given) ? (int?)given : null;
+                var lag = row["nav_publication_lag_sessions"] is JsonValue release && release.TryGetValue<int>(out var delay) ? (int?)delay : null;
+                var nav = NavFreshness.Evaluate(DateOnly.ParseExact(tradeDate, "yyyy-MM-dd", CultureInfo.InvariantCulture), now, calendars, policy, weekday, market, lag);
+                quality = nav.Status == "fresh" ? "valid" : nav.Status == "stale" ? "stale" : "unknown_time";
+                reason = nav.Reason; navStale = nav.Stale;
+                row["nav_freshness_policy"] = nav.Policy; row["nav_age_sessions"] = nav.Age;
+                row["nav_freshness_status"] = nav.Status; row["nav_policy_basis"] = "application_config";
+                row["nav_publication_lag_sessions"] = nav.PublicationLag;
+            }
+        }
         row["data_type"] = type; row["instrument_type"] = instrument;
         if (quality == "invalid") reason = "invalid_source_time";
         else if (quality == "unknown_time" && value is not null && NoZone.IsMatch(value)) reason = "source_timezone_missing";
-        row["source_family"] = (Text(row, "source") ?? "unknown").Replace("local:", "").Replace("akshare:", "").Replace("_fundgz", "").Replace("_latest_nav", "");
+        row["source_family"] = (Text(row, "source") ?? Text(row, "source_family") ?? "unknown").Replace("local:", "").Replace("akshare:", "").Replace("_fundgz", "").Replace("_latest_nav", "");
         row["source_time"] = quality == "invalid" ? null : sourceTime;
         row["updated_at"] = quality == "invalid" ? null : updated;
         row["trade_date"] = quality == "invalid" ? null : tradeDate;
@@ -72,7 +90,7 @@ public static class PublicDataQuality
         row["quality_reason"] = reason;
         row["auction_supported"] = supportsAuction;
         row["is_estimate"] = type == "intraday_estimate";
-        row["is_stale"] = quality == "stale";
+        row["is_stale"] = navStale ?? quality == "stale";
         row["quality_status"] = quality;
         row["fallback_used"] ??= false;
         row["fallback_reason"] ??= null;
@@ -128,6 +146,14 @@ public static class PublicDataQuality
         {
             Stamp(data, "fund_profile", "fund", Text(data, "source_time"), now, calendars);
             data["nav_updated_at"] = Rows("nav_history").Select(row => Text(row, "nav_date")).Max();
+            var latest = Rows("nav_history").OrderBy(row => Text(row, "nav_date"), StringComparer.Ordinal).LastOrDefault();
+            data["nav_metadata"] ??= new JsonObject();
+            if (data["nav_metadata"] is JsonObject nav)
+            {
+                nav["fund_type"] ??= data["fund_type"]?.DeepClone();
+                nav["source"] ??= latest?["source"]?.DeepClone();
+                Stamp(nav, "official_nav", "fund", Text(data, "nav_updated_at"), now, calendars);
+            }
             foreach (var row in Rows("period_returns").Where(row => !row.ContainsKey("methodology")))
             { row["return_rate"] = null; row["quality_status"] = "unavailable"; row["reason"] = "legacy_return_unverified"; }
         }

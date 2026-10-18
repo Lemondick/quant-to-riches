@@ -1,8 +1,9 @@
 import { apiCache } from './apiCache'
 import { createDataApi } from './dataApi'
 import { readPreparedPublic } from './preparedPublic'
+import type { NavObservation } from '../utils/dataQuality'
 
-export type FundDetail = { symbol: string; name: string; fund_type: string | null; company: string | null; observed_at: string; stale: boolean; updated_at?: string | null; nav_updated_at?: string | null; nav_history: { unit_nav: string; nav_date: string }[] }
+export type FundDetail = { symbol: string; name: string; fund_type: string | null; company: string | null; observed_at: string; stale: boolean; updated_at?: string | null; nav_updated_at?: string | null; nav_metadata?: NavObservation | null; nav_history: { unit_nav: string; nav_date: string }[] }
 const base = import.meta.env.VITE_API_BASE_URL ?? '', api = createDataApi(base)
 export const fundDataKey = (symbol: string) => `${base}:public:fund:${symbol}`
 export async function readFundDetail(symbol: string, signal: AbortSignal) {

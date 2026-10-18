@@ -62,10 +62,9 @@ class ValuationFallbackTests(unittest.TestCase):
         self.assertEqual(result.source, "local:eastmoney")
         self.assertIsNone(result.change_rate)
 
-    def test_native_local_nav_rejects_untrusted_expired_future_duplicate_and_nonfinite_points(self):
+    def test_native_local_nav_rejects_untrusted_future_duplicate_and_nonfinite_points(self):
         for changes in (
             {"source": "synthetic"},
-            {"latest": "2026-09-01"},
             {"latest": "2027-01-01"},
             {"previous": "2026-10-16"},
             {"amount": "NaN"},
