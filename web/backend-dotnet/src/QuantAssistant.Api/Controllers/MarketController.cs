@@ -34,7 +34,7 @@ public sealed class MarketController(ComputeService compute,ILedgerRepository le
         var data=result.Data?.AsObject()??throw new QuantAssistant.Core.Errors.ApplicationFailure("public_snapshot_unavailable",503,"指数历史暂不可用。");
         if(data["symbol"] is JsonValue cached && cached.GetValue<string>()!=definition.ExchangeCode || data["id"] is JsonValue cachedId && cachedId.GetValue<string>()!=definition.Id)
             throw new QuantAssistant.Core.Errors.ApplicationFailure("invalid_public_snapshot",503,"指数历史标识不一致。");
-        data["id"]=data["index_id"]=definition.Id;data["name"]=definition.Name;data["market"]=definition.Market;data["currency"]=definition.Currency;data["calendar_id"]=definition.CalendarId;data["index_definition"]=identity;
+        data["id"]=definition.Id;data["index_id"]=definition.Id;data["name"]=definition.Name;data["market"]=definition.Market;data["currency"]=definition.Currency;data["calendar_id"]=definition.CalendarId;data["index_definition"]=identity;
         PublicDataQuality.Apply("market.history",data,DateTimeOffset.UtcNow,calendars:calendars?.CurrentSnapshot);
         Response.Headers["X-Public-Cache"]=result.Cache;return Ok(data);
     }

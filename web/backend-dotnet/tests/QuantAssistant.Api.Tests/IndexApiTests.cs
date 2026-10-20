@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -109,6 +111,20 @@ public sealed class IndexApiTests
     [Fact]
     public async Task UnknownIndexQuoteCodeFailsBeforeDatabaseLookup()
         => await Assert.ThrowsAsync<ArgumentException>(() => Controller().Quotes(null, ["600000"], CancellationToken.None));
+    [Fact]
+    public async Task PreferredHistoryIdCanReadTheLegacyMemoryEntryWithoutDatabase()
+    {
+        const string connection = "Host=127.0.0.1;Port=1;Database=offline;Username=offline;Timeout=1";
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("{\"symbol\":\"000300\"}")));
+        memory.Set("compute:synthetic:market.history:" + digest, JsonNode.Parse("""{"symbol":"000300","items":[{"date":"2026-10-19","close":"100"}],"stale":false}"""));
+        var compute = new ComputeService(new ComputeJobRepository(connection), new AnalysisSnapshotRepository(new AccountDatabase(connection)), new ConfigurationBuilder().Build(), memory);
+        var result = Assert.IsType<OkObjectResult>(await Controller(compute).History(null, CancellationToken.None, indexId: "cn.csi.300"));
+        var data = Assert.IsType<JsonObject>(result.Value);
+        Assert.Equal("cn.csi.300", data["id"]!.GetValue<string>());
+        Assert.Equal("cn.csi.300", data["index_id"]!.GetValue<string>());
+        Assert.Equal("100", data["items"]![0]!["close"]!.GetValue<string>());
+    }
     [PgFact]
     public async Task AllFourLegacyHistoryCacheInputsAreSharedByPreferredIdAndOldSymbol()
     {
