@@ -47,6 +47,6 @@
 
 **Files:** new scripts/verify-index-strip.mjs; existing market-kline/alignment/chartpair/browser fixtures onlynecessarycompat; frontend README/API evidence docs; planprogress.
 
-- [ ] Playwright checks1440/1920/2560/1024/390/320px,4–6desktopvisible,mobilehorizontal-scroll/snap,scrollto16th,nodocumentoverflow,keyboardfocus,missing1doesnotblank15,allqualitystates,sourceclockhonesty,rapidselectionwithlateoldresponse andwrongID rejection. Syntheticfixtures explicit, screenshots/summary underoutput/playwright/index-strip.
-- [ ] Full frontendtype/lint/format/Node/build andexistingbrowserregressions; sourceverify; realLinuxCI withPG/Worker0skips. Inspectdesktop/mobile actualscreenshots. Documentactualchecks/limitations and allrulings. Commit.
-- [ ] Onefreshwhole-branch review usingexecuting-plans, Important/Critical oneRED->GREENfixpass thenfullCI; archiveallrulings/minors, keepindependentbranchandcontinueDoc02StageC withown-marketrealOHLC/calendars. No merge/deploy/redundantapproval.
+- [x] Playwright checks1440/1920/2560/1024/390/320px,4–6desktopvisible,mobilehorizontal-scroll/snap,scrollto16th,nodocumentoverflow,keyboardfocus,missing1doesnotblank15,allqualitystates,sourceclockhonesty,rapidselectionwithlateoldresponse andwrongID rejection. Syntheticfixtures explicit, screenshots/summary underoutput/playwright/index-strip.
+- [x] Full frontendtype/lint/format/Node/build andexistingbrowserregressions; sourceverify; realLinuxCI withPG/Worker0skips. Inspectdesktop/mobile actualscreenshots. Documentactualchecks/limitations and allrulings. Commit.
+- [x] Onefreshwhole-branch review usingexecuting-plans, Important/Critical oneRED->GREENfixpass thenfullCI; archiveallrulings/minors, keepindependentbranchandcontinueDoc02StageC withown-marketrealOHLC/calendars. No merge/deploy/redundantapproval.
