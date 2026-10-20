@@ -95,6 +95,10 @@ def metadata(
                 updated = day.isoformat()
                 status = "invalid" if day > now.date() else "valid"
             elif len(source_value) <= 64 and _INSTANT.fullmatch(source_value):
+                if not source_value.endswith("Z"):
+                    hours, minutes = int(source_value[-5:-3]), int(source_value[-2:])
+                    if minutes >= 60 or hours > 14 or (hours == 14 and minutes):
+                        raise ValueError("invalid timezone offset")
                 parsed = datetime.fromisoformat(source_value)
                 parsed = parsed.astimezone(ZoneInfo(zone_id or "UTC"))
                 stamp, updated, day = source_value, source_value, parsed.date()

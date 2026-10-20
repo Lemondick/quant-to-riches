@@ -3,7 +3,7 @@
 import json
 import tempfile
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -70,6 +70,44 @@ def feed(url, **kwargs):
 
 
 class SectorCatalogTests(unittest.TestCase):
+    def test_failed_registry_reload_does_not_hide_behind_successful_new_quotes(self):
+        from quant_assistant.providers.data_quality import MemoryCache
+
+        for malformed in (False, True):
+            with self.subTest(malformed=malformed):
+                cache = MemoryCache()
+                read_sector_catalogs(http_get=feed, now=NOW, taxonomy_cache=cache)
+                cache.expire()
+
+                def failed_registry(url, malformed=malformed, **kwargs):
+                    if "sidemenu_new" in url:
+                        if malformed:
+                            return Response({"wrong": []})
+                        raise OSError("offline")
+                    return feed(url, **kwargs)
+
+                later = NOW + timedelta(hours=1)
+                _, catalogs = read_sector_catalogs(
+                    http_get=failed_registry, now=later, taxonomy_cache=cache
+                )
+                for catalog in (c for c in catalogs if c.source == "eastmoney"):
+                    self.assertTrue(catalog.stale)
+                    self.assertTrue(catalog.cache_used)
+                    self.assertEqual(NOW, catalog.catalog_fetched_at)
+                    self.assertTrue(catalog.catalog_stale)
+                    self.assertTrue(catalog.catalog_cache_used)
+                    self.assertEqual(malformed, catalog.catalog_http_ok)
+                    self.assertEqual(False if malformed else None, catalog.catalog_parse_ok)
+                    self.assertEqual(
+                        "taxonomy_parse_failed" if malformed else "taxonomy_source_unavailable",
+                        catalog.catalog_error,
+                    )
+                    self.assertEqual(catalog.catalog_error, catalog.error)
+                    self.assertTrue(catalog.http_ok)
+                    self.assertTrue(catalog.parse_ok)
+                    self.assertTrue(catalog.quotes_complete)
+                    self.assertEqual(later, catalog.fetched_at)
+
     def test_received_rows_never_manufacture_an_authoritative_catalog_total(self):
         _, catalogs = self.read()
         for catalog in catalogs:

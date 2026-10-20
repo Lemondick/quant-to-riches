@@ -60,6 +60,12 @@ class SectorCatalog:
     cache_used: bool = False
     listed_received: int | None = None
     coverage_version: int = 2
+    catalog_fetched_at: datetime | None = None
+    catalog_http_ok: bool | None = None
+    catalog_parse_ok: bool | None = None
+    catalog_cache_used: bool = False
+    catalog_stale: bool = False
+    catalog_error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +74,32 @@ class _CatalogRows:
     quote_total: int | None = None
     quote_payload_complete: bool | None = None
     listed_received: int | None = None
+    catalog_fetched_at: datetime | None = None
+
+
+@dataclass
+class _ReadState:
+    http_ok: bool | None = None
+    parse_ok: bool | None = None
+
+    def get(self, http_get, url, **kwargs):
+        try:
+            response = http_get(url, **kwargs)
+            self.http_ok = True
+            return response
+        except PublicHttpError as failure:
+            if failure.http_status is not None:
+                self.http_ok = failure.http_status == 200
+            elif str(failure) in {"circuit_open", "concurrency_limit"}:
+                self.http_ok = None
+            else:
+                self.http_ok = False
+            if failure.http_status == 200:
+                self.parse_ok = False
+            raise
+        except Exception:
+            self.http_ok = False
+            raise
 
 
 def _number(value):
@@ -114,7 +146,7 @@ def _taxonomy(http_get):
     return result
 
 
-def _eastmoney(http_get, category, now, taxonomy):
+def _eastmoney(http_get, category, now, taxonomy, catalog_fetched_at):
     rows, total = [], None
     # Stable code order prevents changing percentage ranks from moving between pages.
     for page in range(1, 51):
@@ -187,12 +219,12 @@ def _eastmoney(http_get, category, now, taxonomy):
                     leader=None,
                     category=category,
                     source="eastmoney",
-                    fetched_at=now,
+                    fetched_at=catalog_fetched_at,
                 )
                 for code, name in taxonomy.items()
                 if code not in quoted
             )
-            return _CatalogRows(tuple(rows), total, True, len(taxonomy))
+            return _CatalogRows(tuple(rows), total, True, len(taxonomy), catalog_fetched_at)
         if len(items) < 100:
             raise ValueError("truncated catalog")
     raise ValueError("catalog exceeds page limit")
@@ -239,7 +271,11 @@ def _sina(http_get, category, now):
         )
     # This endpoint does not publish a quote timestamp. A response Date header is
     # not a substitute; keep observed_at null even when fetched just now.
-    return _CatalogRows(tuple(rows), listed_received=len(rows))
+    return _CatalogRows(
+        tuple(rows),
+        listed_received=len(rows),
+        catalog_fetched_at=getattr(response, "public_fetched_at", now),
+    )
 
 
 def _cache_read(path, source, category, now):
@@ -276,7 +312,11 @@ def _cache_read(path, source, category, now):
     if complete and (total is None or sum(row.change_rate is not None for row in rows) != total):
         raise ValueError("cached quote count mismatch")
     listed = _optional(data.get("listed_received"), _count) if version == 2 else None
-    return _CatalogRows(tuple(rows), total, complete, listed), fetched
+    catalog_fetched = data.get("catalog_fetched_at") if version == 2 else None
+    catalog_fetched = datetime.fromisoformat(catalog_fetched) if catalog_fetched else None
+    if catalog_fetched and (catalog_fetched.tzinfo is None or catalog_fetched > now):
+        raise ValueError("invalid cached registry clock")
+    return _CatalogRows(tuple(rows), total, complete, listed, catalog_fetched), fetched
 
 
 def _cache_write(path, batch, now):
@@ -292,6 +332,7 @@ def _cache_write(path, batch, now):
                     "quote_total": batch.quote_total,
                     "quote_payload_complete": batch.quote_payload_complete,
                     "listed_received": batch.listed_received,
+                    "catalog_fetched_at": batch.catalog_fetched_at,
                     "fetched_at": now.isoformat(),
                     "rows": [asdict(row) for row in rows],
                 },
@@ -315,57 +356,63 @@ def read_sector_catalogs(*, http_get, now, cache_dir=None, taxonomy_cache=None, 
             url, expected="text" if "sina" in url else "data", module="market_sectors", **kwargs
         )
 
+    registry = _ReadState()
+    registry_attempted = False
+    registry_stale = False
+
+    def read_taxonomy():
+        nonlocal registry_attempted
+        registry_attempted = True
+        try:
+            value = _taxonomy(lambda url, **kwargs: registry.get(get, url, **kwargs))
+            registry.parse_ok = True
+            return value
+        except Exception:
+            if registry.http_ok is True:
+                registry.parse_ok = False
+            raise
+
     try:
-        taxonomy = (
-            taxonomy_cache.read("taxonomy", lambda: _taxonomy(get), ttl=86400)[0]
-            if taxonomy_cache is not None
-            else _taxonomy(get)
-        )
+        if taxonomy_cache is not None:
+            taxonomy, registry_stale = taxonomy_cache.read("taxonomy", read_taxonomy, ttl=86400)
+        else:
+            taxonomy = read_taxonomy()
     except Exception:
-        taxonomy = None
+        taxonomy, registry_stale = None, True
+    registry_cached = taxonomy is not None and (not registry_attempted or registry_stale)
+    registry_error = (
+        ("taxonomy_parse_failed" if registry.http_ok is True else "taxonomy_source_unavailable")
+        if registry_stale
+        else None
+    )
 
     def load(job):
         source, category = job
         path = Path(cache_dir) / f"{source}-{category}.json" if cache_dir else None
         stale, error, fetched, cache_used = False, None, now, False
-        http_ok, parse_ok = None, None
+        quote = _ReadState()
         batch = _CatalogRows(())
 
         def checked_get(url, **kwargs):
-            nonlocal http_ok, parse_ok
-            try:
-                response = get(url, **kwargs)
-                http_ok = True
-                return response
-            except PublicHttpError as failure:
-                if failure.http_status is not None:
-                    http_ok = failure.http_status == 200
-                elif str(failure) in {"circuit_open", "concurrency_limit"}:
-                    http_ok = None
-                else:
-                    http_ok = False
-                if failure.http_status == 200:
-                    parse_ok = False
-                raise
-            except Exception:
-                http_ok = False
-                raise
+            return quote.get(get, url, **kwargs)
 
         try:
             if source == "eastmoney":
                 if taxonomy is None:
                     raise ValueError("official taxonomy unavailable")
-                batch = _eastmoney(checked_get, category, now, taxonomy[category])
+                batch = _eastmoney(
+                    checked_get, category, now, taxonomy[category], taxonomy.fetched_at
+                )
             else:
                 batch = _sina(checked_get, category, now)
-            parse_ok = True
+            quote.parse_ok = True
             if path:
                 with suppress(OSError):
                     _cache_write(path, batch, now)
         except Exception:
             error, stale = "source_unavailable", True
-            if http_ok is True:
-                parse_ok, error = False, "source_parse_failed"
+            if quote.http_ok is True:
+                quote.parse_ok, error = False, "source_parse_failed"
             elif source == "eastmoney" and taxonomy is None:
                 error = "taxonomy_unavailable"
             fetched = None
@@ -389,12 +436,20 @@ def read_sector_catalogs(*, http_get, now, cache_dir=None, taxonomy_cache=None, 
             )
             fetched = taxonomy.fetched_at
             batch = _CatalogRows(
-                rows, quote_payload_complete=False, listed_received=len(taxonomy[category])
+                rows,
+                quote_payload_complete=False,
+                listed_received=len(taxonomy[category]),
+                catalog_fetched_at=taxonomy.fetched_at,
             )
         elif rows and not stale:
             fetched = max((row.fetched_at for row in rows if row.fetched_at), default=fetched)
         observed = [row.observed_at for row in rows if row.observed_at]
         unquoted = sum(row.change_rate is None for row in rows)
+        em = source == "eastmoney"
+        catalog_stale = registry_stale or cache_used if em else stale
+        catalog_error = (
+            (registry_error or ("catalog_snapshot_cached" if cache_used else None)) if em else error
+        )
         # Neither registry endpoint publishes an authoritative catalog total.
         # Eastmoney's clist total proves quote pagination only, not registry coverage.
         return rows, SectorCatalog(
@@ -405,17 +460,23 @@ def read_sector_catalogs(*, http_get, now, cache_dir=None, taxonomy_cache=None, 
             complete=None,
             fetched_at=fetched,
             observed_at=min(observed) if observed else None,
-            stale=stale,
-            error=error,
+            stale=stale or catalog_stale,
+            error=error or catalog_error,
             unquoted=unquoted,
             quote_total=batch.quote_total,
             quote_payload_complete=batch.quote_payload_complete,
             quotes_complete=bool(rows) and unquoted == 0,
-            http_ok=http_ok,
-            parse_ok=parse_ok,
+            http_ok=quote.http_ok,
+            parse_ok=quote.parse_ok,
             source_time_known=bool(rows) and len(observed) == len(rows),
-            cache_used=cache_used,
+            cache_used=cache_used or (em and registry_cached),
             listed_received=batch.listed_received,
+            catalog_fetched_at=batch.catalog_fetched_at,
+            catalog_http_ok=registry.http_ok if em else quote.http_ok,
+            catalog_parse_ok=registry.parse_ok if em else quote.parse_ok,
+            catalog_cache_used=(registry_cached or cache_used) if em else cache_used,
+            catalog_stale=catalog_stale,
+            catalog_error=catalog_error,
         )
 
     with ThreadPoolExecutor(max_workers=3) as pool:

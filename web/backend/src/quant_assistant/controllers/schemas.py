@@ -369,6 +369,12 @@ class MarketSectorCatalogResponse(ObservationModel):
     stale: bool = False
     error: str | None = None
     coverage_version: int = 0
+    catalog_fetched_at: datetime | None = None
+    catalog_http_ok: bool | None = None
+    catalog_parse_ok: bool | None = None
+    catalog_cache_used: bool = False
+    catalog_stale: bool = False
+    catalog_error: str | None = None
     catalog_status: str = "unknown"
     quote_total: int | None = None
     quote_payload_complete: bool | None = None

@@ -116,7 +116,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 最终 `e28b050872850c053f57cc73e95cb1b0eaa8c4ca`：[Linux 验收 39124567531](https://github.com/Lemondick/quant-to-riches/actions/runs/39124567531)，.NET/PG 339、Worker 120、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和编译通过。
 
-### 板块目录证据 — 子任务 4 等待 Linux 验证
+### 板块目录证据 — 子任务 4 PASS
 
 - 先复现“收到 25 行就声称供应商总数 25”、HTTP 200 被当作解析成功、旧缓存伪总数升级等问题；新增 Python 5 项回归和 C# 旧快照修正回归，保留 RED 日志。
 - 东方财富注册目录及新浪接口未提供权威目录总数，`total`、`complete` 保持 null，`catalog_status=unknown`。东方财富行情分页 `quote_total` 单独保留，`quote_payload_complete` 只说明行情分页完成；没有报价的注册条目仍显示 null。
@@ -125,7 +125,18 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - Native gateway 修正已存的旧版公开快照，不再通过它展示伪完整状态。前端仅调整现有状态文案与可用来源选择，不改布局、主题或 CSS。
 - 本地 .NET 151 通过、155 PG 跳过；Worker 125/125；前端 43/43 与 typecheck/lint/build 通过；source verify、Worker ruff 通过。真实数据库及 Linux 专属用例以随后 CI 为准。
 
-阶段 C 等待最终 Linux 验收与整体代码审查，尚未宣告完成。
+`d14a6b75efa2ff12b3ba6cee186f28d9e076ad39`：[Linux 验收 39385382795](https://github.com/Lemondick/quant-to-riches/actions/runs/39385382795)，.NET/PG 340、Worker 125、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和编译通过。
+
+### 阶段 C 整体审查与补修 — 等待最终 Linux 验证
+
+独立只读审查发现两项 Important，无 Critical、无 Minor；都在同一轮先 RED 后修复：
+
+- Python `fromisoformat` 会接受并归一化非法 `+08:60` 偏移。解析前明确限制分钟 0–59、偏移范围 ±14:00，与 .NET 契约一致。共享 fixture 新增非法正负分钟、越界与合法范围边界；Python 先有 5 项失败，修复后通过。
+- 目录内存缓存回退标记被丢弃，最新报价掩盖注册目录刷新失败。新增独立 `catalog_fetched_at`、`catalog_http_ok`、`catalog_parse_ok`、`catalog_cache_used`、`catalog_stale`、`catalog_error`；保留报价状态与报价原始时钟。失败目录沿用原采集时间，无报价条目也不再使用新报价采集时间。界面明确“目录刷新失败，保留旧目录；报价按原时间展示”。传输失败与 HTTP 200 解析失败两个回归均先失败后通过。
+- 本地最终 .NET 158 通过 / 155 PG 跳过，Worker 126/126，source verify 与 Worker lint/format 通过；修正 Python 业务测试的运行目录后为 445 通过 / 1 Linux 专属跳过。最初从仓库根运行的 2 项 import 错误没有计为通过。
+- 审查未评价的刷新器调度属于下一阶段 D；缺少海外日历、竞价能力和目录总数时继续保持未知，不编造证据。
+
+阶段 C 等待补修后的最终 Linux 验收，尚未宣告完成。
 
 ## 《01》后续进度
 
