@@ -1,21 +1,26 @@
 <template>
-  <CandleChartCard :title="'主要指数走势 · ' + (data?.name ?? names[symbol])" subtitle="真实交易日开高低收，支持日、周、月、年K线" :updated-at="data?.updated_at ?? null" :symbol="symbol" :points="points" :loading="refreshing" :error="error instanceof Error ? error.message : ''" :stale="!!data?.stale || stale" @retry="refresh()">
-    <template #selector><select v-model="symbol" class="btn" aria-label="选择指数"><option v-for="(name, code) in names" :key="code" :value="code">{{ name }}</option></select></template>
+  <CandleChartCard :title="'主要指数走势 · ' + (selected?.name ?? '请选择指数')" subtitle="真实交易日开高低收，支持日、周、月、年K线" :updated-at="history?.updated_at ?? null" :symbol="indexId" :points="points" :loading="refreshing" :error="historyError" :stale="!!history?.stale || stale" @retry="refresh()">
+    <template #selector><select v-model="indexId" class="btn" aria-label="选择指数"><option v-for="item in enabled" :key="item.id" :value="item.id">{{ item.name }}{{ item.product_status === 'provisional' ? '（暂定）' : '' }}</option></select></template>
   </CandleChartCard>
 </template>
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import CandleChartCard from './CandleChartCard.vue'
 import { useApiLoader } from '../composables/useApiLoader'
-import { createDataApi } from '../services/dataApi'
+import { createDataApi, type IndexDefinition } from '../services/dataApi'
 import { readPreparedPublic } from '../services/preparedPublic'
+import { indexHistoryResponse } from '../utils/indexPresentation'
 import type { Candle } from '../utils/marketCandles'
-const names: Record<string, string> = { '000300': '沪深300', '000001': '上证指数', '399001': '深证成指', '399006': '创业板指' }
-const symbol = ref('000300'), base = import.meta.env.VITE_API_BASE_URL ?? '', api = createDataApi(base)
-type History = { symbol: string; name: string; items: { date: string; open: string; high: string; low: string; close: string; volume?: string }[]; updated_at?: string | null; source: string; observed_at: string; stale: boolean }
-const { data, error, refreshing, stale, refresh } = useApiLoader(computed(() => `${base}:public:history:${symbol.value}`), async (signal, key) => {
-  const code = key.split(':').at(-1)!
-  return readPreparedPublic(async () => { const value = await api.read<History>('/market/history?symbol=' + code, signal); if (value.symbol !== code || !Array.isArray(value.items)) throw new Error('指数历史格式无效。'); return value }, signal)
+const props = withDefaults(defineProps<{ definitions: IndexDefinition[]; registryVersion?: string }>(), { registryVersion: '' })
+const enabled = computed(() => [...props.definitions].filter(item => item.enabled).sort((a, b) => a.display_order - b.display_order))
+const indexId = ref(''), base = import.meta.env.VITE_API_BASE_URL ?? '', api = createDataApi(base)
+watch(enabled, items => { if (!items.some(item => item.id === indexId.value)) indexId.value = (items.find(item => item.legacy_history_symbol === '000300') ?? items[0])?.id ?? '' }, { immediate: true })
+const selected = computed(() => enabled.value.find(item => item.id === indexId.value))
+const { data, error, refreshing, stale, refresh } = useApiLoader(computed(() => indexId.value ? `${base}:public:history:${props.registryVersion}:${indexId.value}` : null), async (signal, key) => {
+  const id = key.split(':').at(-1)!
+  return readPreparedPublic(async () => indexHistoryResponse(await api.read('/market/history?index_id=' + encodeURIComponent(id), signal), id), signal)
 }, 3600000, true)
-const points = computed<Candle[]>(() => (data.value?.items ?? []).map(item => ({ date: item.date, open: Number(item.open), high: Number(item.high), low: Number(item.low), close: Number(item.close), ...(item.volume === undefined ? {} : { volume: Number(item.volume) }) })))
+const history = computed(() => data.value?.id === indexId.value ? data.value : undefined)
+const historyError = computed(() => history.value?.quality_reason === 'history_not_connected' ? '历史行情尚未接入' : error.value instanceof Error ? error.value.message : '')
+const points = computed<Candle[]>(() => (history.value?.quality_status === 'unavailable' ? [] : history.value?.items ?? []).map(item => ({ date: item.date, open: Number(item.open), high: Number(item.high), low: Number(item.low), close: Number(item.close), ...(item.volume === undefined ? {} : { volume: Number(item.volume) }) })))
 </script>

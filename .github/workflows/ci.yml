@@ -64,11 +64,22 @@ jobs:
         run: npm run verify:ui
         env:
           QUANT_BROWSER_OUTPUT: browser-results
+      - name: Build connected Vue interface independently of the supplied demo
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: /api/v1
+          QUANT_WEB_OUTPUT_DIR: ../../output/index-strip-ui
+      - name: Verify connected index identities, history and responsive layout
+        run: node scripts/verify-index-strip.mjs
+        env:
+          QUANT_WEB_OUTPUT_DIR: ../../output/index-strip-ui
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: browser-regression
-          path: web/frontend/browser-results
+          path: |
+            web/frontend/browser-results
+            output/playwright/index-strip
           retention-days: 7
 
   dotnet-build:

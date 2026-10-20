@@ -6,10 +6,9 @@
     <template v-if="data">
       <p class="market-observation" role="status">{{ sessionLabel }} · 页面每 15 秒检查更新，交易时段后台每 30 秒采集；各项时间以数据源为准。</p>
       <div v-if="currentTab === 'index'" class="tab-content-fade">
-        <div class="stats-grid"><StatCard v-for="(item, index) in data.indices.slice(0, 4)" :key="item.symbol" :updated-at="item.updated_at ?? null" :label="item.name" :value="number(Number(item.price), 2)" :delta="percent(Number(item.change_rate))" :note="item.source_time?.slice(0, 10) ?? '来源时间未知'" :tone="tones[index]" :icon="TrendingUp" /></div>
-        <div class="sub-indices-bar"><div v-for="name in ['科创50', '中证500', '中证1000']" :key="name" class="sub-index-item"><span class="sub-index-name">{{ name }}</span><span class="sub-index-val">{{ data.indices.find(item => item.name === name)?.price ?? '—' }}</span><span class="subtle">{{ subIndexDelta(name) }}</span></div></div>
+        <IndexQuoteStrip :snapshot="data" />
         <div class="two-col">
-          <IndexHistory />
+          <IndexHistory :definitions="data.index_registry ?? []" :registry-version="data.registry_version" />
           <div class="market-side-panels">
             <div class="panel card-pad market-breadth-card">
               <div class="panel-header-inline"><div><div class="card-title">市场情绪与盘面</div><p class="subtle">两市上涨 / 下跌家数比<span data-update-time> · {{ updateTime(breadth?.updated_at) }}</span></p></div><span class="tag blue">{{ breadth ? (breadth.stale ? '最近有效统计' : breadth.unavailable.length ? '部分数据' : '最新交易日统计') : '暂无广度数据' }}</span></div>
@@ -23,7 +22,7 @@
             <div class="panel card-pad market-industry-card"><div class="panel-header-inline"><div><div class="card-title">行业涨跌速览</div><p class="subtle">{{ sourceLabel(previewSource) }} · 行业分类<span data-update-time> · {{ updateTime(data.sector_catalogs?.find(item => item.source === previewSource && item.category === 'industry')?.updated_at) }}</span></p></div><button class="text-link-btn" @click="currentTab = 'sectors'">查看全部板块 →</button></div><div class="row-list"><div v-for="item in industryPreview" :key="item.code" class="row"><span class="industry-name">{{ item.name }}</span><b :class="item.change_rate == null ? '' : Number(item.change_rate) >= 0 ? 'up' : 'down'">{{ item.change_rate == null ? '—' : percent(Number(item.change_rate)) }}</b></div></div></div>
           </div>
         </div>
-        <div class="panel table-panel"><div class="panel-head"><div><h2>主要指数</h2><p><span data-update-time>{{ updateTime(oldestUpdate(data.indices)) }}</span></p></div><button class="btn ghost" @click="currentTab = 'funds'">切换至基金榜单</button></div><DataTable table-id="live-market-indices" label="主要指数" :headers="['指数', '代码', '点位', '涨跌幅', '观测时间']" :rows="data.indices.map(item => [item.name, item.symbol, item.price, item.change_rate + '%', item.source_time ?? '来源时间未知'])" :numeric-columns="[2, 3]" empty-title="暂无可用指数快照" /></div>
+        <div class="panel table-panel"><div class="panel-head"><div><h2>主要指数</h2><p><span data-update-time>{{ updateTime(oldestUpdate(data.indices)) }}</span></p></div><button class="btn ghost" @click="currentTab = 'funds'">切换至基金榜单</button></div><DataTable table-id="live-market-indices" label="主要指数" :headers="['指数', '代码', '点位', '涨跌幅', '观测时间']" :rows="indexCards(data).map(card => [card.definition.name + (card.definition.product_status === 'provisional' ? '（暂定）' : ''), card.definition.exchange_code, card.value, card.percent, card.sourceLabel + ' · ' + card.qualityLabel])" :numeric-columns="[2, 3]" empty-title="暂无可用指数快照" /></div>
       </div>
       <div v-else-if="currentTab === 'funds'" class="tab-content-fade">
         <div class="fund-context-line"><span class="data-badge">指数型基金日涨幅前十</span><span>{{ data.fund_rankings.length }} 只基金 · 净值日期以原始公告为准</span></div>
@@ -52,10 +51,11 @@ import { updateTime, oldestUpdate } from '../utils/dataQuality'
 
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { RefreshCw, TrendingUp } from 'lucide-vue-next'
+import { RefreshCw } from 'lucide-vue-next'
 import PageHeader from './PageHeader.vue'
 import DataTable from './DataTable.vue'
-import StatCard from './StatCard.vue'
+import IndexQuoteStrip from './IndexQuoteStrip.vue'
+import { indexCards } from '../utils/indexPresentation'
 import FilterBar from './FilterBar.vue'
 import BackendState from './BackendState.vue'
 import LiveFundDetail from './LiveFundDetail.vue'
@@ -90,7 +90,6 @@ const breadthStats = computed(() => {
 const sessionLabel = computed(() => ({ pre_market: '盘前 · 展示最近有效行情', auction: '集合竞价 · 以来源支持为准', continuous_trading: '连续交易', lunch_break: '午间休市', trading: '交易时段', break: '午间休市', closed: '休市 · 展示最近有效行情', unknown: '交易日状态待确认' })[data.value?.market_session ?? 'unknown'])
 const sourceLabel = (source: string) => ({ eastmoney: '东方财富', sina: '新浪财经', unknown: '原始快照' })[source as 'eastmoney' | 'sina' | 'unknown'] ?? source
 const displayTime = (value?: string | null) => value ? value.slice(0, 19).replace('T', ' ') : '未取得'
-const subIndexDelta = (name: string) => { const item = data.value?.indices.find(item => item.name === name); return item ? percent(Number(item.change_rate)) : '暂无快照' }
 const sectorSource = ref(''), sectorCategory = ref('行业'), sectorQuery = ref('')
 const sectorKinds = [{ id: 'industry', label: '行业' }, { id: 'concept', label: '概念' }, { id: 'region', label: '地域' }]
 const sectorSources = computed(() => data.value?.sector_catalogs?.length ? [...new Set(data.value.sector_catalogs.map(item => item.source))] : ['unknown'])
@@ -116,7 +115,7 @@ const sectorRows = computed(() => {
 const tabs = [{ id: 'index', label: '指数' }, { id: 'funds', label: '基金榜' }, { id: 'sectors', label: '板块' }]
 const currentTab = ref(tabs.some(item => item.id === route.query.tab) ? String(route.query.tab) : 'index')
 watch(() => route.query.tab, value => { if (tabs.some(item => item.id === value)) currentTab.value = String(value) })
-const tones = ['', 'green', '', 'red'], query = ref(''), category = ref('全部'), selected = ref<string>(), actionError = ref('')
+const query = ref(''), category = ref('全部'), selected = ref<string>(), actionError = ref('')
 const fundRows = computed(() => (data.value?.fund_rankings ?? []).filter(item => (item.name + item.symbol).includes(query.value.trim()) && (category.value === '全部' || (category.value === '上涨' ? Number(item.change_rate) >= 0 : Number(item.change_rate) < 0))).map(item => [item.name, item.symbol, item.unit_nav, item.change_rate + '%', item.nav_date ?? '—', item.symbol]))
 const fundHighlights = computed(() => { const items = data.value?.fund_rankings ?? [], top = [...items].sort((a, b) => (b.change_rate == null ? -Infinity : Number(b.change_rate)) - (a.change_rate == null ? -Infinity : Number(a.change_rate)))[0]; return [{ title: top?.name ?? '暂无基金', value: top ? percent(Number(top.change_rate)) : '—' }, { title: top?.name ?? '暂无净值', value: top?.unit_nav ?? '—' }, { title: '可用基金', value: String(items.length) }, { title: '最近公告', value: top?.nav_date ?? '—' }] })
 const isFollowed = (symbol: string) => account.data.value?.preferences.watchlist.some(item => item.symbol === symbol) ?? false

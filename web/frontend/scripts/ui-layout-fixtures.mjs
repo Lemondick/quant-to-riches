@@ -1,3 +1,8 @@
+import { readFileSync } from 'node:fs'
+
+export const indexRegistry = JSON.parse(
+  readFileSync(new URL('../../backend/src/quant_assistant/providers/index_registry.json', import.meta.url), 'utf8'),
+).definitions
 const dates = '2026-10-16T15:00:00+08:00'
 const position = {
   symbol: '510300',
@@ -9,13 +14,31 @@ const position = {
   as_of_date: '2026-10-16',
 }
 const market = {
-  indices: ['沪深300', '上证指数', '深证成指', '创业板指'].map((name, i) => ({
-    symbol: ['000300', '000001', '399001', '399006'][i],
-    name,
+  registry_version: 'explicit-layout-fixture-v1',
+  index_registry: indexRegistry,
+  index_statuses: indexRegistry.map((row) => ({
+    id: row.id,
+    quality_status: 'valid',
+    quality_reason: null,
+    source: 'explicit-local-layout-fixture',
+    source_time: dates,
+    fetched_at: dates,
+    cache_read_at: dates,
+  })),
+  indices: indexRegistry.map((row, i) => ({
+    id: row.id,
+    symbol: row.exchange_code,
+    name: row.name,
+    market: row.market,
+    currency: row.currency,
     asset_type: 'index',
     price: String(3000 + i * 100),
-    change_rate: String(i + 0.5),
+    change: String((i % 3) - 1),
+    change_rate: String((i % 3) - 1),
     observed_at: dates,
+    source_time: dates,
+    fetched_at: dates,
+    quality_status: 'valid',
     source: 'explicit-local-layout-fixture',
   })),
   fund_rankings: [
@@ -73,9 +96,23 @@ export function responseFor(url) {
       })),
     }
   if (route === '/market/snapshot') return market
-  if (route === '/market/history')
+  if (route === '/market/history') {
+    const definition = indexRegistry.find(
+      (row) =>
+        row.id === url.searchParams.get('index_id') ||
+        (row.legacy_history_symbol && row.legacy_history_symbol === url.searchParams.get('symbol')),
+    )
+    if (!definition?.history)
+      return {
+        id: definition?.id,
+        symbol: definition?.exchange_code,
+        items: [],
+        quality_status: 'unavailable',
+        quality_reason: 'history_not_connected',
+      }
     return {
-      symbol: url.searchParams.get('symbol'),
+      id: definition.id,
+      symbol: definition.exchange_code,
       name: '布局验收指数',
       source: 'explicit-local-layout-fixture',
       observed_at: dates,
@@ -90,6 +127,7 @@ export function responseFor(url) {
         volume: '100',
       })),
     }
+  }
   if (route === '/market/news')
     return {
       items: [
