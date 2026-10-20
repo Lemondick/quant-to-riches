@@ -12,18 +12,18 @@ import pandas as pd
 
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.providers.base import ProviderDataError
+from quant_assistant.providers.index_registry import definitions, resolve_legacy_index
 
 if TYPE_CHECKING:
     from quant_assistant.providers.market_feed import MarketQuote
 
 _MAIN_INDEX_IDS = {
-    "000001": "sh000001",
-    "399001": "sz399001",
-    "399006": "sz399006",
-    "000300": "sh000300",
-    "000688": "sh000688",
-    "000905": "sh000905",
-    "000852": "sh000852",
+    row.exchange_code: row.quote.symbol
+    for row in definitions()
+    if row.enabled
+    and row.market == "CN"
+    and row.quote.provider == "tencent"
+    and row.quote.verification_status == "verified"
 }
 
 
@@ -45,7 +45,10 @@ def _normalize_code(value: object) -> str:
 def _tencent_id(symbol: str, asset_type: str) -> str:
     code = _normalize_code(symbol)
     if asset_type == "index":
-        return _MAIN_INDEX_IDS.get(code, f"{'sz' if code.startswith('399') else 'sh'}{code}")
+        definition = resolve_legacy_index(code)
+        if definition.quote.provider != "tencent" or not definition.enabled:
+            raise ValueError("index mapping is not enabled for this provider")
+        return definition.quote.symbol
     if asset_type != "stock":
         raise ValueError("market quote asset type must be stock or index")
     if code.startswith(("4", "8", "92")):

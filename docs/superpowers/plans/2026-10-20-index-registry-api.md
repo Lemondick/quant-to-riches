@@ -33,9 +33,9 @@
 
 **Interfaces:** Frozen definitions get_index(id), resolve_legacy_index(symbol), definitions(); C#IndexRegistry.All/Get/ResolveLegacy. JSON snake_case,format_version1,registry_version,definitions[], provider mapping includes explicit symbol,response_symbol,name aliases,namespace/type,currency/timezone basis and evidence. History4 verified only until separate history probes; others pending. Product status confirmed/provisional separate from quote verification.
 
-- [ ] Inspect existing design assets/tests for original16th; if no evidence retain configurable provisionalCsi1000, record exact result. Verify live quote identities; official000888 is SSE Composite Total Return, Nikkei cash identity confirmed. Store small sanitized observed metadata and source links, no permanent live-price fixtures masquerading as current data.
-- [ ] RED registry tests16unique/order/market/currency/zone/calendar completeness, every enabled mapping verified with evidence, provisional16th, legacy4 aliases, unknown/stock code refusal, no duplicateNikkei, shared resource packaging.
-- [ ] Implement only authority JSON and strict immutable Python/C#readers, remove default inferred index mapping in market_feed_parsing and derive existing mappings from registry. Run target/source/build checks; commit.
+- [x] Inspect existing design assets/tests for original16th; if no evidence retain configurable provisionalCsi1000, record exact result. Verify live quote identities; official000888 is SSE Composite Total Return, Nikkei cash identity confirmed. Store small sanitized observed metadata and source links, no permanent live-price fixtures masquerading as current data.
+- [x] RED registry tests16unique/order/market/currency/zone/calendar completeness, every enabled mapping verified with evidence, provisional16th, legacy4 aliases, unknown/stock code refusal, no duplicateNikkei, shared resource packaging.
+- [x] Implement only authority JSON and strict immutable Python/C#readers, remove default inferred index mapping in market_feed_parsing and derive existing mappings from registry. Run target/source/build checks; commit.
 
 ## Task 2: Per-index real quote adapters and snapshot contract
 

@@ -1,0 +1,624 @@
+{
+  "format_version": 1,
+  "registry_version": "2026-10-20.1",
+  "definitions": [
+    {
+      "id": "cn.sse.composite",
+      "name": "上证指数",
+      "official_name": "上证综合指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000001",
+      "display_order": 1,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000001",
+        "response_symbol": "000001",
+        "response_names": [
+          "上证指数"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000001"
+        ]
+      },
+      "history": {
+        "provider": "tencent",
+        "symbol": "sh000001",
+        "response_symbol": "000001",
+        "response_names": [
+          "上证指数"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh000001,day,,,640,qfq"
+        ]
+      },
+      "legacy_history_symbol": "000001"
+    },
+    {
+      "id": "cn.szse.component",
+      "name": "深证成指",
+      "official_name": "深证成份指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "399001",
+      "display_order": 2,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sz399001",
+        "response_symbol": "399001",
+        "response_names": [
+          "深证成指"
+        ],
+        "response_type": "51",
+        "response_market": "sz",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sz399001"
+        ]
+      },
+      "history": {
+        "provider": "tencent",
+        "symbol": "sz399001",
+        "response_symbol": "399001",
+        "response_names": [
+          "深证成指"
+        ],
+        "response_type": "51",
+        "response_market": "sz",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sz399001,day,,,640,qfq"
+        ]
+      },
+      "legacy_history_symbol": "399001"
+    },
+    {
+      "id": "cn.szse.chinext",
+      "name": "创业板指",
+      "official_name": "创业板指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "399006",
+      "display_order": 3,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sz399006",
+        "response_symbol": "399006",
+        "response_names": [
+          "创业板指"
+        ],
+        "response_type": "51",
+        "response_market": "sz",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sz399006"
+        ]
+      },
+      "history": {
+        "provider": "tencent",
+        "symbol": "sz399006",
+        "response_symbol": "399006",
+        "response_names": [
+          "创业板指"
+        ],
+        "response_type": "51",
+        "response_market": "sz",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sz399006,day,,,640,qfq"
+        ]
+      },
+      "legacy_history_symbol": "399006"
+    },
+    {
+      "id": "cn.csi.300",
+      "name": "沪深300",
+      "official_name": "沪深300指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000300",
+      "display_order": 4,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000300",
+        "response_symbol": "000300",
+        "response_names": [
+          "沪深300"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000300"
+        ]
+      },
+      "history": {
+        "provider": "tencent",
+        "symbol": "sh000300",
+        "response_symbol": "000300",
+        "response_names": [
+          "沪深300"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh000300,day,,,640,qfq"
+        ]
+      },
+      "legacy_history_symbol": "000300"
+    },
+    {
+      "id": "cn.sse.star50",
+      "name": "科创50",
+      "official_name": "上证科创板50成份指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000688",
+      "display_order": 5,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000688",
+        "response_symbol": "000688",
+        "response_names": [
+          "科创50"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000688"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "cn.sse.return",
+      "name": "上证收益",
+      "official_name": "上证综合全收益指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000888",
+      "display_order": 6,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000888",
+        "response_symbol": "000888",
+        "response_names": [
+          "上证收益"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000888",
+          "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20240715_10759849.shtml"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "cn.sse.50",
+      "name": "上证50",
+      "official_name": "上证50指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000016",
+      "display_order": 7,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000016",
+        "response_symbol": "000016",
+        "response_names": [
+          "上证50"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000016"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "cn.csi.500",
+      "name": "中证500",
+      "official_name": "中证500指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000905",
+      "display_order": 8,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000905",
+        "response_symbol": "000905",
+        "response_names": [
+          "中证500"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000905"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "cn.bse.50",
+      "name": "北证50",
+      "official_name": "北证50成份指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "899050",
+      "display_order": 9,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "bj899050",
+        "response_symbol": "899050",
+        "response_names": [
+          "北证50"
+        ],
+        "response_type": "62",
+        "response_market": "bj",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=bj899050"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "hk.hsi",
+      "name": "恒生指数",
+      "official_name": "恒生指数",
+      "market": "HK",
+      "currency": "HKD",
+      "timezone": "Asia/Hong_Kong",
+      "calendar_id": "HK",
+      "exchange_code": "HSI",
+      "display_order": 10,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "hkHSI",
+        "response_symbol": "HSI",
+        "response_names": [
+          "恒生指数"
+        ],
+        "response_type": "100",
+        "response_market": "hk",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Hong_Kong",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=hkHSI"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "hk.hstech",
+      "name": "恒生科技",
+      "official_name": "恒生科技指数",
+      "market": "HK",
+      "currency": "HKD",
+      "timezone": "Asia/Hong_Kong",
+      "calendar_id": "HK",
+      "exchange_code": "HSTECH",
+      "display_order": 11,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "hkHSTECH",
+        "response_symbol": "HSTECH",
+        "response_names": [
+          "恒生科技指数"
+        ],
+        "response_type": "100",
+        "response_market": "hk",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Hong_Kong",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=hkHSTECH",
+          "https://www.hsi.com.hk/static/uploads/contents/en/dl_centre/factsheets/hsteche.pdf"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "jp.nikkei225",
+      "name": "日经225",
+      "official_name": "Nikkei Stock Average (Nikkei 225)",
+      "market": "JP",
+      "currency": "JPY",
+      "timezone": "Asia/Tokyo",
+      "calendar_id": "JP",
+      "exchange_code": "N225",
+      "display_order": 12,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "yahoo",
+        "symbol": "^N225",
+        "response_symbol": "^N225",
+        "response_names": [
+          "Nikkei 225"
+        ],
+        "response_type": "INDEX",
+        "response_market": "OSA",
+        "response_currency": "JPY",
+        "currency_basis": "provider_metadata",
+        "source_timezone": "Asia/Tokyo",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=5d&interval=1d",
+          "https://indexes.nikkei.co.jp/en/nkave/index/profile?cid=7&idx=nk225"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "us.dowjones",
+      "name": "道琼斯指数",
+      "official_name": "Dow Jones Industrial Average",
+      "market": "US",
+      "currency": "USD",
+      "timezone": "America/New_York",
+      "calendar_id": "US",
+      "exchange_code": ".DJI",
+      "display_order": 13,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "us.DJI",
+        "response_symbol": ".DJI",
+        "response_names": [
+          "道琼斯"
+        ],
+        "response_type": "200",
+        "response_market": "us",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "America/New_York",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=us.DJI",
+          "https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI?range=5d&interval=1d"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "us.nasdaq.composite",
+      "name": "纳斯达克综合指数",
+      "official_name": "NASDAQ Composite",
+      "market": "US",
+      "currency": "USD",
+      "timezone": "America/New_York",
+      "calendar_id": "US",
+      "exchange_code": ".IXIC",
+      "display_order": 14,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "us.IXIC",
+        "response_symbol": ".IXIC",
+        "response_names": [
+          "纳斯达克"
+        ],
+        "response_type": "200",
+        "response_market": "us",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "America/New_York",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=us.IXIC",
+          "https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?range=5d&interval=1d"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "us.sp500",
+      "name": "标普500",
+      "official_name": "S&P 500",
+      "market": "US",
+      "currency": "USD",
+      "timezone": "America/New_York",
+      "calendar_id": "US",
+      "exchange_code": ".INX",
+      "display_order": 15,
+      "enabled": true,
+      "product_status": "confirmed",
+      "product_evidence": "user_doc02_confirmed_list",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "us.INX",
+        "response_symbol": ".INX",
+        "response_names": [
+          "标普500"
+        ],
+        "response_type": "200",
+        "response_market": "us",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "America/New_York",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=us.INX",
+          "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=5d&interval=1d"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    },
+    {
+      "id": "cn.csi.1000",
+      "name": "中证1000",
+      "official_name": "中证1000指数",
+      "market": "CN",
+      "currency": "CNY",
+      "timezone": "Asia/Shanghai",
+      "calendar_id": "CN",
+      "exchange_code": "000852",
+      "display_order": 16,
+      "enabled": true,
+      "product_status": "provisional",
+      "product_evidence": "user_doc02_candidate_not_original_screenshot",
+      "quote": {
+        "provider": "tencent",
+        "symbol": "sh000852",
+        "response_symbol": "000852",
+        "response_names": [
+          "中证1000"
+        ],
+        "response_type": "1",
+        "response_market": "sh",
+        "response_currency": null,
+        "currency_basis": "registry_definition_and_provider_namespace",
+        "source_timezone": "Asia/Shanghai",
+        "verification_status": "verified",
+        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "evidence_urls": [
+          "https://qt.gtimg.cn/q=sh000852"
+        ]
+      },
+      "history": null,
+      "legacy_history_symbol": null
+    }
+  ]
+}

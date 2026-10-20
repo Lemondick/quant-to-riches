@@ -13,5 +13,6 @@
   <ItemGroup>
     <EmbeddedResource Include="../../../backend/src/quant_assistant/providers/exchange_calendars.json" LogicalName="QuantAssistant.ExchangeCalendars" />
     <EmbeddedResource Include="../../../backend/src/quant_assistant/providers/nav_freshness_policies.json" LogicalName="QuantAssistant.NavFreshnessPolicies" />
+    <EmbeddedResource Include="../../../backend/src/quant_assistant/providers/index_registry.json" LogicalName="QuantAssistant.IndexRegistry" />
   </ItemGroup>
 </Project>
