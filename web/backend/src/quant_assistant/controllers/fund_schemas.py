@@ -362,3 +362,4 @@ class FundDetailResponse(ObservationModel):
     field_metadata: dict | None = None
     nav_metadata: dict | None = None
     conflicts: tuple[str, ...] = ()
+    classification_facts: dict | None = None

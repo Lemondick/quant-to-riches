@@ -134,6 +134,34 @@ class FundDetail(ObservationMetadata):
     field_metadata: dict | None = None
     nav_metadata: dict | None = None
     conflicts: tuple[str, ...] = ()
+    classification_facts: dict | None = None
+
+
+def classification_facts(basic: Mapping, *, stale=False) -> dict:
+    """Retain public facts, not classification guesses or generic comparison lists."""
+    names = {
+        "fund_type": "type_desc",
+        "benchmark": "performance_bench_mark",
+        "investment_target": "invest_target",
+        "product_description": "invest_orientation",
+        "operation_mode": "_operation_mode",
+        "strategy_type": "_strategy_type",
+        "investment_scope": "_investment_scope_text",
+    }
+    aliases = basic.get("_source_fields", {})
+    return {
+        "schema_version": "public-fund-facts.v1",
+        "source": basic.get("_source"),
+        "source_time": None,
+        "fetched_at": basic.get("_fetched_at"),
+        "is_stale": stale,
+        "quality_status": "stale" if stale else "unknown_time",
+        "fields": {
+            field: {"value": value.strip(), "source_field": aliases.get(key, key)}
+            for field, key in names.items()
+            if isinstance(value := basic.get(key), str) and value.strip()
+        },
+    }
 
 
 def _holdings(position: Mapping[str, object], report_date: date | None) -> tuple[FundHolding, ...]:

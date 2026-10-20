@@ -26,6 +26,18 @@ class SynchronousExecutor:
 
 
 class PublicWorkerTests(unittest.TestCase):
+    def test_catalog_uses_bounded_resident_provider_and_rejects_private_inputs(self):
+        provider = SimpleNamespace(
+            read=lambda: {"items": [], "source_time": None}, expire_cache=lambda: None
+        )
+        with patch.object(public_operations, "_catalog_provider", return_value=provider) as factory:
+            self.assertIn("fund.catalog", run_worker.RESIDENT_CAPABILITIES)
+            self.assertIsNone(public_operations.execute_public("fund.catalog", {})["source_time"])
+            for key in ("user_id", "snapshot", "credentials", "symbol"):
+                with self.assertRaises(ValueError):
+                    public_operations.execute_public("fund.catalog", {key: "private"})
+            self.assertEqual(factory.call_count, 1)
+
     def setUp(self):
         self.worker = run_worker.Worker("http://127.0.0.1:8765", "synthetic-secret-" * 3)
         self.worker.resident = SynchronousExecutor()

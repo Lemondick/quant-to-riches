@@ -96,6 +96,7 @@ from quant_assistant.providers.fund_detail_parsing import (
 from quant_assistant.providers.fund_detail_parsing import (
     _stale as _stale,
 )
+from quant_assistant.providers.fund_detail_parsing import classification_facts
 from quant_assistant.providers.fund_valuation import normalize_fund_symbol
 from quant_assistant.providers.market_calendar import MarketCalendars
 from quant_assistant.providers.public_http import PublicHttp, log_validation
@@ -356,6 +357,9 @@ class PublicFundDetailProvider:
                 )
             ),
             conflicts=tuple(conflicts),
+            classification_facts=classification_facts(
+                basic, stale="basic:" + code in self._part_stale
+            ),
             field_metadata={
                 field: dict(
                     source=basic.get("_source"),
@@ -514,12 +518,17 @@ class PublicFundDetailProvider:
                 "redemption_status": ("赎回状态", "redemption_status", "redeem_status"),
                 "performance_bench_mark": ("业绩比较基准", "benchmark", "bjjz"),
                 "invest_target": ("投资目标", "invest_target", "tzmb"),
+                "_operation_mode": ("NewType1Name", "Type1Name"),
+                "_strategy_type": ("NewType3Name", "Type3Name"),
+                "_investment_scope_text": ("tzfw",),
             }
             normalized: dict[str, object] = {}
+            source_fields: dict[str, str] = {}
             for target, keys in aliases.items():
                 for key in keys:
                     if key in raw and raw[key] not in (None, ""):
                         normalized[target] = raw[key]
+                        source_fields[target] = key
                         break
             if "fd_name" not in normalized:
                 raise ProviderDataError("Sina fund profile is missing fund name")
@@ -530,7 +539,12 @@ class PublicFundDetailProvider:
             self._mark_source_failure("sina", type(exc).__name__)
             raise ProviderUnavailable("Sina基金资料暂不可用") from exc
         self._mark_source_success("sina")
-        return dict(normalized, _source="sina", _fetched_at=self._now().isoformat())
+        return dict(
+            normalized,
+            _source="sina",
+            _source_fields=source_fields,
+            _fetched_at=self._now().isoformat(),
+        )
 
     def nav_history(self, symbol: str) -> tuple[FundNavPoint, ...]:
         """Fetch published unit NAVs without unrelated profile/fee requests."""

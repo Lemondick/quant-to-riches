@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import unittest
 from datetime import date
+from unittest.mock import patch
 
+from quant_assistant.controllers.fund_schemas import FundDetailResponse
 from quant_assistant.providers.fund_detail import PublicFundDetailProvider
+from quant_assistant.providers.fund_detail_parsing import classification_facts
 
 
 class Response:
@@ -20,6 +23,69 @@ class Response:
 
 
 class PublicFundProfileTests(unittest.TestCase):
+    def test_public_facts_survive_detail_response_serialization(self):
+        provider = PublicFundDetailProvider()
+        basic = {
+            "fd_name": "明确测试夹具",
+            "_source": "sina",
+            "_fetched_at": "2026-10-20T10:00:00Z",
+            "type_desc": "股票型",
+            "performance_bench_mark": "沪深300指数收益率×95%",
+        }
+        with (
+            patch.object(provider, "_basic", return_value=basic),
+            patch.object(provider, "_extended", return_value={}),
+            patch.object(provider, "nav_history", return_value=()),
+            patch.object(provider, "_rules", return_value=((), None, {})),
+            patch.object(provider, "_optional_announcements", return_value=()),
+        ):
+            result = FundDetailResponse.model_validate(provider._load("110020")).model_dump(
+                mode="json"
+            )
+        self.assertEqual(
+            result["classification_facts"]["fields"]["benchmark"]["value"],
+            basic["performance_bench_mark"],
+        )
+        self.assertIsNone(result["classification_facts"]["source_time"])
+
+    def test_classification_facts_use_only_explicit_profile_fields(self):
+        basic = {
+            "_source": "danjuan",
+            "_fetched_at": "2026-10-20T10:00:00Z",
+            "type_desc": "股票型-标准指数",
+            "invest_orientation": "本基金为ETF联接基金",
+            "performance_bench_mark": "国证通用航空产业指数收益率×95%",
+            "benchmark_index": [{"name": "沪深300"}],
+            "fd_name": "伪装C类黄金基金",
+        }
+        facts = classification_facts(basic, stale=True)
+        self.assertEqual(
+            facts["fields"]["product_description"]["value"], basic["invest_orientation"]
+        )
+        self.assertEqual(facts["fields"]["benchmark"]["source_field"], "performance_bench_mark")
+        self.assertEqual(facts["fetched_at"], basic["_fetched_at"])
+        self.assertIsNone(facts["source_time"])
+        self.assertTrue(facts["is_stale"])
+        self.assertNotIn("share_class", facts["fields"])
+        self.assertNotIn("benchmark_index", str(facts))
+        self.assertNotIn("伪装", str(facts))
+
+    def test_sina_classification_fields_keep_the_actual_field_name(self):
+        raw = {
+            "symbol": "110020",
+            "jjjc": "名称A",
+            "NewType1Name": "开放式",
+            "NewType3Name": "复制指数型",
+            "tzfw": "投资沪深300指数成份股",
+        }
+        provider = PublicFundDetailProvider(
+            http_get=lambda *a, **kw: Response({"result": {"data": raw}})
+        )
+        facts = classification_facts(provider._sina_basic("110020"))
+        self.assertEqual(facts["fields"]["operation_mode"]["source_field"], "NewType1Name")
+        self.assertEqual(facts["fields"]["strategy_type"]["value"], "复制指数型")
+        self.assertEqual(facts["fields"]["investment_scope"]["source_field"], "tzfw")
+
     def test_sina_etf_field_names_are_normalized(self):
         raw = {
             "symbol": "510300",

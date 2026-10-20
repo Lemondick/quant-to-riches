@@ -40,7 +40,7 @@ public sealed class PublicSnapshotRepository(AccountDatabase database)
     public async Task<CachedPublicResult?> ReadAsync(string kind, string input, CancellationToken cancellation = default)
     {
         if (!ComputeJobRepository.IndependentPublicKinds.Contains(kind)) throw new ArgumentException("公开资料类型无效");
-        var age = kind=="market.snapshot"?(int)MarketRetention.TotalSeconds:kind is "fund.detail" or "market.history" ? 7 * 86400 : 86400;
+        var age = kind=="market.snapshot"?(int)MarketRetention.TotalSeconds:kind is "fund.detail" or "market.history" or "fund.catalog" ? 7 * 86400 : 86400;
         var rows = await database.QueryAsync("SELECT result_json,completed_at,expires_at>now() AS fresh FROM public_compute_snapshots WHERE kind=$1 AND input_json=$2::jsonb AND completed_at>now()-make_interval(secs=>$3) ORDER BY completed_at DESC LIMIT 1", [kind, input, age], cancellation);
         return rows.FirstOrDefault() is JsonObject row ? new CachedPublicResult(row["result_json"]!.ToJsonString(), row["fresh"]!.GetValue<bool>(), DateTimeOffset.Parse(row["completed_at"]!.GetValue<string>()).UtcDateTime) : null;
     }

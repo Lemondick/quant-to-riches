@@ -15,8 +15,17 @@ PUBLIC_CAPABILITIES = (
     "market.news",
     "market.history",
     "fund.detail",
+    "fund.catalog",
 )
 IN_PROCESS_CAPABILITIES = (*PUBLIC_CAPABILITIES, "fund.valuations")
+
+
+@lru_cache(maxsize=1)
+def _catalog_provider():
+    from quant_assistant.common.performance import traced_get
+    from quant_assistant.providers.fund_catalog import FundCatalogProvider
+
+    return FundCatalogProvider(http_get=traced_get)
 
 
 @lru_cache(maxsize=4)
@@ -50,6 +59,13 @@ def _calendar(snapshot):
 
 
 def execute_public(kind: str, payload: dict) -> dict:
+    if kind == "fund.catalog":
+        if any(key not in {"_refresh", "_calendars"} for key in payload):
+            raise ValueError("fund catalog does not accept account or instrument inputs")
+        provider = _catalog_provider()
+        if payload.get("_refresh"):
+            provider.expire_cache()
+        return provider.read()
     snapshot = (
         json.dumps(payload["_calendars"], sort_keys=True) if "_calendars" in payload else None
     )

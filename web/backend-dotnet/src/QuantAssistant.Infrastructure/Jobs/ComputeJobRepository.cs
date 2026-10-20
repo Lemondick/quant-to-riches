@@ -17,12 +17,12 @@ public sealed record CachedPublicResult(string ResultJson, bool Fresh, DateTime 
 public sealed class ComputeJobRepository(string connectionString)
 {
     // These operations read public sources and never receive an account snapshot.
-    public static readonly string[] IndependentPublicKinds = ["market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations"];
+    public static readonly string[] IndependentPublicKinds = ["market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations", "fund.catalog"];
     public static int PublicCacheSeconds(string kind) => kind switch
-    { "market.snapshot" => 30, "market.quotes" or "fund.valuations" or "market.news" => 60, "fund.detail" => 300, "market.history" => 3600, _ => 0 };
+    { "market.snapshot" => 30, "market.quotes" or "fund.valuations" or "market.news" => 60, "fund.detail" => 300, "market.history" => 3600, "fund.catalog" => 21600, _ => 0 };
     public static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     {
-        "market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations",
+        "market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations", "fund.catalog",
         "analysis.data_status", "analysis.decision", "analysis.stocks", "analysis.funds", "analysis.backtest",
         "analysis.lifecycle", "analysis.style_drift", "analysis.valuation_alerts", "analysis.profit", "analysis.benchmark", "analysis.price_dates",
         "strategy.view", "strategy.preview", "advisor.report", "advisor.preflight", "agent.research", "fund.execution_replay",
@@ -46,7 +46,7 @@ public sealed class ComputeJobRepository(string connectionString)
     public async Task<CachedPublicResult?> ReadPublicCacheAsync(string userId, string kind, string inputJson, CancellationToken cancellation = default)
     {
         using var timing = PerformanceTrace.Measure("db");
-        var maxAge = kind switch { "fund.detail" or "market.history" => 7 * 86400, "market.snapshot" => 86400, _ => 0 };
+        var maxAge = kind switch { "fund.detail" or "market.history" or "fund.catalog" => 7 * 86400, "market.snapshot" => 86400, _ => 0 };
         if (maxAge == 0) throw new ArgumentException("该任务不支持公开资料缓存");
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(kind + ":" + inputJson))).ToLowerInvariant();
         await using var conn = await OpenAsync(cancellation);
