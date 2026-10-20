@@ -1,6 +1,6 @@
 # Public refresh scheduling Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 完成《01》阶段 D / BUG-010；慢刷新不会忙循环，核心行情优先，失败保留真实旧证据。
 
@@ -34,11 +34,11 @@
 - [x] 新增真实 PG 回归：模拟 35/60 秒后仍等待完整间隔；冷启动第一项为 market.snapshot；整体/子任务超时后取消等待、保留旧时钟；连续失败请求有界并能恢复。新增纯单元回归：全空结果不覆盖有效快照。
 - [x] 本地先确认全空回归 RED，提交测试并在 Linux CI 确认真正的调度/优先级 RED；本地 PG 跳过不算通过。
 - [x] 最小实现完成后间隔和合并请求，配置有界，使用 TimeProvider 超时。先 await 核心行情，再排队辅助历史、报价及基金；发布数据与持久化 completed_at 成对读取。
-- [ ] 运行 .NET 全套；修正依赖空行情夹具的测试使其包含真实形状的合成观测，不降低行为断言。补充配置边界、服务停止、连续失败恢复用例。
-- [ ] 文档统一为完成后等待配置间隔，解释显式请求也受间隔约束；提交独立变更。
+- [x] 运行 .NET 全套；修正依赖空行情夹具的测试使其包含真实形状的合成观测，不降低行为断言。补充配置边界、服务停止、连续失败恢复用例。
+- [x] 文档统一为完成后等待配置间隔，解释显式请求也受间隔约束；提交独立变更。
 
 ## Task 2: 阶段 D 验收
 
-- [ ] 运行完整 Linux CI；核实 .NET/PG、Worker、Python、前端与原生构建全部通过，失败及 skipped 为零。
-- [ ] 一次独立整体审查；Important/Critical 在一轮 RED→GREEN 后完整回归，Minor 记录不顺手扩大范围。
-- [ ] 更新 `stability-implementation-20261018.md`，记录根因、命令、实际计数、链接与取舍，展示阶段 D 结果后继续阶段 E。
+- [x] 运行完整 Linux CI；核实 .NET/PG、Worker、Python、前端与原生构建全部通过，失败及 skipped 为零。
+- [x] 一次独立整体审查；Important/Critical 在一轮 RED→GREEN 后完整回归，Minor 记录不顺手扩大范围。
+- [x] 更新 `stability-implementation-20261018.md`，记录根因、命令、实际计数、链接与取舍，展示阶段 D 结果后继续阶段 E。

@@ -138,7 +138,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 最终 `f82a329e28550c3998c87571d00c8bcd53f60c08`：[Linux 验收 39386644058](https://github.com/Lemondick/quant-to-riches/actions/runs/39386644058)，.NET/PG 347、Worker 126、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和独立编译通过。两项审查补修均已覆盖，未留下 Minor。实现取舍及不确定性见 `public-data-quality-decisions-20261020.md`。
 
-## 《01》阶段 D：BUG-010 — 等待 Linux 验证
+## 《01》阶段 D：BUG-010 — PASS
 
 计划 `docs/superpowers/plans/2026-10-20-public-refresh-scheduling.md`；独立分支 `codex/public-refresh-scheduling`。
 
@@ -151,11 +151,15 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - 本地最终 .NET 164 通过、163 PG 项跳过；source verify/secret scan 通过。实际数据库和整个 Linux 门禁尚未通过前，不将这些跳过计入成功。
 - Git HTTPS 连接重置/端口连接失败时，通过已授权的 GitHub Git 数据接口上传，逐个校验 blob、tree 与 commit SHA 和本地完全一致；没有改写 main。
 
+最终 `93fc4db8cf92bde943c4a382c58fa7ae501a777e`：[Linux 验收 39390147290](https://github.com/Lemondick/quant-to-riches/actions/runs/39390147290)，.NET/PG 361、Worker 126、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和独立编译通过。独立审查无 Critical、Important、Minor。首轮门禁发现测试辅助配置键重复及旧 `Warm(...)` 文本断言，已修复测试配置覆盖，并以真实 PG 行为用例代替过时的方法名依赖，没有减少原有业务断言。
+
+取舍：新建任务期限受当前轮次预算限制；如果队列合并复用了其他调用方已存在的任务，保留它的原 deadline。本轮等待仍及时取消，下一轮同内容继续合并，不缩短其他调用方的任务生命周期；代价是已存在的共享任务可能运行至原截止时间。默认手动刷新也等待完成后间隔，避免绕过失败退避。迁移 0023 为此阶段新增的派生缓存保护，不修改财务历史。
+
 ## 《01》后续进度
 
 - [x] B：BUG-003 / BUG-004，账本幂等与分红估值日约束。
 - [x] C：BUG-005 至 BUG-009，行情时效、日历、时间解析与目录完整性。
-- [ ] D：BUG-010，刷新器调度。
+- [x] D：BUG-010，刷新器调度。
 - [ ] E：BUG-011 至 BUG-013，回测指标与未来价格边界。
 - [ ] F：BUG-014、文档与部署契约一致性。
 
