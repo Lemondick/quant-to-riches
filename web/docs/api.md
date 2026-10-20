@@ -12,6 +12,22 @@
 
 ## 接口清单
 
+2026-10-20 指数接口增量（原生 .NET 网关）：
+
+| 方法 | 路径 | 参数 / 行为 |
+| --- | --- | --- |
+| GET | `/api/v1/market/snapshot` | 原有分区、基金榜、板块及广度字段保留；新增 `registry_version`、16项 `index_registry` 与独立 `index_statuses`。`indices` 只包含实际合格报价，不用空值或0伪造16条报价 |
+| GET | `/api/v1/market/history` | 优先 `index_id=cn.csi.300`；兼容旧 `symbol=000300/000001/399001/399006`，两参数冲突返回400。原四项仍使用原 `symbol` Worker/缓存输入；返回 `id`、`index_id`、市场、币种及 `index_definition` |
+| GET | `/api/v1/market/quotes` | 保留股票/指数六位代码参数；指数必须存在注册表，股票与同代码指数分开匹配，未知指数拒绝进入后台队列 |
+
+报价新增稳定 `id`、`currency`、`currency_basis`、`calendar_id`、`source_symbol`、`raw_source_time`、`change_basis`、`cache_fallback`、`cache_read_at`；原 `price/change/change_rate` 保留十进制字符串。来源未给时间时 `observed_at/source_time` 可以为 null，不能使用接收时间代替。`fetched_at` 是原响应接收时间，读取缓存不重写它。
+
+已登记但尚未接通历史的指数返回200、准确ID、空 `items`、`quality_status=unavailable`、`quality_reason=history_not_connected`，不会创建历史任务、返回500或借用其他指数曲线。当前历史能力仍为原四项，后续逐项核验扩展。
+
+注册表为 Python 打包资源与 .NET 嵌入的同一个 JSON；Vue 从接口读取定义。腾讯响应未提供币种，明确标注注册定义/供应商命名空间依据；日经 Yahoo 核验 INDEX/JPY/东京时区，以相邻真实日收盘计算涨跌，不能将多日 `chartPreviousClose` 当作昨日收盘。海外日历未核验时 `unknown_time`，不使用中国日历。公开源可能延迟或限流，采集/缓存周期不是实时性承诺。中证1000仍是产品暂定项。
+
+身份核验、实际观察及能力边界见[指数注册表证据](refactor/index-registry-evidence-20261020.md)。
+
 2026-10-05新增：
 
 | 方法 | 路径 | 参数 / 行为 |

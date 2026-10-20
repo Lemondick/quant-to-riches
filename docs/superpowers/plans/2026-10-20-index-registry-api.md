@@ -43,9 +43,9 @@
 
 **Interfaces:** IndexQuoteProvider takes existingPublicHttp/clock/calendar, fetches registered providers with bounded concurrency; returns actualMarketQuote rows with id,market,currency,timezone/calendar,source metadata plus index_statuses[] for alldefinitions. Existing price/change/change_rate fields retained; add value/change_percent compatibility if useful without replacing originals. Snapshot adds index_registry version/definitions and per-index statuses, valid quote arrays only.
 
-- [ ] RED exactname/symbol/namespace mismatches, shuffled/duplicate/extra rows, one source/item failure, nonfinite/price-change mismatch, JPfutures/currency/zone mismatch, foreign clockzones/unknown calendars, per-ID stale fallback original timestamps, no fabricated0, unchanged stock quote behavior.
-- [ ] Implement Tencent registered batchCN/HK/US and exactYahooNikkei adapter with strictidentity checks; source currency absent is explicitly reported as registry/official basis, never pretend provider supplied it; unsupported/unverified mapping notrequested. Bounded no-redirectPublicHttp and per-item cache, no cross-source tick stitching.
-- [ ] Extend MarketQuote/MarketSnapshot DTOs and existing snapshot loader, preservefund/sector sections and previous error semantics. Run contract/worker/backward compatibility/source tests; commit.
+- [x] RED exactname/symbol/namespace mismatches, shuffled/duplicate/extra rows, one source/item failure, nonfinite/price-change mismatch, JPfutures/currency/zone mismatch, foreign clockzones/unknown calendars, per-ID stale fallback original timestamps, no fabricated0, unchanged stock quote behavior.
+- [x] Implement Tencent registered batchCN/HK/US and exactYahooNikkei adapter with strictidentity checks; source currency absent is explicitly reported as registry/official basis, never pretend provider supplied it; unsupported/unverified mapping notrequested. Bounded no-redirectPublicHttp and per-item cache, no cross-source tick stitching.
+- [x] Extend MarketQuote/MarketSnapshot DTOs and existing snapshot loader, preservefund/sector sections and previous error semantics. Run contract/worker/backward compatibility/source tests; commit.
 
 ## Task 3: Native registry projection, API and history compatibility
 
@@ -53,9 +53,9 @@
 
 **Interfaces:** existing market.snapshot exposes registry and item statuses; existing market.history accepts preferredindex_id and old4symbol aliases. Registered unconnected history returns items[]/quality unavailable/reasonhistory_not_connected with exactid, nojob/no500. Old4 requests canonicalize to oldsymbol worker/cache inputs, append registryidentity to response. Refresher lists derive from registry capabilities; no parallel names/ticker lists.
 
-- [ ] RED native snapshot projection legacy rows and per-item status, wrongID/foreignmarket neverrestampedCN, old4symbol/cache compatibility, index_id+symbol conflicts, unsupportedhistory capability and noqueuedjob, publicregistry no accountfields.
-- [ ] Implement registry-driven projection and validated history routing; derive history dictionary/refresher legacy quotes from declared capabilities; preserve currentfour-source history implementation until StageC. Add officialDTOindexdefinition/status/quote fields, no component/layout edits.
-- [ ] Run source/unit/realPGCI and existing history tests; verify no DB migration or added parallel API needed. Commit.
+- [x] RED native snapshot projection legacy rows and per-item status, wrongID/foreignmarket neverrestampedCN, old4symbol/cache compatibility, index_id+symbol conflicts, unsupportedhistory capability and noqueuedjob, publicregistry no accountfields.
+- [x] Implement registry-driven projection and validated history routing; derive history dictionary/refresher legacy quotes from declared capabilities; preserve currentfour-source history implementation until StageC. Add officialDTOindexdefinition/status/quote fields, no component/layout edits.
+- [x] Run source/unit/realPGCI and existing history tests; verify no DB migration or added parallel API needed. Commit.
 
 ## Task 4: StageA acceptance
 
