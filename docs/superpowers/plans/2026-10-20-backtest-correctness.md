@@ -1,6 +1,6 @@
 # Backtest correctness Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 完成《01》阶段 E / BUG-011 至 BUG-013；整体样本外指标可由日期收益重算，同日冲突拒绝，策略上下文不能取得未来价格。
 
@@ -55,6 +55,6 @@
 
 ## Task 4: 阶段 E 验收
 
-- [ ] 完整 Linux CI，PG/Worker 不得跳过；所有测试、前端和构建通过。
-- [ ] 一次独立整体审查，重要问题先 RED 后 GREEN 并完整回归。
-- [ ] 更新阶段验收文档与取舍、命令、实际计数；展示后继续阶段 F。
+- [x] 完整 Linux CI，PG/Worker 不得跳过；所有测试、前端和构建通过。
+- [x] 一次独立整体审查，重要问题先 RED 后 GREEN 并完整回归。
+- [x] 更新阶段验收文档与取舍、命令、实际计数；展示后继续阶段 F。
