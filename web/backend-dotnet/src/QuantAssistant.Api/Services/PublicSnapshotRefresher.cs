@@ -1,6 +1,7 @@
 using QuantAssistant.Infrastructure.Jobs;
 using QuantAssistant.Infrastructure.Runtime;
 using QuantAssistant.Core.Errors;
+using QuantAssistant.Core.Market;
 
 namespace QuantAssistant.Api.Services;
 
@@ -87,9 +88,10 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
             catch (QuantAssistant.Core.Jobs.JobQuotaExceeded) { logger.LogDebug("Public refresh deferred while the account queue is full"); }
         }
         // Only enqueue auxiliary refreshes here; they cannot hold up the next market refresh.
-        foreach (var symbol in new[] { "000300", "000001", "399001", "399006" })
+        var connectedIndices = IndexRegistry.All.Where(row => row.Enabled && row.History?.VerificationStatus == "verified" && row.LegacyHistorySymbol is not null).Select(row => row.LegacyHistorySymbol!).ToArray();
+        foreach (var symbol in connectedIndices)
             await Queue("market.history", new { symbol });
-        await Queue("market.quotes", new { stocks = input.Stocks.Take(16).ToArray(), indices = new[] { "000001", "399001", "399006", "000300" } });
+        await Queue("market.quotes", new { stocks = input.Stocks.Take(Math.Max(0,20-connectedIndices.Length)).ToArray(), indices = connectedIndices });
         await Queue("market.news", new { limit = 50 });
         foreach (var batch in input.Funds.Chunk(20)) await Queue("fund.valuations", new { symbols = batch });
         // Bound detail warm-up work per cycle and rotate through observed funds.

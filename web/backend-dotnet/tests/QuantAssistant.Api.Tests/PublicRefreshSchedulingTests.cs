@@ -15,7 +15,7 @@ namespace QuantAssistant.Api.Tests;
 
 public sealed class PublicRefreshSchedulingTests
 {
-    private const string Market = """{"indices":[{"symbol":"000300","name":"Synthetic","asset_type":"index","price":"100","change_rate":"0","observed_at":"2026-10-19T10:00:00+08:00","source":"synthetic"}],"fund_rankings":[],"sector_rankings":[],"observed_at":"2026-10-19T10:00:00+08:00","unavailable":[],"stale":false}""";
+    private const string Market = """{"indices":[{"symbol":"000300","name":"沪深300","asset_type":"index","price":"100","change_rate":"0","observed_at":"2026-10-19T10:00:00+08:00","source":"synthetic"}],"fund_rankings":[],"sector_rankings":[],"observed_at":"2026-10-19T10:00:00+08:00","unavailable":[],"stale":false}""";
     private sealed class EnvironmentStub : IHostEnvironment
     {
         public string EnvironmentName { get; set; } = Environments.Production;

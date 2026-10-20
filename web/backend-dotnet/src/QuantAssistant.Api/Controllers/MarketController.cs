@@ -5,6 +5,8 @@ using QuantAssistant.Core.Portfolio;
 using QuantAssistant.Infrastructure.Portfolio;
 using QuantAssistant.Infrastructure.Jobs;
 using QuantAssistant.Infrastructure.Runtime;
+using QuantAssistant.Core.Market;
+using System.Text.Json.Nodes;
 
 namespace QuantAssistant.Api.Controllers;
 
@@ -20,11 +22,25 @@ public sealed class MarketController(ComputeService compute,ILedgerRepository le
     private static string[] Codes(string[]? values)
     {if(values?.Length>50)throw new ArgumentException("行情标的过多");return (values??[]).Select(value=>{var code=value.Trim().Split('.')[0];if(code.Length!=6||code.Any(ch=>!char.IsAsciiDigit(ch)))throw new ArgumentException("行情代码必须为六位数字");return code;}).Distinct().ToArray();}
     [HttpGet("market/history")]
-    public Task<IActionResult> History(string symbol,CancellationToken cancellation,bool refresh=false)
-    {if(symbol is not ("000300" or "000001" or "399001" or "399006"))throw new ArgumentException("指数代码无效");return ReadPublic("market.history",new{symbol},cancellation,refresh);}
+    public async Task<IActionResult> History(string? symbol,CancellationToken cancellation,bool refresh=false,[FromQuery(Name="index_id")]string? indexId=null)
+    {
+        var definition=indexId is not null?IndexRegistry.Get(indexId):symbol is not null?IndexRegistry.ResolveLegacy(symbol):throw new ArgumentException("请选择指数");
+        if(symbol is not null && symbol!=definition.ExchangeCode)throw new ArgumentException("指数标识与代码不一致");
+        var identity=IndexRegistry.JsonDefinitions().OfType<JsonObject>().Single(row=>row["id"]!.GetValue<string>()==definition.Id).DeepClone();
+        if(definition.History?.VerificationStatus!="verified" || definition.LegacyHistorySymbol is null)
+            return Ok(new JsonObject{["id"]=definition.Id,["index_id"]=definition.Id,["symbol"]=definition.ExchangeCode,["name"]=definition.Name,["market"]=definition.Market,["currency"]=definition.Currency,["index_definition"]=identity,["items"]=new JsonArray(),["quality_status"]="unavailable",["quality_reason"]="history_not_connected",["source_time"]=null,["fetched_at"]=null,["stale"]=false,["unavailable"]=new JsonArray("history")});
+        // Preserve the exact legacy cache/job input for the four connected histories.
+        var result=await compute.ReadPublic(Id,"market.history",new{symbol=definition.LegacyHistorySymbol},cancellation,refresh);
+        var data=result.Data?.AsObject()??throw new QuantAssistant.Core.Errors.ApplicationFailure("public_snapshot_unavailable",503,"指数历史暂不可用。");
+        if(data["symbol"] is JsonValue cached && cached.GetValue<string>()!=definition.ExchangeCode || data["id"] is JsonValue cachedId && cachedId.GetValue<string>()!=definition.Id)
+            throw new QuantAssistant.Core.Errors.ApplicationFailure("invalid_public_snapshot",503,"指数历史标识不一致。");
+        data["id"]=data["index_id"]=definition.Id;data["name"]=definition.Name;data["market"]=definition.Market;data["currency"]=definition.Currency;data["calendar_id"]=definition.CalendarId;data["index_definition"]=identity;
+        PublicDataQuality.Apply("market.history",data,DateTimeOffset.UtcNow,calendars:calendars?.CurrentSnapshot);
+        Response.Headers["X-Public-Cache"]=result.Cache;return Ok(data);
+    }
     [HttpGet("market/quotes")]
     public async Task<IActionResult> Quotes([FromQuery]string[]? stocks,[FromQuery]string[]? indices,CancellationToken cancellation)
-    {if((stocks?.Length??0)+(indices?.Length??0)>20)throw new ArgumentException("行情标的最多20个");var selectedStocks=Codes(stocks);var selectedIndices=Codes(indices);var result=await publicData.QuotesAsync(selectedStocks,selectedIndices,cancellation);if(result["unavailable"]!.AsArray().Count>0)await compute.QueuePublicRefresh(Id,"market.quotes",new{stocks=selectedStocks,indices=selectedIndices},cancellation);PublicDataQuality.Apply("market.quotes",result,DateTimeOffset.UtcNow,calendars:calendars.CurrentSnapshot);return Ok(result);}
+    {if((stocks?.Length??0)+(indices?.Length??0)>20)throw new ArgumentException("行情标的最多20个");var selectedStocks=Codes(stocks);var selectedIndices=Codes(indices);foreach(var code in selectedIndices)IndexRegistry.ResolveLegacy(code);var result=await publicData.QuotesAsync(selectedStocks,selectedIndices,cancellation);if(result["unavailable"]!.AsArray().Count>0)await compute.QueuePublicRefresh(Id,"market.quotes",new{stocks=selectedStocks,indices=selectedIndices},cancellation);PublicDataQuality.Apply("market.quotes",result,DateTimeOffset.UtcNow,calendars:calendars.CurrentSnapshot);return Ok(result);}
     [HttpGet("market/news")]
     public async Task<IActionResult> News(int limit=30,CancellationToken cancellation=default)
     {if(limit is <1 or >50)throw new ArgumentException("新闻条数须为1至50");var data=await publicData.NewsAsync(limit,cancellation);if(data is null){await compute.QueuePublicRefresh(Id,"market.news",new{limit=50},cancellation);throw new QuantAssistant.Core.Errors.ApplicationFailure("public_snapshot_unavailable",503,"资讯快照正在准备，请稍后刷新。");}return Ok(data);}

@@ -24,7 +24,7 @@ public sealed class RemainingPerformanceTests(ITestOutputHelper output)
         public override DateTimeOffset GetUtcNow() => Now;
     }
     private const string Market = """
-        {"indices":[{"symbol":"000300","name":"Synthetic verified index","asset_type":"index","price":"100.25","change_rate":"1.25","observed_at":"2026-10-16T10:00:00+08:00","source":"synthetic"}],"fund_rankings":[],"sector_rankings":[],"observed_at":"2026-10-16T10:00:00+08:00","source":"synthetic","stale":false,"unavailable":[]}
+        {"indices":[{"symbol":"000300","name":"沪深300","asset_type":"index","price":"100.25","change_rate":"1.25","observed_at":"2026-10-16T10:00:00+08:00","source":"synthetic"}],"fund_rankings":[],"sector_rankings":[],"observed_at":"2026-10-16T10:00:00+08:00","source":"synthetic","stale":false,"unavailable":[]}
         """;
 
     [Fact]

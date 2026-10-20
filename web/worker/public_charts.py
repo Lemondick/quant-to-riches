@@ -1,4 +1,4 @@
-"""Bounded true daily OHLC history for the four displayed public indices."""
+"""Bounded true daily OHLC history for registry-verified index capabilities."""
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -7,21 +7,25 @@ from zoneinfo import ZoneInfo
 import requests
 
 from quant_assistant.providers.data_quality import metadata
+from quant_assistant.providers.index_registry import definitions, resolve_legacy_index
 from quant_assistant.providers.public_http import PublicHttp
 
 _HTTP = PublicHttp()
 
 INDICES = {
-    "000300": ("sh000300", "沪深300"),
-    "000001": ("sh000001", "上证指数"),
-    "399001": ("sz399001", "深证成指"),
-    "399006": ("sz399006", "创业板指"),
+    row.legacy_history_symbol: (row.history.symbol, row.name)
+    for row in definitions()
+    if row.enabled
+    and row.history is not None
+    and row.history.verification_status == "verified"
+    and row.legacy_history_symbol is not None
 }
 
 
 def index_history(symbol, *, http_get=requests.get, calendar=None):
     if symbol not in INDICES:
         raise ValueError("unsupported index symbol")
+    definition = resolve_legacy_index(symbol)
     ticker, name = INDICES[symbol]
     response = (_HTTP if http_get is requests.get else PublicHttp(http_get)).get(
         "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
@@ -64,6 +68,11 @@ def index_history(symbol, *, http_get=requests.get, calendar=None):
             }
         )
     return {
+        "id": definition.id,
+        "market": definition.market,
+        "currency": definition.currency,
+        "calendar_id": definition.calendar_id,
+        "source_symbol": ticker,
         "symbol": symbol,
         "name": name,
         "items": sorted(items, key=lambda item: item["date"]),
@@ -79,6 +88,7 @@ def index_history(symbol, *, http_get=requests.get, calendar=None):
                 max(items, key=lambda item: item["date"])["date"],
                 now,
                 instrument_type="index",
+                market=definition.market,
                 calendar=calendar,
             ).items()
         },

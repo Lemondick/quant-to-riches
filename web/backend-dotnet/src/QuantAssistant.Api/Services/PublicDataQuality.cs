@@ -75,6 +75,12 @@ public static class PublicDataQuality
                 row["nav_publication_lag_sessions"] = nav.PublicationLag;
             }
         }
+        var cacheFallback = row["cache_fallback"] is JsonValue cacheFlag && cacheFlag.TryGetValue<bool>(out var fallback) && fallback;
+        if (cacheFallback && quality != "invalid")
+        {
+            row["fallback_used"] = true; row["fallback_reason"] = "index_refresh_failed";
+            if (quality == "valid") { quality = "stale"; reason = "index_refresh_failed"; }
+        }
         row["data_type"] = type; row["instrument_type"] = instrument;
         if (quality == "invalid") reason = "invalid_source_time";
         else if (quality == "unknown_time" && value is not null && NoZone.IsMatch(value)) reason = "source_timezone_missing";
@@ -90,7 +96,7 @@ public static class PublicDataQuality
         row["quality_reason"] = reason;
         row["auction_supported"] = supportsAuction;
         row["is_estimate"] = type == "intraday_estimate";
-        row["is_stale"] = navStale ?? quality == "stale";
+        row["is_stale"] = navStale ?? (quality == "stale" || cacheFallback && quality != "invalid");
         row["quality_status"] = quality;
         row["fallback_used"] ??= false;
         row["fallback_reason"] ??= null;
@@ -132,7 +138,7 @@ public static class PublicDataQuality
         }
         if (kind == "market.snapshot")
         {
-            Quotes(Rows("indices"));
+            PublicIndexProjection.Apply(data, now, calendars);
             foreach (var row in Rows("fund_rankings")) Stamp(row, "official_nav", "fund", Text(row, "nav_date"), now, calendars);
             foreach (var catalog in Rows("sector_catalogs"))
             {
