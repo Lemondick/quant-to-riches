@@ -80,7 +80,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 本地编译零警告/错误；非数据库测试 85 通过、152 因缺少 PostgreSQL 跳过。通过结论采用上面的真实 Linux 全量结果。无密钥扫描通过。未修改生产环境或原工作区。
 
-## 《01》阶段 C：BUG-005 至 BUG-009 — 进行中
+## 《01》阶段 C：BUG-005 至 BUG-009 — PASS
 
 计划：`docs/superpowers/plans/2026-10-18-public-data-quality.md`，按已授权顺序在 `codex/public-data-quality` 分支执行。
 
@@ -127,7 +127,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 `d14a6b75efa2ff12b3ba6cee186f28d9e076ad39`：[Linux 验收 39385382795](https://github.com/Lemondick/quant-to-riches/actions/runs/39385382795)，.NET/PG 340、Worker 125、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和编译通过。
 
-### 阶段 C 整体审查与补修 — 等待最终 Linux 验证
+### 阶段 C 整体审查与补修 — PASS
 
 独立只读审查发现两项 Important，无 Critical、无 Minor；都在同一轮先 RED 后修复：
 
@@ -136,12 +136,12 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - 本地最终 .NET 158 通过 / 155 PG 跳过，Worker 126/126，source verify 与 Worker lint/format 通过；修正 Python 业务测试的运行目录后为 445 通过 / 1 Linux 专属跳过。最初从仓库根运行的 2 项 import 错误没有计为通过。
 - 审查未评价的刷新器调度属于下一阶段 D；缺少海外日历、竞价能力和目录总数时继续保持未知，不编造证据。
 
-阶段 C 等待补修后的最终 Linux 验收，尚未宣告完成。
+最终 `f82a329e28550c3998c87571d00c8bcd53f60c08`：[Linux 验收 39386644058](https://github.com/Lemondick/quant-to-riches/actions/runs/39386644058)，.NET/PG 347、Worker 126、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和独立编译通过。两项审查补修均已覆盖，未留下 Minor。实现取舍及不确定性见 `public-data-quality-decisions-20261020.md`。
 
 ## 《01》后续进度
 
 - [x] B：BUG-003 / BUG-004，账本幂等与分红估值日约束。
-- [ ] C：BUG-005 至 BUG-009，行情时效、日历、时间解析与目录完整性。
+- [x] C：BUG-005 至 BUG-009，行情时效、日历、时间解析与目录完整性。
 - [ ] D：BUG-010，刷新器调度。
 - [ ] E：BUG-011 至 BUG-013，回测指标与未来价格边界。
 - [ ] F：BUG-014、文档与部署契约一致性。

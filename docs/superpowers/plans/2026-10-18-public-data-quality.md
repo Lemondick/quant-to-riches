@@ -1,6 +1,6 @@
 # Public data quality Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 完成《01》阶段 C（BUG-005 至 BUG-009），让行情时段、日历、时间解析、正式净值时效和目录完整性可核验。
 
@@ -92,9 +92,9 @@
 
 ## Task 5: 阶段 C 验收
 
-- [ ] 在 `web/docs/refactor/stability-implementation-20261018.md` 记录每项根因、文件、接口、真实证据及未知来源能力。
-- [ ] 运行 `.NET build`、Python verify/ruff、secret scan、前端全部必要检查和 Git diff 检查。
-- [ ] 推送当前独立分支，等待 GitHub Linux 四作业通过；PG/Worker skipped 不能计通过。
-- [ ] 展示 C 结果后继续《01》阶段 D；不合并 main，不部署生产。
+- [x] 在 `web/docs/refactor/stability-implementation-20261018.md` 记录每项根因、文件、接口、真实证据及未知来源能力。
+- [x] 运行 `.NET build`、Python verify/ruff、secret scan、前端全部必要检查和 Git diff 检查。
+- [x] 推送当前独立分支，等待 GitHub Linux 四作业通过；PG/Worker skipped 不能计通过。
+- [x] 展示 C 结果后继续《01》阶段 D；不合并 main，不部署生产。
 
 Reference: [深交所开盘、连续竞价和收盘时段](https://www.szse.cn/www/investor/knowledge/stock/deal/t20190626_568129.html)。这些时段是交易所规则，不证明任何公开 HTTP 来源支持竞价报价。
