@@ -20,6 +20,7 @@ from quant_assistant.backtest.models import (
 )
 from quant_assistant.backtest.repository import BacktestRepository
 from quant_assistant.backtest.stock_execution import StockExecutionModel
+from quant_assistant.backtest.stock_features import PreparedStockFeatures
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.models.entities import Action, AssetType, ProposedOrder, Signal
 from quant_assistant.portfolio.models import PortfolioState, RiskPolicy
@@ -85,6 +86,17 @@ class BacktestEngine(EnginePayloadMixin):
         trading_dates = self.data.trading_dates(request.start, request.end)
         if not trading_dates:
             raise ValueError("no trading dates fall within the requested period")
+
+        prepared_features = None
+        if isinstance(self.data, FrameBacktestData) and any(
+            getattr(callback, "requires_stock_features", False) for callback in self.strategies
+        ):
+            try:
+                prepared_features = PreparedStockFeatures(self.data.prices)
+            except ValueError:
+                # Preserve the callback's explicit strategy_error limitation for
+                # incomplete feature inputs, as with a generic prefix-only loader.
+                prepared_features = None
 
         state = ExecutionState(
             cash=request.initial_cash,
@@ -174,13 +186,17 @@ class BacktestEngine(EnginePayloadMixin):
                 context = BacktestContext(
                     as_of_date=signal_date,
                     execution_date=trade_date,
-                    prices=history,
-                    instruments=instruments,
+                    prices=history.copy(deep=True),
+                    instruments=instruments.copy(deep=True),
                     portfolio=portfolio,
                     execution_state=state,
                     parameters=request.parameters,
                     data_snapshot_id=snapshot_id,
-                    prices_all=getattr(self.data, "prices", history),
+                    stock_features=(
+                        prepared_features.view(signal_date)
+                        if prepared_features is not None
+                        else None
+                    ),
                 )
                 signals = self._signals(context, limitations)
                 if stale_held_symbols:
@@ -401,10 +417,9 @@ class BacktestEngine(EnginePayloadMixin):
 
     def _signals(self, context: BacktestContext, limitations: list[str]) -> list[Signal]:
         signals: list[Signal] = []
-        # ``FrameBacktestData`` owns normalized, detached frames and its
-        # ``prices_through``/``instruments_as_of`` methods return shallow
-        # read-only-by-contract views.  Reusing this point-in-time context for
-        # every strategy avoids an O(strategy × rows) deep-copy fan-out.
+        # Price and instrument frames were detached once at the context boundary.
+        # Callbacks share that past-only context by a read-only contract, avoiding
+        # an O(strategy × rows) deep-copy fan-out without mutating the source.
         for callback in self.strategies:
             try:
                 generated = callback(context)

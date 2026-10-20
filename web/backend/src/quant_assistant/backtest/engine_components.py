@@ -23,6 +23,7 @@ from quant_assistant.backtest.models import (
     ExecutionState,
 )
 from quant_assistant.backtest.repository import canonical_json
+from quant_assistant.backtest.stock_features import StockFeatureView
 from quant_assistant.common.serialization import decimal_coerce, enum_text, flag
 from quant_assistant.funds.fees import FundFeeSchedule
 from quant_assistant.models.entities import ProposedOrder, Signal
@@ -547,7 +548,7 @@ class BacktestContext:
     execution_state: ExecutionState
     parameters: Mapping[str, object]
     data_snapshot_id: int
-    prices_all: pd.DataFrame | None = field(default=None, repr=False, compare=False)
+    stock_features: StockFeatureView | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True, slots=True)

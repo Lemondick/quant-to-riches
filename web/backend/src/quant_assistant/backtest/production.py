@@ -21,6 +21,7 @@ from quant_assistant.backtest.metrics import PerformanceMetrics, calculate_perfo
 from quant_assistant.backtest.models import StockFeeSchedule
 from quant_assistant.backtest.repository import BacktestRepository
 from quant_assistant.backtest.stock_execution import StockExecutionModel
+from quant_assistant.backtest.stock_features import _build_point_in_time_features
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.config import Settings
 from quant_assistant.features.technical import (
@@ -191,10 +192,14 @@ def run_database_backtest(
 class ProductionStockBacktestStrategy:
     """Adapter that reuses the same feature, ranking, regime, and signal functions."""
 
+    requires_stock_features = True
+
     def __init__(self, config: StockStrategyConfig | None = None):
         self.config = config or _DEFAULT_STOCK_CONFIG
         self._feature_history: pd.DataFrame | None = None
-        self._feature_source: int | None = None
+        self._feature_source: pd.DataFrame | None = None
+        self._feature_snapshot_id: int | None = None
+        self._prepared_revision: object | None = None
         self._point_in_time_features: pd.DataFrame | None = None
         self._trading_dates: tuple[date, ...] = ()
         self._features_by_date: dict[date, pd.DataFrame] = {}
@@ -245,11 +250,31 @@ class ProductionStockBacktestStrategy:
         return result
 
     def _features_on(self, context: BacktestContext, as_of_date: date) -> pd.DataFrame:
-        source = context.prices_all if context.prices_all is not None else context.prices
-        source_id = id(source)
-        if self._feature_history is None or self._feature_source != source_id:
+        if as_of_date > context.as_of_date:
+            raise ValueError("future feature date is not available")
+        if context.stock_features is not None:
+            view = context.stock_features
+            if self._prepared_revision is not view.revision:
+                self._feature_history = None
+                self._feature_source = None
+                self._point_in_time_features = None
+                self._features_by_date.clear()
+                self._ranked_by_date.clear()
+                self._prior_rank_by_date.clear()
+                self._prepared_revision = view.revision
+            self._trading_dates = view.trading_dates
+            return view.on(as_of_date)
+        source = context.prices
+        if (
+            self._prepared_revision is not None
+            or self._feature_history is None
+            or self._feature_source is not source
+            or self._feature_snapshot_id != context.data_snapshot_id
+        ):
             self._feature_history = calculate_stock_feature_history(source)
-            self._feature_source = source_id
+            self._feature_source = source
+            self._feature_snapshot_id = context.data_snapshot_id
+            self._prepared_revision = None
             self._trading_dates = tuple(
                 sorted(
                     pd.to_datetime(source["trade_date"], errors="coerce").dt.date.dropna().unique()
@@ -286,51 +311,6 @@ class ProductionStockBacktestStrategy:
             cached = rank_stocks(features, context.instruments, as_of_date, self.config)
             self._ranked_by_date[as_of_date] = cached
         return cached.copy(deep=True)
-
-
-def _build_point_in_time_features(
-    history: pd.DataFrame, trading_dates: tuple[date, ...]
-) -> pd.DataFrame:
-    """Forward-fill each symbol's causal feature row onto the market calendar."""
-
-    columns = [
-        "symbol",
-        "trade_date",
-        "close",
-        "ret_20",
-        "ret_60",
-        "ret_120",
-        "ma_120",
-        "ma_200",
-        "trend_120",
-        "trend_200",
-        "volatility_20",
-        "amount_20",
-    ]
-    compact = history.loc[:, columns].copy()
-    compact["symbol"] = compact["symbol"].astype(str)
-    compact["trade_date"] = pd.to_datetime(compact["trade_date"], errors="coerce").astype(
-        "datetime64[ns]"
-    )
-    compact = compact.dropna(subset=["symbol", "trade_date"])
-    symbols = tuple(compact["symbol"].astype(str).drop_duplicates())
-    calendar = pd.MultiIndex.from_product(
-        [pd.to_datetime(trading_dates).astype("datetime64[ns]"), symbols],
-        names=["trade_date", "symbol"],
-    ).to_frame(index=False)
-    calendar["symbol"] = calendar["symbol"].astype(str)
-    calendar = calendar.sort_values(["trade_date", "symbol"], kind="mergesort")
-    compact = compact.sort_values(["trade_date", "symbol"], kind="mergesort")
-    merged = pd.merge_asof(
-        calendar,
-        compact,
-        on="trade_date",
-        by="symbol",
-        direction="backward",
-        allow_exact_matches=True,
-        suffixes=("", "_history"),
-    )
-    return merged.set_index("trade_date", drop=False).sort_index()
 
 
 def _database_frames(

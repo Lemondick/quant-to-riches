@@ -205,7 +205,7 @@ def generate_stock_signals(
         else:
             candidate_scores = pd.to_numeric(candidates["score"], errors="coerce")
             candidates = candidates.loc[candidate_scores.notna() & np.isfinite(candidate_scores)]
-        for row in candidates.head(slots).to_dict("records"):
+        for _, row in candidates.head(slots).iterrows():
             rank = _display_rank(row, current_ranking)
             regime_reason = (
                 "市场风险状态为黄色，股票目标权重减半"
