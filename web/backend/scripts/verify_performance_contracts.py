@@ -77,7 +77,8 @@ class PerformanceContractAcceptance(unittest.TestCase):
         self.assertNotIn("Task.Delay(200", service)
         refresher = _read(DOTNET / "QuantAssistant.Api/Services/PublicSnapshotRefresher.cs")
         self.assertIn("BackgroundService", refresher)
-        self.assertIn('Warm("market.snapshot"', refresher)
+        # Actual core-first scheduling and deadlines are exercised by the native
+        # PostgreSQL PublicRefreshSchedulingTests, independent of helper names.
 
     def test_sync_account_database_call_sites_do_not_grow(self):
         call_sites = 0

@@ -23,9 +23,12 @@ public sealed class PublicRefreshSchedulingTests
         public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
-    private static IConfiguration Configuration(params (string Key, string Value)[] extra) => new ConfigurationBuilder()
-        .AddInMemoryCollection(new Dictionary<string, string?> { ["QUANT_WORKER_SECRET"] = "synthetic-public-refresh-secret-for-tests", ["QUANT_PUBLIC_REFRESH_ENABLED"] = "true" }
-            .Concat(extra.Select(p => new KeyValuePair<string, string?>(p.Key, p.Value)))) .Build();
+    private static IConfiguration Configuration(params (string Key, string Value)[] extra)
+    {
+        var values = new Dictionary<string, string?> { ["QUANT_WORKER_SECRET"] = "synthetic-public-refresh-secret-for-tests", ["QUANT_PUBLIC_REFRESH_ENABLED"] = "true" };
+        foreach (var pair in extra) values[pair.Key] = pair.Value;
+        return new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+    }
     private sealed class WarningLog : ILogger<PublicSnapshotRefresher>
     {
         internal int Warnings;
@@ -85,7 +88,7 @@ public sealed class PublicRefreshSchedulingTests
     public void DisplayAndCoalescedExplicitRequestsUseTheSameConfiguredInterval()
     {
         var clock = new ManualClock(DateTimeOffset.UtcNow);
-        var config = Configuration(("QUANT_PUBLIC_REFRESH_INTERVAL_SECONDS", "45"));
+        var config = Configuration(("QUANT_PUBLIC_REFRESH_INTERVAL_SECONDS", "45"), ("QUANT_PUBLIC_REFRESH_ENABLED", "false"));
         var snapshot = new PublicMarketSnapshot(clock, configuration: config);
         snapshot.RequestRefresh();
         Assert.True(snapshot.TakeRefreshRequest());
