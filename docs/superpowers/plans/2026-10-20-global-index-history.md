@@ -31,11 +31,11 @@
 
 ## Task 3: Native history routing and own-market refresh
 
-- [ ] RED realPGold4samecacheinputs/noextrajobs,newIDcacheisolation/wrongresponseidentity/unconnectednoqueue. RefreshduringUSwhileCNclosed,JP/HKlunch/halfday,holidays/DST; allclosedretainslastvalidandcooldown/manualrefresh, nooverlap, corebeforeaux, boundedhistoryrotationnot16jobs.
-- [ ] ImplementnativepreferredroutingandWorkerinput; deriveallquote/historylistsfromregistry, max20quotesandboundedaux. Routinegatedbyanyactualmarketwindow; per-marketbatchcacheskeylive/closedphase soopeningcannotreuseclosedTTL, closedquotesretainoriginalclockswithlongerTTL, missingcalendar staysunknown. Explicitrefresh/coldstart mayprepareall, neverreceipt-as-source.
-- [ ] Keeprestingcachedsnapshotavailablethroughweekend/holidaywithoutpromotingfresh; adjustderivedsnapshotretentiononlyifnecessary, testemptyguardaccountprivacyunchanged. Publishmarket_sessions/refreshwindowmetadatathroughexistingAPI ifneeded; truthfulUIcopy. RunactualPGCIandexistingrefresh/latency/UIchecks. Commit.
+- [x] RED realPGold4samecacheinputs/noextrajobs,newIDcacheisolation/wrongresponseidentity/unconnectednoqueue. RefreshduringUSwhileCNclosed,JP/HKlunch/halfday,holidays/DST; allclosedretainslastvalidandcooldown/manualrefresh, nooverlap, corebeforeaux, boundedhistoryrotationnot16jobs.
+- [x] ImplementnativepreferredroutingandWorkerinput; deriveallquote/historylistsfromregistry, max20quotesandboundedaux. Routinegatedbyanyactualmarketwindow; per-marketbatchcacheskeylive/closedphase soopeningcannotreuseclosedTTL, closedquotesretainoriginalclockswithlongerTTL, missingcalendar staysunknown. Explicitrefresh/coldstart mayprepareall, neverreceipt-as-source.
+- [x] Keeprestingcachedsnapshotavailablethroughweekend/holidaywithoutpromotingfresh; adjustderivedsnapshotretentiononlyifnecessary, testemptyguardaccountprivacyunchanged. Publishmarket_sessions/refreshwindowmetadatathroughexistingAPI ifneeded; truthfulUIcopy. RunactualPGCIandexistingrefresh/latency/UIchecks. Commit.
 
 ## Task 4: StageC acceptance
 
-- [ ] Reviewwholefinaldiffinaseparateauthorpass, recordlimitationsclearly(noadditionalagentswithoutapplicableauthorization). FullLinuxCIrealPG/Worker0skip, frontendNode/type/lint/format/build+connectedbrowser,sourcechecks,actualhistory/qualityliveobservationswithprovidererrorsdistinctfromcodepass.
-- [ ] UpdateAPI/docs/evidence/centralprogress, allrulings/minorsandremainingD/E. No mainmerge/deploy; continuefundtaxonomyinventoryandimplementation.
+- [x] Reviewwholefinaldiffinaseparateauthorpass, recordlimitationsclearly(noadditionalagentswithoutapplicableauthorization). FullLinuxCIrealPG/Worker0skip, frontendNode/type/lint/format/build+connectedbrowser,sourcechecks,actualhistory/qualityliveobservationswithprovidererrorsdistinctfromcodepass.
+- [x] UpdateAPI/docs/evidence/centralprogress, allrulings/minorsandremainingD/E. No mainmerge/deploy; continuefundtaxonomyinventoryandimplementation.

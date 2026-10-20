@@ -60,4 +60,6 @@ Task 2 Linux CI：[`cae5c14` / run 39449715183](https://github.com/Lemondick/qua
 
 ## 后续任务
 
-阶段 C 还需最后 Linux 数据库 CI 与整体作者独立复核、文档验收归档。基金多维分类与行业/概念/地域板块属于后续阶段 D/E，不能据此文档宣称完成。
+阶段 C 完成：最终源码 `5c032b8ccc3e42f5463a8b469cf86cfe7d8e0ef2`，[Linux CI39453954440](https://github.com/Lemondick/quant-to-riches/actions/runs/39453954440) 四作业成功，Python520 / 真实PG-.NET460 / Worker148 / 工具15 / 报告5全部通过且零跳过；前端Node55、原生演示与独立连接模式构建/浏览器通过。整体作者另行逐路径复核，已发现的质量/缓存与旧快照问题均带RED修复并进入该CI，没有尚未裁决的阶段C问题。源码之后只归档Markdown，完整八项交付见[阶段C验收](global-index-history-acceptance-20261020.md)。一次更新任务引用后的即时GET读到旧值，之后无缓存读取确认精确5c032b8与main仍4311614；未重复强推或改写主分支。
+
+基金多维分类与行业/概念/地域板块属于后续阶段 D/E，继续实施；不能据此文档宣称它们完成。
