@@ -1,6 +1,6 @@
 # Registry-driven index strip Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Doc02 StageB: display all16registered indices in originalVue market page, truthful per-item quality, registry-driven index history selection, responsive accessible browsing. Preserve11page structure/theme/navigation, fundtop10/search/follow, sectors, and actual candle aggregation.
 
@@ -30,8 +30,8 @@
 
 **Interfaces:** indexCards(snapshot) ordereddefinitions -> view with definition, quoteorundefined, formattedvalue/change/percent/tone/qualitylabel/reason/source label. Use stableID + matchingregistryexchange_code/market/currency, finitepositivequoteprice/finitechangepercent and exactuniquecandidate; statusinvalid/unavailable overridesdisplay. indexHistoryResponse(value,id) rejectswrongID/items shape and unsupportedquality. No sourceclockrepair.
 
-- [ ] RED Nodecases16orderedcards, shuffledquotes,1missing,wrongID/symbol/market/currency,duplicateID,allstates,0neutral/negative/positiveindependentorder,null/NaN,provisionalflag,sourcezone/missingclock,wronghistoryresponseID andunconnectedempty.
-- [ ] Implement minimumutility, keeprawquote clocks separate. Expected alltargettests pass, existingqualitytests pass. Commit.
+- [x] RED Nodecases16orderedcards, shuffledquotes,1missing,wrongID/symbol/market/currency,duplicateID,allstates,0neutral/negative/positiveindependentorder,null/NaN,provisionalflag,sourcezone/missingclock,wronghistoryresponseID andunconnectedempty.
+- [x] Implement minimumutility, keeprawquote clocks separate. Expected alltargettests pass, existingqualitytests pass. Commit.
 
 ## Task 2: Original UI index strip and registry selector
 
@@ -39,9 +39,9 @@
 
 **Interfaces:** Strip receives snapshot; carddata-testid/data-index-id expose stableIDsforDOMchecks, horizontalcontainer accessiblelabel. IndexHistory receives IndexDefinition[]/registryVersion, defaultverified沪深300bydeclaredlegacyalias(no duplicatednames), use index_id request & registry-version cachekey, validate exactid. CandleChartCard existing errorstring can carryhistory_not_connected, actualchartheight retained.
 
-- [ ] RED actualbrowser assertions16cards(no4slice),dynamiccolors,nostaticbars,16selectoptions,unknown/invaliddash andunsupportedhistorytext. Update test-onlyfixture fromsharedJSON, explicit sourcefixturemarkers; productiondoesnotloadfixtures.
-- [ ] Implement strip four-to-sixdesktop andmobile snap, sourceclock/status/reason, provisionallabel, uniqueIDkey; replace oldmain4+fixedsubstrip andtable withregistry-drivenrows. RemovefixedStatCardbararray (do not introducefakedecoration). Preservefund/sectortabs andallunrelatedpageclasses.
-- [ ] Implement dynamicselector stableID and exacthistoryIDguard; clear/omitoldpoints onselectionchanges; errors/capability visible. Expected targetedbrowser+types+unit pass. Commit.
+- [x] RED actualbrowser assertions16cards(no4slice),dynamiccolors,nostaticbars,16selectoptions,unknown/invaliddash andunsupportedhistorytext. Update test-onlyfixture fromsharedJSON, explicit sourcefixturemarkers; productiondoesnotloadfixtures.
+- [x] Implement strip four-to-sixdesktop andmobile snap, sourceclock/status/reason, provisionallabel, uniqueIDkey; replace oldmain4+fixedsubstrip andtable withregistry-drivenrows. RemovefixedStatCardbararray (do not introducefakedecoration). Preservefund/sectortabs andallunrelatedpageclasses.
+- [x] Implement dynamicselector stableID and exacthistoryIDguard; clear/omitoldpoints onselectionchanges; errors/capability visible. Expected targetedbrowser+types+unit pass. Commit.
 
 ## Task 3: Responsive/interaction acceptance and docs
 

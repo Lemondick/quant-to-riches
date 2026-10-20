@@ -16,6 +16,7 @@ function snapshot() {
       name: d.name,
       market: d.market,
       currency: d.currency,
+      asset_type: 'index',
       price: '100',
       change: String((i % 3) - 1),
       change_rate: String((i % 3) - 1),
@@ -54,6 +55,8 @@ test('conflicting identities and duplicate IDs never borrow a quote', () => {
     ['market', 'US'],
     ['currency', 'USD'],
     ['id', 'us.sp500'],
+    ['name', '平安银行'],
+    ['asset_type', 'stock'],
   ]) {
     const data = snapshot()
     data.indices[0][key] = value

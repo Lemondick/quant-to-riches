@@ -20,7 +20,7 @@ const routes = [
   ['/portfolio', '组合分析', '.kpi-grid .metric-card:last-child'],
   ['/ledger', '交易账本', 'table[aria-label="账户交易账本"]'],
   ['/watchlist', '我的自选', 'table[aria-label="账户自选列表"]'],
-  ['/market', '市场行情', '.stats-grid .stat-card:last-child'],
+  ['/market', '市场行情', '.index-strip .index-card:first-child'],
   ['/ai-stock', 'AI选股', '.ai-hero'],
   ['/fund-review', '基金复核', '.kpi-grid .metric-card:last-child'],
   ['/quant', '量化策略', '.strategy-cards'],
@@ -105,10 +105,16 @@ try {
   await page.setViewportSize({ width: 2323, height: 1080 })
   await page.goto(base + '/market')
   await page.locator('.stat-card').nth(2).waitFor()
-  const partialGap = await page
-    .locator('.stats-grid')
-    .evaluate((node) => node.getBoundingClientRect().right - node.lastElementChild.getBoundingClientRect().right)
-  if (stage !== 'before') assert.ok(partialGap < 2, 'Three available indices must fill the row')
+  const partialState = {
+    cards: await page.locator('[data-index-id]').count(),
+    available: (await page.locator('[data-index-id] .stat-value').allTextContents()).filter((value) => value !== '—')
+      .length,
+  }
+  if (stage !== 'before') {
+    assert.equal(partialState.cards, 16, 'Registry keeps independent unavailable slots')
+    const values = await page.locator('[data-index-id] .stat-value').allTextContents()
+    assert.equal(values.filter((value) => value !== '—').length, 3, 'Three actual quotes remain independently visible')
+  }
   partialIndices = false
   await context.close()
 
@@ -221,7 +227,7 @@ try {
         fixture_scope:
           'Read-only local fixtures; normal motion; 100ms delay for JS module requests; excludes public API/network latency',
         layouts,
-        partial_index_unused_right_px: partialGap,
+        partial_indices: partialState,
         idle_business_reads: idleBusinessReads,
         loaded_before_first_click: loadedBeforeClick,
         timings,

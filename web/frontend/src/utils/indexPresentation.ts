@@ -31,7 +31,7 @@ export function indexCards(snapshot?: Pick<MarketSnapshot, 'indices' | 'index_re
     if (quote?.quality_status && severity[quality(quote.quality_status)] > severity[state]) state = quality(quote.quality_status)
     let reason = status?.quality_reason ?? quote?.quality_reason ?? ''
     const price = numeric(quote?.price), change = numeric(quote?.change), rate = numeric(quote?.change_rate)
-    if (matches.length > 1 || quote && (quote.symbol !== definition.exchange_code || quote.market !== definition.market || quote.currency !== definition.currency || price === undefined || price <= 0 || change === undefined || rate === undefined)) {
+    if (matches.length > 1 || quote && (quote.symbol !== definition.exchange_code || quote.name !== definition.name || quote.asset_type !== 'index' || quote.market !== definition.market || quote.currency !== definition.currency || price === undefined || price <= 0 || change === undefined || rate === undefined)) {
       state = 'invalid'; reason = 'index_identity_or_value_mismatch'; quote = undefined
     } else if (!quote) { if (state !== 'invalid') state = 'unavailable'; reason ||= 'quote_not_returned' }
     const clock = sourceLabel(quote?.source_time, definition.timezone)

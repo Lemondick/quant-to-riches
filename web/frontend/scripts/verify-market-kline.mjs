@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { preview } from 'vite'
-import { responseFor } from './ui-layout-fixtures.mjs'
+import { indexRegistry, responseFor } from './ui-layout-fixtures.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url)),
   repo = path.resolve(root, '../..')
@@ -13,7 +13,7 @@ const output = path.join(repo, 'output/playwright/market-kline-20261018')
 await mkdir(output, { recursive: true })
 const server = await preview({
   root,
-  build: { outDir: path.join(repo, 'output/kline-v14/ui/build') },
+  build: { outDir: process.env.QUANT_KLINE_BUILD || path.join(repo, 'output/kline-v14/ui/build') },
   preview: { host: '127.0.0.1', port: 0 },
 })
 const base = `http://127.0.0.1:${server.httpServer.address().port}`
@@ -38,9 +38,16 @@ try {
             status: 503,
             json: { error_code: 'public_snapshot_unavailable', message: 'preparing' },
           })
-        const symbol = url.searchParams.get('symbol')
+        const definition = indexRegistry.find(
+          (row) =>
+            row.id === url.searchParams.get('index_id') ||
+            (row.legacy_history_symbol && row.legacy_history_symbol === url.searchParams.get('symbol')),
+        )
+        assert.ok(definition)
+        const symbol = definition.exchange_code
         return route.fulfill({
           json: {
+            id: definition.id,
             symbol,
             name: symbol === '000300' ? '沪深300' : '上证指数',
             source: 'explicit-local-layout-fixture',
@@ -80,12 +87,12 @@ try {
     const page = await context.newPage()
     page.on('pageerror', (error) => errors.push(error.message))
     await page.goto(base + '/market')
-    const index = page.locator('.candle-card[data-symbol="000300"]')
+    const index = page.locator('.candle-card[data-symbol="cn.csi.300"]')
     await index.locator('.terminal-canvas canvas').first().waitFor()
     await page.waitForFunction(
       () =>
         !document
-          .querySelector('.candle-card[data-symbol="000300"] .chart-caption')
+          .querySelector('.candle-card[data-symbol="cn.csi.300"] .chart-caption')
           ?.textContent.includes('最近有效快照'),
       undefined,
       { timeout: 5000 },
@@ -112,8 +119,8 @@ try {
     await index.getByRole('button', { name: 'MACD', exact: true }).click()
     assert.equal(await index.getByRole('button', { name: 'MACD', exact: true }).getAttribute('aria-pressed'), 'false')
     await index.getByRole('button', { name: 'MACD', exact: true }).click()
-    await index.getByRole('combobox', { name: '选择指数' }).selectOption('000001')
-    await page.locator('.candle-card[data-symbol="000001"] .terminal-canvas canvas').first().waitFor()
+    await index.getByRole('combobox', { name: '选择指数' }).selectOption('cn.sse.composite')
+    await page.locator('.candle-card[data-symbol="cn.sse.composite"] .terminal-canvas canvas').first().waitFor()
     checks.push(width + ': real OHLC, periods, keyboard, zoom, indicator and index change')
     await page.getByRole('button', { name: '基金榜', exact: true }).click()
     const fundLink = page.getByRole('button', { name: '布局验收基金', exact: true })

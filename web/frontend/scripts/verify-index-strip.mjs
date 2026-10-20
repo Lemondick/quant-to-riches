@@ -17,6 +17,12 @@ const browser = await chromium.launch({ headless: true })
 const errors = [],
   checks = []
 let mode = 'normal'
+let releaseOld
+let markOldRequested
+const oldRequested = new Promise((resolve) => {
+  markOldRequested = resolve
+})
+const historyIds = []
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 }, reducedMotion: 'reduce' })
   page.setDefaultTimeout(10000)
@@ -25,6 +31,22 @@ try {
     assert.equal(route.request().method(), 'GET')
     const url = new URL(route.request().url()),
       data = structuredClone(responseFor(url))
+    if (url.pathname.endsWith('/market/history')) {
+      const id = url.searchParams.get('index_id')
+      historyIds.push(id)
+      if (mode === 'wrong-history' && id === 'cn.sse.composite') data.id = 'cn.csi.300'
+      if (mode === 'late-history' && id === 'cn.sse.composite') {
+        markOldRequested()
+        await new Promise((resolve) => {
+          releaseOld = resolve
+        })
+      }
+    }
+    if (mode === 'one-missing' && url.pathname.endsWith('/market/snapshot')) {
+      data.indices.splice(4, 1)
+      data.index_statuses[4].quality_status = 'unavailable'
+    }
+    if (mode === 'missing-clock' && url.pathname.endsWith('/market/snapshot')) data.indices[0].source_time = null
     if (mode === 'mixed' && url.pathname.endsWith('/market/snapshot')) {
       data.indices.splice(4, 1)
       data.index_statuses[4].quality_status = 'unavailable'
@@ -93,11 +115,48 @@ try {
   assert.match(await page.locator('[data-index-id]').nth(2).innerText(), /数据校验未通过/)
   assert.match(await page.locator('[data-index-id]').nth(4).innerText(), /暂不可用/)
   assert.equal(await page.locator('[data-index-id]').nth(4).locator('.stat-value').innerText(), '—')
+  mode = 'one-missing'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
+  assert.equal(
+    (await page.locator('[data-index-id] .stat-value').allTextContents()).filter((value) => value !== '—').length,
+    15,
+  )
+  mode = 'missing-clock'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
+  assert.equal(await page.locator('[data-index-id]').first().locator('.index-source').innerText(), '来源时间未知')
+  assert.match(await page.locator('[data-index-id]').first().innerText(), /时间待核验/)
+  mode = 'wrong-history'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
+  await page.getByLabel('选择指数', { exact: true }).selectOption('cn.sse.composite')
+  await page.getByText('指数历史标识与当前选择不一致。', { exact: true }).waitFor()
+  assert.equal(await page.locator('.candle-card canvas').count(), 0)
+  mode = 'late-history'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
+  await page.getByLabel('选择指数', { exact: true }).selectOption('cn.sse.composite')
+  await oldRequested
+  assert.equal(await page.locator('.candle-card canvas').count(), 0)
+  await page.getByLabel('选择指数', { exact: true }).selectOption('cn.szse.component')
+  await page.locator('.candle-card[data-symbol="cn.szse.component"] canvas').first().waitFor()
+  releaseOld()
+  await page.waitForTimeout(150)
+  assert.equal(await page.locator('.candle-card').getAttribute('data-symbol'), 'cn.szse.component')
+  assert.match(await page.locator('.candle-card h2').innerText(), /深证成指/)
+  assert.ok(historyIds.every((id) => indexRegistry.some((row) => row.id === id)))
+  await page.getByRole('button', { name: '基金榜', exact: true }).click()
+  await page.getByRole('heading', { name: '指数型基金日涨幅前十', exact: true }).waitFor()
+  await page.getByLabel('搜索基金名称或代码', { exact: true }).fill('510300')
+  await page.getByRole('button', { name: '布局验收基金', exact: true }).waitFor()
+  await page.getByRole('button', { name: '板块', exact: true }).click()
+  await page.getByRole('heading', { name: /板块/ }).first().waitFor()
   assert.deepEqual(errors, [])
   await writeFile(
     path.join(output, 'summary.json'),
     JSON.stringify(
-      { fixture: 'explicit-local-layout-fixture, no production or account writes', checks, errors },
+      { fixture: 'explicit-local-layout-fixture, no production or account writes', checks, historyIds, errors },
       null,
       2,
     ),

@@ -1,6 +1,6 @@
 <template>
   <section aria-label="市场指数" class="index-region">
-    <p class="subtle index-help">横向浏览全部指数 · 公开来源可能延迟，未公布延迟时长以未知标注。</p>
+    <p class="subtle index-help">横向浏览全部指数 · 公开源延迟时长未知，各项以来源时间为准。</p>
     <div v-if="cards.length" ref="track" class="index-strip" role="list" tabindex="0" aria-label="指数卡片，左右方向键浏览，Home 和 End 跳到首尾" @keydown="scrollWithKeys">
       <article v-for="card in cards" :key="card.definition.id" class="stat-card index-card" :class="card.tone" :data-index-id="card.definition.id" role="listitem" tabindex="0" :aria-label="card.definition.name + '，' + card.qualityLabel + '，' + card.value">
         <div class="stat-top"><strong>{{ card.definition.name }}<small v-if="card.definition.product_status === 'provisional'" class="provisional">暂定</small></strong><span class="index-market">{{ markets[card.definition.market] ?? card.definition.market }} · {{ card.definition.currency }}</span></div>
