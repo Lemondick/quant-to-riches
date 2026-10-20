@@ -7,6 +7,7 @@ public sealed record PublicSnapshot(JsonObject Data, DateTime CompletedAt);
 
 public sealed class PublicSnapshotRepository(AccountDatabase database)
 {
+    public static readonly TimeSpan MarketRetention=TimeSpan.FromDays(14);
     public async Task<JsonObject> OfficialNavAsync(string[] symbols, CancellationToken cancellation = default)
     {
         var rows = await database.QueryAsync("""
@@ -35,11 +36,11 @@ public sealed class PublicSnapshotRepository(AccountDatabase database)
         return result;
     }
 
-    public Task<int> TrimAsync(CancellationToken cancellation = default) => database.ReadAsync(sql => sql.ExecuteAsync("DELETE FROM public_compute_snapshots WHERE expires_at<now()-interval '7 days'"), cancellation);
+    public Task<int> TrimAsync(CancellationToken cancellation = default) => database.ReadAsync(sql => sql.ExecuteAsync("DELETE FROM public_compute_snapshots WHERE (kind='market.snapshot' AND completed_at<now()-make_interval(secs=>$1)) OR (kind<>'market.snapshot' AND expires_at<now()-interval '7 days')",(int)MarketRetention.TotalSeconds), cancellation);
     public async Task<CachedPublicResult?> ReadAsync(string kind, string input, CancellationToken cancellation = default)
     {
         if (!ComputeJobRepository.IndependentPublicKinds.Contains(kind)) throw new ArgumentException("公开资料类型无效");
-        var age = kind is "fund.detail" or "market.history" ? 7 * 86400 : 86400;
+        var age = kind=="market.snapshot"?(int)MarketRetention.TotalSeconds:kind is "fund.detail" or "market.history" ? 7 * 86400 : 86400;
         var rows = await database.QueryAsync("SELECT result_json,completed_at,expires_at>now() AS fresh FROM public_compute_snapshots WHERE kind=$1 AND input_json=$2::jsonb AND completed_at>now()-make_interval(secs=>$3) ORDER BY completed_at DESC LIMIT 1", [kind, input, age], cancellation);
         return rows.FirstOrDefault() is JsonObject row ? new CachedPublicResult(row["result_json"]!.ToJsonString(), row["fresh"]!.GetValue<bool>(), DateTimeOffset.Parse(row["completed_at"]!.GetValue<string>()).UtcDateTime) : null;
     }
@@ -48,9 +49,9 @@ public sealed class PublicSnapshotRepository(AccountDatabase database)
     {
         var rows = await database.QueryAsync("""
             SELECT result_json,completed_at FROM public_compute_snapshots
-            WHERE kind='market.snapshot' AND input_json->>'section' IS NULL AND completed_at>now()-interval '24 hours'
+            WHERE kind='market.snapshot' AND input_json->>'section' IS NULL AND completed_at>now()-make_interval(secs=>$1)
             ORDER BY completed_at DESC LIMIT 1
-            """, [], cancellation);
+            """, [(int)MarketRetention.TotalSeconds], cancellation);
         return rows.FirstOrDefault() is JsonObject row
             ? new PublicSnapshot(row["result_json"]!.AsObject(), DateTimeOffset.Parse(row["completed_at"]!.GetValue<string>()).UtcDateTime) : null;
     }

@@ -170,7 +170,24 @@ public static class PublicDataQuality
             foreach (var row in Rows("period_returns").Where(row => !row.ContainsKey("methodology")))
             { row["return_rate"] = null; row["quality_status"] = "unavailable"; row["reason"] = "legacy_return_unverified"; }
         }
-        if (kind == "market.history") Stamp(data, "historical_quote", "index", Rows("items").Select(row => Text(row, "date")).Max(), now, calendars);
+        if (kind == "market.history")
+        {
+            var prior = Text(data,"quality_status"); var reason = Text(data,"quality_reason");
+            var cachedStale = data["stale"] is JsonValue flag && flag.TryGetValue<bool>(out var old) && old;
+            var last = Rows("items").Select(row => Text(row,"date")).Max();
+            Stamp(data,"historical_quote","index",last,now,calendars);
+            if (prior is not null && prior is not ("valid" or "stale" or "unknown_time" or "invalid" or "unavailable")) { data["quality_status"]="invalid";data["quality_reason"]="unknown_history_quality"; }
+            else if (prior is "invalid" or "unavailable") { data["quality_status"]=prior; data["quality_reason"]=reason; }
+            else if (Text(data,"quality_status")!="invalid" && DateOnly.TryParseExact(last,"yyyy-MM-dd",out var date))
+            {
+                var session=MarketSessions.Latest(now,calendars??MarketCalendars.Builtin,Text(data,"market")??"CN",false);
+                if(session is null) { data["quality_status"]="unknown_time"; data["quality_reason"]="calendar_or_session_unavailable"; }
+                else if(date<session) { data["quality_status"]="stale"; data["quality_reason"]="history_last_session_old"; }
+                else if(cachedStale || prior=="stale") { data["quality_status"]="stale"; data["quality_reason"]=reason??"history_refresh_pending"; }
+            }
+            var stale=cachedStale||Text(data,"quality_status")=="stale";
+            data["stale"]=stale;data["is_stale"]=stale;
+        }
         data["cache_read_at"] = now.ToString("O");
     }
 }

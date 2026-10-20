@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.providers.data_quality import MemoryCache, metadata
 from quant_assistant.providers.index_registry import definitions, get_index, registry_version
+from quant_assistant.providers.market_calendar import MarketCalendars, in_refresh_window
 from quant_assistant.providers.public_http import PublicHttp
 
 if TYPE_CHECKING:
@@ -96,6 +97,8 @@ def _quote(
     )
     if info["quality_status"] == "invalid":
         raise IndexQuoteError("invalid_source_time")
+    if info["quality_status"] == "unavailable":
+        raise IndexQuoteError(info["quality_reason"] or "quote_unavailable", "unavailable")
     return MarketQuote(
         id=definition.id,
         symbol=definition.exchange_code,
@@ -214,12 +217,17 @@ def _yahoo(payload, row, fetched, calendar):
         prior_day = datetime.fromtimestamp(dates[-2], zone).date()
         if last_day != observed.date() or prior_day >= last_day:
             raise IndexQuoteError("invalid_daily_observations")
-        price, previous, daily_close = (
+        price, previous = (
             _number(meta["regularMarketPrice"]),
             _number(closes[-2]),
-            _number(closes[-1]),
         )
-        if previous <= 0 or abs(price - daily_close) > Decimal("0.03"):
+        # Yahoo can publish an actual metadata quote before its daily OHLC row.
+        # A missing daily close cannot contradict that quote; a supplied one must match.
+        if (
+            previous <= 0
+            or closes[-1] is not None
+            and abs(price - _number(closes[-1])) > Decimal("0.03")
+        ):
             raise IndexQuoteError("inconsistent_quote_values")
         # chartPreviousClose is the close BEFORE the full requested chart window.
         # It is never used as yesterday's close for a multi-session chart.
@@ -243,12 +251,22 @@ def _yahoo(payload, row, fetched, calendar):
 
 class IndexQuoteProvider:
     def __init__(
-        self, *, http=None, now=None, calendar=None, ttl_seconds=5, monotonic_clock=time.monotonic
+        self,
+        *,
+        http=None,
+        now=None,
+        calendar=None,
+        ttl_seconds=5,
+        closed_ttl_seconds=300,
+        monotonic_clock=time.monotonic,
     ):
         if not 0 < ttl_seconds <= 300:
             raise ValueError("invalid index cache interval")
+        if not ttl_seconds <= closed_ttl_seconds <= 3600:
+            raise ValueError("invalid closed index cache interval")
         self.now = now or (lambda: datetime.now(SHANGHAI_TZ))
         self.http, self.calendar, self.ttl = http or PublicHttp(now=self.now), calendar, ttl_seconds
+        self.closed_ttl = closed_ttl_seconds
         self._batches = MemoryCache(capacity=8, clock=monotonic_clock)
         self._rows = MemoryCache(capacity=32, clock=monotonic_clock)
 
@@ -290,11 +308,20 @@ class IndexQuoteProvider:
         return rows
 
     def _batch(self, selected):
+        active = in_refresh_window(
+            self.now(),
+            self.calendar if self.calendar is not None else MarketCalendars.builtin(),
+            selected[0].market,
+        )
         try:
             rows, _ = self._batches.read(
-                (registry_version(), tuple(row.id for row in selected)),
+                (
+                    registry_version(),
+                    tuple(row.id for row in selected),
+                    "active" if active else "rest",
+                ),
                 lambda: self._load(selected),
-                ttl=self.ttl,
+                ttl=self.ttl if active else self.closed_ttl,
                 stale_on_error=False,
             )
             return rows
@@ -316,7 +343,7 @@ class IndexQuoteProvider:
         groups, found, errors = {}, {}, {}
         for row in selected:
             if row.enabled and row.quote.verification_status == "verified":
-                groups.setdefault(row.quote.provider, []).append(row)
+                groups.setdefault((row.quote.provider, row.market), []).append(row)
             else:
                 errors[row.id] = IndexQuoteError("mapping_not_verified", "unavailable")
         if groups:

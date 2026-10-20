@@ -58,6 +58,20 @@ def latest_session(now, calendars, market="CN", auction_supported=False):
     return None
 
 
+def in_refresh_window(now, calendars, market="CN"):
+    if market not in ZONES:
+        return False
+    local = now.astimezone(ZoneInfo(ZONES[market]))
+    rows = periods(market, local.date())
+    if rows is None or calendars.trading_day(local.date(), market) is not True:
+        return False
+    close = max(end for _, end, phase in rows if phase in {"continuous_trading", "auction"})
+    return (
+        market_session(now, calendars, market) in {"continuous_trading", "auction"}
+        or close <= minute(local.time()) <= close + 5
+    )
+
+
 def session_boundary(now, session, auction_supported=False, market="CN"):
     rows = periods(market, session)
     if rows is None:

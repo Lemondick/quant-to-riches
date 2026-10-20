@@ -27,15 +27,25 @@ public sealed class MarketController(ComputeService compute,ILedgerRepository le
         var definition=indexId is not null?IndexRegistry.Get(indexId):symbol is not null?IndexRegistry.ResolveLegacy(symbol):throw new ArgumentException("请选择指数");
         if(symbol is not null && symbol!=definition.ExchangeCode)throw new ArgumentException("指数标识与代码不一致");
         var identity=IndexRegistry.JsonDefinitions().OfType<JsonObject>().Single(row=>row["id"]!.GetValue<string>()==definition.Id).DeepClone();
-        if(definition.History?.VerificationStatus!="verified" || definition.LegacyHistorySymbol is null)
+        if(!definition.Enabled || definition.History?.VerificationStatus!="verified")
             return Ok(new JsonObject{["id"]=definition.Id,["index_id"]=definition.Id,["symbol"]=definition.ExchangeCode,["name"]=definition.Name,["market"]=definition.Market,["currency"]=definition.Currency,["index_definition"]=identity,["items"]=new JsonArray(),["quality_status"]="unavailable",["quality_reason"]="history_not_connected",["source_time"]=null,["fetched_at"]=null,["stale"]=false,["unavailable"]=new JsonArray("history")});
-        // Preserve the exact legacy cache/job input for the four connected histories.
-        var result=await compute.ReadPublic(Id,"market.history",new{symbol=definition.LegacyHistorySymbol},cancellation,refresh);
+        // Existing four inputs remain byte compatible; other series have independent stable-ID inputs.
+        var input=definition.LegacyHistorySymbol is { } legacy?new JsonObject{["symbol"]=legacy}:new JsonObject{["index_id"]=definition.Id};
+        var result=await compute.ReadPublic(Id,"market.history",input,cancellation,refresh);
         var data=result.Data?.AsObject()??throw new QuantAssistant.Core.Errors.ApplicationFailure("public_snapshot_unavailable",503,"指数历史暂不可用。");
-        if(data["symbol"] is JsonValue cached && cached.GetValue<string>()!=definition.ExchangeCode || data["id"] is JsonValue cachedId && cachedId.GetValue<string>()!=definition.Id)
-            throw new QuantAssistant.Core.Errors.ApplicationFailure("invalid_public_snapshot",503,"指数历史标识不一致。");
+        async Task<IActionResult> Reprepare()
+        {
+            compute.DiscardPublic(Id,"market.history",input);
+            await compute.QueuePublicRefresh(Id,"market.history",input,cancellation,force:true);
+            throw new QuantAssistant.Core.Errors.ApplicationFailure("public_snapshot_unavailable",503,"指数历史未通过校验，正在重新准备。");
+        }
+        bool Match(string key,string expected,bool required=false)=>data[key] is JsonValue value&&value.TryGetValue<string>(out var text)&&text==expected || !required&&!data.ContainsKey(key);
+        var strict=definition.LegacyHistorySymbol is null;
+        if(!Match("symbol",definition.ExchangeCode,true)||!Match("id",definition.Id,strict)||!Match("market",definition.Market,strict)||!Match("currency",definition.Currency,strict)||!Match("source_symbol",definition.History.Symbol,strict)||!Match("source",definition.History.Provider,strict))
+            return await Reprepare();
         data["id"]=definition.Id;data["index_id"]=definition.Id;data["name"]=definition.Name;data["market"]=definition.Market;data["currency"]=definition.Currency;data["calendar_id"]=definition.CalendarId;data["index_definition"]=identity;
         PublicDataQuality.Apply("market.history",data,DateTimeOffset.UtcNow,calendars:calendars?.CurrentSnapshot);
+        if(data["items"] is not JsonArray {Count:>0} || data["quality_status"]?.GetValue<string>() is "invalid" or "unavailable") return await Reprepare();
         Response.Headers["X-Public-Cache"]=result.Cache;return Ok(data);
     }
     [HttpGet("market/quotes")]

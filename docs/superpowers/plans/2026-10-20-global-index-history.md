@@ -19,15 +19,15 @@
 
 ## Task 1: Verified global calendar/session quality
 
-- [ ] RED sharedPython/.NETcases CNunchanged,HKholidayOct19vsCNopen,JPholidayOct12vsUSopen,USNYDSTMarch/November,HKhalfFeb16/Dec24/Dec31andnoafternoon,USNov27/Dec24close13,JP09/11:30/12:30/15:25/15:30,missingyear/unknownmarket,latestpriorholiday/missingcrossyear,closing/lunchboundaries andauctioncapability. InvalidsharedschedulecannotfallbackCN.
-- [ ] Implementsharedresources/readers+embedding+own-marketmetadata. Addseparatesessionrevision/sourcefieldswhereuseful. ExistingcalendarteststhatassumedHKunconfigurednowuseEmptyfixture, notsilentlydeleteunknownmarketcoverage. ExplicitstageAforeignunknown testsuseEmptyforeigncalendarwhenneeded.
-- [ ] Runfocused/source/fullPython/Worker/nativechecks; realLinuxPGCI required. Commitonlytaskfiles, publishtaskbranchforCI. Recordallrulings.
+- [x] RED sharedPython/.NETcases CNunchanged,HKholidayOct19vsCNopen,JPholidayOct12vsUSopen,USNYDSTMarch/November,HKhalfFeb16/Dec24/Dec31andnoafternoon,USNov27/Dec24close13,JP09/11:30/12:30/15:25/15:30,missingyear/unknownmarket,latestpriorholiday/missingcrossyear,closing/lunchboundaries andauctioncapability. InvalidsharedschedulecannotfallbackCN.
+- [x] Implementsharedresources/readers+embedding+own-marketmetadata. Addseparatesessionrevision/sourcefieldswhereuseful. ExistingcalendarteststhatassumedHKunconfigurednowuseEmptyfixture, notsilentlydeleteunknownmarketcoverage. ExplicitstageAforeignunknown testsuseEmptyforeigncalendarwhenneeded.
+- [x] Runfocused/source/fullPython/Worker/nativechecks; realLinuxPGCI required. Commitonlytaskfiles, publishtaskbranchforCI. Recordallrulings.
 
 ## Task 2: Per-index true daily history
 
-- [ ] RED exactprovideridentity/type/market/currency/timezone,wrongcode/futures/nonfinite/inconsistentOHLC/duplicate/unordered/future/knowncloseddate,partialtodaybar,missingvolume,isolatedsourcefailures,atmost641Tencent/640publishedbound, oldfouraliases,registeredunknown,unsupportedhistorynotqueued.
-- [ ] ImplementTencentCN/HK/USverifiedhistoryandEastmoneyBJ plusNikkeiYahoo cashhistoryonlyifindependentlyverified. Updateoneauthorityhistorycapability/evidence withoutconfusingquoteverification/productstatus. IfallverifiedpublicsourcesfailNikkei, keepunavailablehonestandcaptureexactlimitation; do notstopother15. No cross-sourcepointstitching or fakeNAV/intraday/volume.
-- [ ] Validateallactualsavedpayloadswithoutpermanentlivepricefixtures, boundedliveprobe throughactualadapterwhereappropriate; runWorker/Pythoncontracts/source. Commit.
+- [x] RED exactprovideridentity/type/market/currency/timezone,wrongcode/futures/nonfinite/inconsistentOHLC/duplicate/unordered/future/knowncloseddate,partialtodaybar,missingvolume,isolatedsourcefailures,atmost641Tencent/640publishedbound, oldfouraliases,registeredunknown,unsupportedhistorynotqueued.
+- [x] ImplementTencentCN/HK/USverifiedhistoryandEastmoneyBJ plusNikkeiYahoo cashhistoryonlyifindependentlyverified. Updateoneauthorityhistorycapability/evidence withoutconfusingquoteverification/productstatus. IfallverifiedpublicsourcesfailNikkei, keepunavailablehonestandcaptureexactlimitation; do notstopother15. No cross-sourcepointstitching or fakeNAV/intraday/volume.
+- [x] Validateallactualsavedpayloadswithoutpermanentlivepricefixtures, boundedliveprobe throughactualadapterwhereappropriate; runWorker/Pythoncontracts/source. Commit.
 
 ## Task 3: Native history routing and own-market refresh
 

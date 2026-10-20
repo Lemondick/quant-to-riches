@@ -4,7 +4,7 @@
     <BackendState :error="error" :refreshing="refreshing" :has-data="!!data" @retry="refreshMarket()" />
     <div class="market-nav-tabs" role="group" aria-label="行情分类"><button v-for="tab in tabs" :key="tab.id" type="button" class="market-tab-btn" :class="{ active: currentTab === tab.id }" :aria-pressed="currentTab === tab.id" @click="currentTab = tab.id">{{ tab.label }}</button></div>
     <template v-if="data">
-      <p class="market-observation" role="status">{{ sessionLabel }} · 页面每 15 秒检查更新，交易时段后台每 30 秒采集；各项时间以数据源为准。</p>
+      <p class="market-observation" role="status">{{ sessionLabel }} · 页面每 15 秒检查更新，各市场按本地时段采集（后台间隔 {{ data.refresh_interval_seconds ?? 30 }} 秒）；公开源可能延迟，以各项来源时间为准。</p>
       <div v-if="currentTab === 'index'" class="tab-content-fade">
         <IndexQuoteStrip :snapshot="data" />
         <div class="two-col">
@@ -87,7 +87,8 @@ const breadthStats = computed(() => {
     { label: '较前日成交比', value: value?.turnover_ratio == null ? '—' : Number(value.turnover_ratio).toFixed(2) + ' 倍', title: value?.previous_trade_date ? `统计日成交额 / ${value.previous_trade_date} 全天成交额` : '统计日成交额 / 前一交易日全天成交额' },
   ]
 })
-const sessionLabel = computed(() => ({ pre_market: '盘前 · 展示最近有效行情', auction: '集合竞价 · 以来源支持为准', continuous_trading: '连续交易', lunch_break: '午间休市', trading: '交易时段', break: '午间休市', closed: '休市 · 展示最近有效行情', unknown: '交易日状态待确认' })[data.value?.market_session ?? 'unknown'])
+const phaseLabel = (phase: string) => ({ pre_market: '盘前', auction: '集合竞价', continuous_trading: '连续交易', lunch_break: '午休', trading: '交易时段', break: '午休', closed: '休市', unknown: '状态待核验' })[phase] ?? '状态待核验'
+const sessionLabel = computed(() => data.value?.market_sessions ? Object.entries({ CN: 'A股', HK: '港股', JP: '日本', US: '美股' }).map(([id, name]) => `${name} ${phaseLabel(data.value!.market_sessions![id] ?? 'unknown')}`).join(' / ') : 'A股 ' + phaseLabel(data.value?.market_session ?? 'unknown'))
 const sourceLabel = (source: string) => ({ eastmoney: '东方财富', sina: '新浪财经', unknown: '原始快照' })[source as 'eastmoney' | 'sina' | 'unknown'] ?? source
 const displayTime = (value?: string | null) => value ? value.slice(0, 19).replace('T', ' ') : '未取得'
 const sectorSource = ref(''), sectorCategory = ref('行业'), sectorQuery = ref('')

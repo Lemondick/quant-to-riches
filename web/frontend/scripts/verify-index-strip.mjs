@@ -34,6 +34,14 @@ try {
     if (url.pathname.endsWith('/market/history')) {
       const id = url.searchParams.get('index_id')
       historyIds.push(id)
+      if (mode === 'registry-version')
+        for (const bar of data.items)
+          for (const field of ['open', 'high', 'low', 'close']) bar[field] = String(Number(bar[field]) + 1000)
+      if (mode === 'partial-history' && id === 'us.sp500') {
+        data.source = 'tencent'
+        data.last_bar_partial = true
+        data.items.at(-1).is_partial = true
+      }
       if (mode === 'unconnected-history' && id === 'jp.nikkei225') {
         data.items = []
         data.quality_status = 'unavailable'
@@ -52,6 +60,10 @@ try {
         })
       }
     }
+    if (mode === 'registry-version' && url.pathname.endsWith('/market/snapshot'))
+      data.registry_version = 'explicit-layout-fixture-v2'
+    if (mode === 'partial-history' && url.pathname.endsWith('/market/snapshot'))
+      data.market_sessions = { CN: 'closed', HK: 'closed', JP: 'closed', US: 'continuous_trading' }
     if (mode === 'one-missing' && url.pathname.endsWith('/market/snapshot')) {
       data.indices.splice(4, 1)
       data.index_statuses[4].quality_status = 'unavailable'
@@ -115,6 +127,12 @@ try {
   }
   await page.getByLabel('选择指数', { exact: true }).selectOption('jp.nikkei225')
   await page.locator('.candle-card[data-symbol="jp.nikkei225"] canvas').first().waitFor()
+  mode = 'partial-history'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
+  await page.getByLabel('选择指数', { exact: true }).selectOption('us.sp500')
+  await page.getByText(/末根日线未完成或收盘未核验/).waitFor()
+  assert.match(await page.locator('.market-observation').innerText(), /美股 连续交易/)
   mode = 'unconnected-history'
   await page.reload()
   await page.locator('[data-index-id]').first().waitFor()
@@ -166,6 +184,12 @@ try {
   await page.waitForTimeout(150)
   assert.equal(await page.locator('.candle-card').getAttribute('data-symbol'), 'cn.szse.component')
   assert.match(await page.locator('.candle-card h2').innerText(), /深证成指/)
+  assert.equal(await page.locator('.candle-card .terminal-readout strong').last().innerText(), '3207.00')
+  const readsBeforeVersionChange = historyIds.length
+  mode = 'registry-version'
+  await page.getByRole('button', { name: '刷新行情', exact: true }).click()
+  await page.locator('.candle-card .terminal-readout').getByText('4207.00', { exact: true }).waitFor()
+  assert.ok(historyIds.length > readsBeforeVersionChange)
   assert.ok(historyIds.every((id) => indexRegistry.some((row) => row.id === id)))
   await page.getByRole('button', { name: '基金榜', exact: true }).click()
   await page.getByRole('heading', { name: '指数型基金日涨幅前十', exact: true }).waitFor()

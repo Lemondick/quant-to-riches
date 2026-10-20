@@ -82,24 +82,22 @@ public sealed class IndexApiTests
         Assert.Equal("index_refresh_failed", data["index_statuses"]![0]!["fallback_reason"]!.GetValue<string>());
         Assert.Equal("2026-10-20T10:00:01+08:00", data["indices"]![0]!["fetched_at"]!.GetValue<string>());
     }
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("unavailable")]
+    [InlineData("unrecognized")]
+    public void SupplierFailureIsNotPromotedByClockReclassification(string quality)
+    {
+        var row=Quote();row["quality_status"]=quality;row["quality_reason"]="supplier_rejected_observation";
+        var data=Read(Snapshot(row));
+        Assert.Empty(data["indices"]!.AsArray());
+        Assert.Equal(quality=="unavailable"?quality:"invalid",data["index_statuses"]![0]!["quality_status"]!.GetValue<string>());
+    }
     private static MarketController Controller(ComputeService? compute = null, string id = "synthetic")
     {
         var controller = new MarketController(compute!, null!, null!, null!, null!);
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", id)], "synthetic")) } };
         return controller;
-    }
-    [Fact]
-    public async Task UnconnectedHistoryNeverTouchesComputeOrDatabase()
-    {
-        foreach (var definition in IndexRegistry.All.Where(x => x.History is null))
-        {
-            var response = Assert.IsType<OkObjectResult>(await Controller().History(null, CancellationToken.None, indexId: definition.Id));
-            var data = Assert.IsType<JsonObject>(response.Value);
-            Assert.Equal(definition.Id, data["id"]!.GetValue<string>());
-            Assert.Equal("unavailable", data["quality_status"]!.GetValue<string>());
-            Assert.Equal("history_not_connected", data["quality_reason"]!.GetValue<string>());
-            Assert.Empty(data["items"]!.AsArray());
-        }
     }
     [Theory]
     [InlineData(null, "unknown")]

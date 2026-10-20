@@ -8,6 +8,7 @@ from pathlib import Path
 from quant_assistant.providers.data_quality import metadata
 from quant_assistant.providers.market_calendar import (
     MarketCalendars,
+    in_refresh_window,
     latest_session,
     market_session,
 )
@@ -20,6 +21,16 @@ FIXTURES = json.loads(
 
 
 class GlobalMarketSessionsTests(unittest.TestCase):
+    def test_refresh_windows_include_own_closing_grace_and_exclude_lunch_holidays(self):
+        for row in FIXTURES["refresh_windows"]:
+            with self.subTest(row=row):
+                self.assertEqual(
+                    in_refresh_window(
+                        datetime.fromisoformat(row["now"]), MarketCalendars.builtin(), row["market"]
+                    ),
+                    row["active"],
+                )
+
     def test_shared_full_half_holiday_and_dst_sessions(self):
         calendars = MarketCalendars.builtin()
         for row in FIXTURES["sessions"]:

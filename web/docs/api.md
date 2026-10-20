@@ -22,7 +22,11 @@
 
 报价新增稳定 `id`、`currency`、`currency_basis`、`calendar_id`、`source_symbol`、`raw_source_time`、`change_basis`、`cache_fallback`、`cache_read_at`；原 `price/change/change_rate` 保留十进制字符串。来源未给时间时 `observed_at/source_time` 可以为 null，不能使用接收时间代替。`fetched_at` 是原响应接收时间，读取缓存不重写它。
 
-已登记但尚未接通历史的指数返回200、准确ID、空 `items`、`quality_status=unavailable`、`quality_reason=history_not_connected`，不会创建历史任务、返回500或借用其他指数曲线。当前历史能力仍为原四项，后续逐项核验扩展。
+已登记但尚未接通历史的指数返回200、准确ID、空 `items`、`quality_status=unavailable`、`quality_reason=history_not_connected`，不会创建历史任务、返回500或借用其他指数曲线。注册表 `2026-10-20.3` 已核验16项历史映射：腾讯 CN/HK/US、东方财富北证50、Yahoo 日经现货；实际可用性逐次校验，不承诺公共源持续在线。原四项输入不变，其余项 Worker 使用 `index_id`。身份冲突、空历史、无效质量会逐出 API 成功内存缓存并重新准备，返回 `503 public_snapshot_unavailable`，不会把错误身份改名成当前选择。
+
+历史最多返回640条合格日 OHLC，十进制保持文本；日期为实际交易日，不补缺口。`is_partial`/`last_bar_partial` 表示当日未完成或收盘尚未核验；`omitted_incomplete_bars` 说明剔除的来源末行不完整日线，末日落后时标 stale。`history_start/history_end/history_count` 为实际覆盖，`source_quote_time` 仅是同响应报价时钟，不能代替日线收盘证明。日期型历史的 `source_time` 为空，`trade_date/updated_at` 保留末日，`fetched_at` 与读取缓存时间独立。成交量单位尚未核验，暂省略 `volume` 并返回 `volume_status=omitted_unverified_unit`。
+
+快照增量返回四市场 `market_sessions` 与 `refresh_active_markets`；旧 `market_session` 仍是 CN 兼容字段。海外当前核验2026年日历/半日市，缺失年份保持未知。自动采集根据各市场时段，包含各自收盘后5分钟；主行情完成后每轮最多预热2项历史。主快照的旧证据最多保留14天并标 stale，不能把这个保留期当作基金净值时效或实时行情承诺。
 
 注册表为 Python 打包资源与 .NET 嵌入的同一个 JSON；Vue 从接口读取定义。腾讯响应未提供币种，明确标注注册定义/供应商命名空间依据；日经 Yahoo 核验 INDEX/JPY/东京时区，以相邻真实日收盘计算涨跌，不能将多日 `chartPreviousClose` 当作昨日收盘。海外日历未核验时 `unknown_time`，不使用中国日历。公开源可能延迟或限流，采集/缓存周期不是实时性承诺。中证1000仍是产品暂定项。
 

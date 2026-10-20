@@ -38,7 +38,14 @@ public static class PublicIndexProjection
                     && (Text(row, "source_symbol") is null || Text(row, "source_symbol") == definition.Quote.Symbol)
                     && (Text(row, "name") == definition.Name || definition.Quote.ResponseNames.Contains(Text(row, "name")))
                     && Number(row, "price", out var price) && price > 0 && Number(row, "change_rate", out _);
-                if (!valid)
+                var declared=Text(row,"quality_status");
+                if(declared is "invalid" or "unavailable" || declared is not null && declared is not ("valid" or "stale" or "unknown_time"))
+                {
+                    foreach(var key in StatusFields)if(row.ContainsKey(key))status[key]=row[key]?.DeepClone();
+                    status["quality_status"]=declared=="unavailable"?"unavailable":"invalid";
+                    status["quality_reason"]=declared is "invalid" or "unavailable"?Text(row,"quality_reason")??"provider_rejected_observation":"unknown_quote_quality";
+                }
+                else if (!valid)
                 { status["quality_status"] = "invalid"; status["quality_reason"] = "index_identity_or_value_mismatch"; }
                 else
                 {

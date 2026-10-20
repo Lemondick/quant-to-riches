@@ -8,6 +8,16 @@ namespace QuantAssistant.Api.Tests;
 
 public sealed class GlobalMarketSessionsTests
 {
+    [Fact]
+    public void RefreshWindowsIncludeOwnClosingGraceAndExcludeLunchHolidays()
+    {
+        using var data=JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"global-market-sessions.json")));
+        foreach(var row in data.RootElement.GetProperty("refresh_windows").EnumerateArray())
+            Assert.Equal(row.GetProperty("active").GetBoolean(),MarketSessions.InRefreshWindow(DateTimeOffset.Parse(row.GetProperty("now").GetString()!),MarketCalendars.Builtin,row.GetProperty("market").GetString()!));
+        var usOpen=DateTimeOffset.Parse("2026-10-20T14:00:00Z");
+        Assert.True(PublicSnapshotRefresher.InMarketWindow(usOpen,MarketCalendars.Builtin));
+        Assert.False(PublicSnapshotRefresher.InMarketWindow(usOpen,MarketCalendars.Empty));
+    }
     public static IEnumerable<object[]> Sessions()
     {
         using var data = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "global-market-sessions.json")));

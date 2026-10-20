@@ -105,7 +105,7 @@ class IndexQuoteTests(unittest.TestCase):
         batch = provider(http).fetch()
         self.assertEqual([row.id for row in batch.items], [row.id for row in definitions()])
         self.assertEqual(len(batch.statuses), 16)
-        self.assertEqual(len(http.calls), 2)
+        self.assertEqual(len(http.calls), 4)
         zero = next(row for row in batch.items if row.id == "cn.sse.composite")
         self.assertEqual(
             (zero.price, zero.change, zero.change_rate),
@@ -122,6 +122,20 @@ class IndexQuoteTests(unittest.TestCase):
         row = next(row for row in batch.items if row.id == "jp.nikkei225")
         self.assertEqual((row.change, row.change_rate), (Decimal("10"), Decimal("10")))
         self.assertEqual(row.change_basis, "previous_daily_close")
+
+    def test_nikkei_metadata_quote_remains_usable_when_latest_daily_close_is_null(self):
+        http = SyntheticHttp()
+        http.yahoo["chart"]["result"][0]["indicators"]["quote"][0]["close"][-1] = None
+        result = provider(http).fetch()
+        row = next(item for item in result.items if item.id == "jp.nikkei225")
+        self.assertEqual(
+            (row.price, row.change, row.change_rate), (Decimal("110"), Decimal("10"), Decimal("10"))
+        )
+        self.assertEqual(row.source_time, "2026-10-20T11:00:00+09:00")
+        self.assertEqual(row.change_basis, "previous_daily_close")
+        http.yahoo["chart"]["result"][0]["indicators"]["quote"][0]["close"][-1] = 999
+        invalid = provider(http).fetch()
+        self.assertNotIn("jp.nikkei225", {item.id for item in invalid.items})
 
     def test_one_wrong_code_name_or_namespace_only_invalidates_that_index(self):
         for changes in ({"f2": "600000"}, {"f1": "浦发银行"}, {"f0": "51"}):
@@ -294,6 +308,61 @@ class IndexQuoteTests(unittest.TestCase):
         self.assertEqual(
             next(row for row in recovered.items if row.id == old.id).price, Decimal("105")
         )
+
+    def test_closed_market_cache_is_separate_and_opening_does_not_reuse_its_long_ttl(self):
+        http, ticks = SyntheticHttp(), [0.0]
+        source = provider(http, closed_ttl_seconds=300, monotonic_clock=lambda: ticks[0])
+        original = source.fetch()
+        self.assertEqual(len(http.calls), 4)
+        old_us = next(row for row in original.items if row.id == "us.sp500")
+        ticks[0] = 6
+        http.now += timedelta(seconds=6)
+        again = source.fetch()
+        self.assertEqual(len(http.calls), 7)  # CN/HK/JP active; US still closed.
+        self.assertEqual(
+            next(row for row in again.items if row.id == old_us.id).fetched_at, old_us.fetched_at
+        )
+        ticks[0] = 10
+        http.now = datetime.fromisoformat("2026-10-20T09:30:00-04:00")
+        source.fetch()
+        self.assertEqual(len(http.calls), 11)
+        self.assertTrue(any("q=us." in url for url, _ in http.calls[7:]))
+
+    def test_one_market_batch_failure_does_not_invalidate_other_markets_on_same_provider(self):
+        http = SyntheticHttp()
+        original = http.get
+
+        def fail_us(url, **kwargs):
+            if "q=us." in url:
+                raise OSError("synthetic US source failure")
+            return original(url, **kwargs)
+
+        http.get = fail_us
+        result = provider(http).fetch()
+        self.assertEqual(len(result.items), 13)
+        self.assertEqual(
+            {row.id for row in result.statuses if row.quality_status == "unavailable"},
+            {"us.dowjones", "us.nasdaq.composite", "us.sp500"},
+        )
+
+    def test_unsupported_auction_never_overwrites_last_qualified_quote(self):
+        http = SyntheticHttp()
+        source = provider(http)
+        source.fetch()
+        http.now = datetime.fromisoformat("2026-10-20T14:58:00+08:00")
+        http.lines["cn.sse.composite"] = tencent_line(
+            get_index("cn.sse.composite"), f3="777", f31="677", f32="677", f30="20261020145800"
+        )
+        source.expire()
+        during = next(row for row in source.fetch().items if row.id == "cn.sse.composite")
+        self.assertEqual(during.price, Decimal("100"))
+        self.assertEqual(during.source_time, "2026-10-20T10:00:00+08:00")
+        http.now += timedelta(minutes=3)
+        http.lines.pop("cn.sse.composite")
+        source.expire()
+        after = next(row for row in source.fetch().items if row.id == "cn.sse.composite")
+        self.assertEqual(after.price, Decimal("100"))
+        self.assertTrue(after.cache_fallback)
 
 
 if __name__ == "__main__":

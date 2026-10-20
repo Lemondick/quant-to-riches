@@ -21,6 +21,16 @@ public static class MarketSessions
     public static string Classify(DateTimeOffset now, MarketCalendars calendars, string market = "CN") => Local(now, market) is { } local
         ? Classify(now, DateOnly.FromDateTime(local.DateTime), calendars.TradingDay(market, DateOnly.FromDateTime(local.DateTime)), market) : "unknown";
 
+    public static bool InRefreshWindow(DateTimeOffset now, MarketCalendars calendars, string market)
+    {
+        if(Local(now,market) is not { } local) return false;
+        var day=DateOnly.FromDateTime(local.DateTime);
+        if(calendars.TradingDay(market,day)!=true || MarketSessionRules.For(market,day) is not { } rows) return false;
+        var close=rows.Where(row=>row.Phase is "continuous_trading" or "auction").Max(row=>row.End);
+        var minute=local.TimeOfDay.TotalMinutes;
+        return Classify(now,calendars,market) is "continuous_trading" or "auction" || minute>=close&&minute<=close+5;
+    }
+
     public static DateOnly? Latest(DateTimeOffset now, MarketCalendars calendars, string market, bool auctionSupported)
     {
         if (Local(now, market) is not { } local) return null;

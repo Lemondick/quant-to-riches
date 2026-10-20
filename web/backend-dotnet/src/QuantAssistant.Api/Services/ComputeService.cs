@@ -36,10 +36,19 @@ public sealed class ComputeService(ComputeJobRepository jobs, AnalysisSnapshotRe
         !accountSnapshot && ComputeJobRepository.PublicCacheSeconds(kind) > 0
             ? $"compute:{userId}:{kind}:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)))}" : null;
 
+    public void DiscardPublic(string userId,string kind,object input)
+    {
+        if(!ComputeJobRepository.IndependentPublicKinds.Contains(kind))throw new ArgumentException("公开资料类型无效");
+        var payload=JsonSerializer.SerializeToNode(input,InputOptions)!.ToJsonString();
+        cache.Remove(CacheKey(userId,kind,payload)!);
+    }
+
     private void Remember(string? key, string kind, JsonNode? data, DateTime? completedAt)
     {
         if (key is null || data is null || completedAt is null || data["stale"]?.GetValue<bool>() == true) return;
-        var expiresAt = completedAt.Value.AddSeconds(ComputeJobRepository.PublicCacheSeconds(kind));
+        // A currently open market can replace the shared history while this process is serving it.
+        var seconds = kind == "market.history" ? 60 : ComputeJobRepository.PublicCacheSeconds(kind);
+        var expiresAt = completedAt.Value.AddSeconds(seconds);
         if (expiresAt > DateTime.UtcNow) cache.Set(key, data.DeepClone(), new DateTimeOffset(expiresAt));
     }
 

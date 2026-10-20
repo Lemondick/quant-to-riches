@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "registry_version": "2026-10-20.2",
+  "registry_version": "2026-10-20.3",
   "definitions": [
     {
       "id": "cn.sse.composite",
@@ -610,9 +610,10 @@
         "currency_basis": "provider_metadata",
         "source_timezone": "Asia/Tokyo",
         "verification_status": "verified",
-        "verified_at": "2026-10-20T12:54:09.123013+00:00",
+        "verified_at": "2026-10-20T15:54:47.264578+00:00",
         "evidence_urls": [
-          "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=5d&interval=1d"
+          "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=5d&interval=1d",
+          "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?range=2y&interval=1d"
         ]
       },
       "legacy_history_symbol": null

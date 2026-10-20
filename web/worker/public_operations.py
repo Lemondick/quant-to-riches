@@ -63,7 +63,12 @@ def execute_public(kind: str, payload: dict) -> dict:
 
         from quant_assistant.common.performance import traced_get
 
-        return index_history(payload["symbol"], http_get=traced_get, calendar=calendar)
+        return index_history(
+            payload.get("symbol"),
+            index_id=payload.get("index_id"),
+            http_get=traced_get,
+            calendar=calendar,
+        )
     from quant_assistant.controllers.schemas import (
         FundDetailResponse,
         FundValuationsResponse,

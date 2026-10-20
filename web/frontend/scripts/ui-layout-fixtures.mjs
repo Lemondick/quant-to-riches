@@ -120,10 +120,10 @@ export function responseFor(url) {
       unavailable: [],
       items: ['2026-10-14', '2026-10-15', '2026-10-16'].map((date, i) => ({
         date,
-        open: String(3000 + i),
-        high: String(3010 + i),
-        low: String(2990 + i),
-        close: String(3005 + i),
+        open: String(3000 + definition.display_order * 100 + i),
+        high: String(3010 + definition.display_order * 100 + i),
+        low: String(2990 + definition.display_order * 100 + i),
+        close: String(3005 + definition.display_order * 100 + i),
         volume: '100',
       })),
     }

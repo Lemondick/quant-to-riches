@@ -6,6 +6,7 @@ import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -104,6 +105,30 @@ def fetch(row, body=None, **kwargs):
 
 
 class GlobalIndexHistoryTests(unittest.TestCase):
+    def test_worker_preferred_and_legacy_inputs_reach_the_real_history_adapter(self):
+        from public_operations import execute_public
+
+        for row, data in [
+            (get_index("us.sp500"), {"index_id": "us.sp500"}),
+            (get_index("cn.csi.300"), {"symbol": "000300"}),
+        ]:
+            body = payload(row)
+            with (
+                self.subTest(id=row.id),
+                patch(
+                    "quant_assistant.common.performance.traced_get",
+                    return_value=SimpleNamespace(
+                        json=lambda body=body: body, raise_for_status=lambda: None
+                    ),
+                ) as http,
+            ):
+                result = execute_public(
+                    "market.history", {**data, "_calendars": MarketCalendars.builtin().to_payload()}
+                )
+                self.assertEqual(result["id"], row.id)
+                self.assertEqual(len(result["items"]), 2)
+                self.assertEqual(http.call_count, 1)
+
     def test_all_sixteen_exact_identities_have_independent_real_history_capabilities(self):
         for row in definitions():
             with self.subTest(id=row.id):
@@ -225,11 +250,30 @@ class GlobalIndexHistoryTests(unittest.TestCase):
 
     def test_nikkei_missing_null_or_differently_sized_ohlc_arrays_are_rejected(self):
         row = get_index("jp.nikkei225")
-        for values in ([10], [10, None], [10, float("inf")]):
+        for values in ([10], [None, 12], [10, float("inf")]):
             body = payload(row)
             body["chart"]["result"][0]["indicators"]["quote"][0]["open"] = values
             with self.subTest(values=values), self.assertRaises(ValueError):
                 fetch(row, body)
+
+    def test_nikkei_incomplete_latest_daily_row_is_omitted_without_inventing_ohlc(self):
+        row = get_index("jp.nikkei225")
+        body = payload(row)
+        for key in ("open", "close", "high", "low"):
+            body["chart"]["result"][0]["indicators"]["quote"][0][key][-1] = None
+        result = fetch(row, body)
+        self.assertEqual(len(result["items"]), 1)
+        self.assertEqual(result["history_end"], "2026-10-19")
+        self.assertEqual(result["quality_status"], "stale")
+        self.assertEqual(result["omitted_incomplete_bars"], 1)
+        body = payload(row)
+        body["chart"]["result"][0]["indicators"]["quote"][0]["close"][-1] = None
+        result = fetch(row, body)
+        self.assertEqual(result["history_end"], "2026-10-19")
+        self.assertEqual(result["omitted_incomplete_bars"], 1)
+        body["chart"]["result"][0]["indicators"]["quote"][0]["high"][-1] = float("inf")
+        with self.assertRaises(ValueError):
+            fetch(row, body)
 
     def test_failure_in_one_history_does_not_poison_the_other_identifiers(self):
         with self.assertRaises(PublicHttpError):

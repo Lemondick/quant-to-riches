@@ -75,7 +75,7 @@ def _tencent(payload, row):
             or observed.utcoffset() != naive.replace(tzinfo=observed.tzinfo, fold=1).utcoffset()
         ):
             raise ValueError("invalid history source clock")
-    return part["day"], observed, 641
+    return part["day"], observed, 641, 0
 
 
 def _eastmoney(payload, row):
@@ -93,7 +93,7 @@ def _eastmoney(payload, row):
         not isinstance(item, str) for item in data["klines"]
     ):
         raise ValueError("invalid daily observations")
-    return [item.split(",") for item in data["klines"]], None, 640
+    return [item.split(",") for item in data["klines"]], None, 640, 0
 
 
 def _yahoo(payload, row):
@@ -138,7 +138,29 @@ def _yahoo(payload, row):
     stamp = meta.get("regularMarketTime")
     if type(stamp) is not int:
         raise ValueError("invalid history source clock")
-    return rows, datetime.fromtimestamp(stamp, zone), 640
+    observed = datetime.fromtimestamp(stamp, zone)
+    omitted = 0
+    if (
+        rows
+        and rows[-1][0] == observed.date().isoformat()
+        and any(value is None for value in rows[-1][1:])
+    ):
+        # A latest incomplete daily row is not an OHLC bar. Validate supplied
+        # values before omitting it, and expose the omission and older end date.
+        values = [None if value is None else _number(value) for value in rows[-1][1:]]
+        opening, close, high, low = values
+        if any(value is not None and value <= 0 for value in values) or (
+            high is not None and low is not None and high < low
+        ):
+            raise ValueError("inconsistent incomplete OHLC")
+        for value in (opening, close):
+            if value is not None and (
+                high is not None and value > high or low is not None and value < low
+            ):
+                raise ValueError("inconsistent incomplete OHLC")
+        rows.pop()
+        omitted = 1
+    return rows, observed, 640, omitted
 
 
 def _load(http, row):
@@ -185,7 +207,7 @@ def index_history(symbol=None, *, index_id=None, http_get=requests.get, calendar
     local = instant.astimezone(ZoneInfo(row.timezone))
     calendars = calendar if calendar is not None else MarketCalendars.builtin()
     http = _transport(http_get) if now is None else PublicHttp(http_get, now=lambda: instant)
-    bars, observed, bound, fetched = _load(http, row)
+    bars, observed, bound, omitted, fetched = _load(http, row)
     if not isinstance(bars, list) or not 1 <= len(bars) <= bound:
         raise ValueError("missing or excessive index history")
     if observed is not None and observed > instant + timedelta(minutes=1):
@@ -270,6 +292,7 @@ def index_history(symbol=None, *, index_id=None, http_get=requests.get, calendar
         "unavailable": [],
         "source_quote_time": observed.isoformat() if observed else None,
         "last_bar_partial": items[-1]["is_partial"],
+        "omitted_incomplete_bars": omitted,
         "volume_status": "omitted_unverified_unit",
         "history_count": len(items),
         "history_start": items[0]["date"],

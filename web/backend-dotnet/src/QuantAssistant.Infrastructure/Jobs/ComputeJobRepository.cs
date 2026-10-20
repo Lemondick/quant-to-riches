@@ -69,10 +69,11 @@ public sealed class ComputeJobRepository(string connectionString)
 
     public string Enqueue(string userId, string kind, string inputJson, DateTime deadline, bool reuseCompleted = true) => EnqueueAsync(userId, kind, inputJson, deadline, reuseCompleted).GetAwaiter().GetResult();
 
-    public async Task<string> EnqueueAsync(string userId, string kind, string inputJson, DateTime deadline, bool reuseCompleted = true, CancellationToken cancellation = default)
+    public async Task<string> EnqueueAsync(string userId, string kind, string inputJson, DateTime deadline, bool reuseCompleted = true, CancellationToken cancellation = default, int pendingLimit=20)
     {
         using var timing = PerformanceTrace.Measure("db");
         if (!AllowedKinds.Contains(kind)) throw new ArgumentException("计算任务类型不受支持");
+        if(pendingLimit is <1 or >20) throw new ArgumentException("排队上限无效");
         using var parsed = JsonDocument.Parse(inputJson);
         if (parsed.RootElement.ValueKind != JsonValueKind.Object) throw new ArgumentException("计算输入无效");
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(kind + ":" + inputJson))).ToLowerInvariant();
@@ -100,7 +101,7 @@ public sealed class ComputeJobRepository(string connectionString)
         cmd.Parameters.Clear();
         cmd.CommandText = "SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND status IN ('queued','running','cancel_requested')";
         cmd.Parameters.AddWithValue(userId);
-        if ((long)(await cmd.ExecuteScalarAsync(cancellation))! >= 20) throw new JobQuotaExceeded();
+        if ((long)(await cmd.ExecuteScalarAsync(cancellation))! >= pendingLimit) throw new JobQuotaExceeded();
         var id = Guid.NewGuid().ToString("N");
         // Refresh the provider too, while retaining the original public-query hash.
         if (!reuseCompleted && IndependentPublicKinds.Contains(kind))
@@ -147,7 +148,7 @@ public sealed class ComputeJobRepository(string connectionString)
             WHERE j.status='queued' AND u.status='active' AND j.kind=ANY($1)
               AND (j.kind=ANY($2) OR NOT EXISTS(SELECT 1 FROM compute_jobs active WHERE active.user_id=j.user_id
                 AND active.status IN ('running','cancel_requested')))
-            ORDER BY j.created_at,j.job_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
+            ORDER BY CASE WHEN j.kind='market.snapshot' THEN 0 ELSE 1 END,j.created_at,j.job_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
             """;
         cmd.Parameters.AddWithValue(capabilities);
         cmd.Parameters.AddWithValue(IndependentPublicKinds);

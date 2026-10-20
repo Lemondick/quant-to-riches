@@ -62,7 +62,7 @@ public sealed class PublicMarketSnapshot(TimeProvider clock, TradingCalendarRepo
         if (forceRefresh) RequestRefresh();
         lock (gate)
         {
-            if (snapshot is null || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > TimeSpan.FromDays(1))
+            if (snapshot is null || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > PublicSnapshotRepository.MarketRetention)
             {
                 RequestRefresh();
                 throw new ApplicationFailure("public_snapshot_unavailable", 503, "行情快照正在准备，请稍后刷新。");
@@ -71,6 +71,9 @@ public sealed class PublicMarketSnapshot(TimeProvider clock, TradingCalendarRepo
             var stale = refreshFailed || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > settings.Interval * 2;
             data["stale"] = stale;
             data["market_session"] = calendars is null ? SessionState(clock.GetUtcNow(), calendarDay, tradingDay) : MarketSessions.Classify(clock.GetUtcNow(), calendars.CurrentSnapshot);
+            var known=calendars?.CurrentSnapshot??MarketCalendars.Builtin;
+            data["market_sessions"]=new JsonObject(MarketCalendars.Markets.Select(id=>new KeyValuePair<string,JsonNode?>(id,JsonValue.Create(MarketSessions.Classify(clock.GetUtcNow(),known,id)))));
+            data["refresh_active_markets"]=new JsonArray(MarketCalendars.Markets.Where(id=>MarketSessions.InRefreshWindow(clock.GetUtcNow(),known,id)).Select(id=>(JsonNode?)JsonValue.Create(id)).ToArray());
             data["refresh_interval_seconds"] = (int)settings.Interval.TotalSeconds;
             PublicDataQuality.Apply("market.snapshot",data,clock.GetUtcNow(),calendars:calendars?.CurrentSnapshot);
             if (section is not null)

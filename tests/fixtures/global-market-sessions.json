@@ -36,5 +36,20 @@
     {"market":"JP","now":"2026-10-20T15:27:00+09:00","source":"2026-10-20T15:27:00+09:00","status":"unavailable"},
     {"market":"JP","now":"2026-10-20T15:27:00+09:00","source":"2026-10-20T15:24:00+09:00","status":"valid"},
     {"market":"JP","now":"2026-10-20T15:31:00+09:00","source":"2026-10-20T15:30:00+09:00","status":"valid"}
+  ],
+  "refresh_windows": [
+    {"market":"US","now":"2026-10-20T14:00:00Z","active":true},
+    {"market":"CN","now":"2026-10-20T14:00:00Z","active":false},
+    {"market":"JP","now":"2026-10-20T11:45:00+09:00","active":false},
+    {"market":"HK","now":"2026-10-20T12:30:00+08:00","active":false},
+    {"market":"US","now":"2026-07-03T10:00:00-04:00","active":false},
+    {"market":"US","now":"2026-11-27T13:04:00-05:00","active":true},
+    {"market":"US","now":"2026-11-27T13:05:01-05:00","active":false},
+    {"market":"HK","now":"2026-12-24T12:14:00+08:00","active":true},
+    {"market":"HK","now":"2026-12-24T12:15:01+08:00","active":false},
+    {"market":"JP","now":"2026-10-20T15:34:00+09:00","active":true},
+    {"market":"JP","now":"2026-10-20T15:35:01+09:00","active":false},
+    {"market":"CN","now":"2026-10-20T15:04:00+08:00","active":true},
+    {"market":"CN","now":"2026-10-20T15:05:01+08:00","active":false}
   ]
 }

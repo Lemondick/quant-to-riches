@@ -278,4 +278,41 @@ public sealed class PublicRefreshSchedulingTests
         }
         finally { await Stop(service); CleanSnapshots(user); }
     }
+    [PgFact]
+    public async Task OverseasSessionContinuesAfterColdStartWithBoundedHistoryWarmup()
+    {
+        using var user=new PgTestUser();OwnWarmup(user);
+        var clock=new ManualClock(DateTimeOffset.Parse("2026-10-20T14:00:00Z"));
+        var snapshot=new PublicMarketSnapshot(clock);
+        using var memory=new MemoryCache(new MemoryCacheOptions());
+        using var service=Service(user,clock,snapshot,memory);
+        var jobs=new ComputeJobRepository(user.Connection);
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var first=await Claim(jobs,["market.snapshot"]);
+            Assert.True(await jobs.FinishAsync(user.Id,first.JobId,first.Attempt,first.OwnerToken,Result(user),null));
+            await Wait(()=>(long)user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND kind='market.news'",user.Id)!>0);
+            Assert.Equal(2L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND kind='market.history'",user.Id));
+            await Wait(()=>clock.HasTimerAfter(TimeSpan.FromSeconds(30)));
+            clock.Advance(TimeSpan.FromSeconds(30));
+            var second=await Claim(jobs,["market.snapshot"]);
+            Assert.True(await jobs.FinishAsync(user.Id,second.JobId,second.Attempt,second.OwnerToken,Result(user,"101"),null));
+            await Wait(()=>(long)user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND kind='market.history' AND input_json->>'index_id' LIKE 'us.%'",user.Id)! == 2);
+            Assert.Equal(4L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND kind='market.history'",user.Id));
+        }
+        finally { await Stop(service);CleanSnapshots(user); }
+    }
+    [PgFact]
+    public async Task AuxiliaryJobsReserveCapacityAndCoreSnapshotIsClaimedBeforeOlderHistory()
+    {
+        using var user=new PgTestUser();var jobs=new ComputeJobRepository(user.Connection);
+        for(var i=0;i<18;i++)await jobs.EnqueueAsync(user.Id,"market.history",new JsonObject{["index_id"]="synthetic-"+i}.ToJsonString(),DateTime.UtcNow.AddMinutes(2),pendingLimit:18);
+        await Assert.ThrowsAsync<QuantAssistant.Core.Jobs.JobQuotaExceeded>(()=>jobs.EnqueueAsync(user.Id,"market.history","{\"index_id\":\"overflow\"}",DateTime.UtcNow.AddMinutes(2),pendingLimit:18));
+        var core=await jobs.EnqueueAsync(user.Id,"market.snapshot","{\"section\":null}",DateTime.UtcNow.AddMinutes(2));
+        var claimed=await jobs.ClaimAsync("reserved-core-test",["market.snapshot","market.history"]);
+        Assert.Equal(core,claimed!.JobId);
+        await jobs.EnqueueAsync(user.Id,"analysis.data_status","{}",DateTime.UtcNow.AddMinutes(2));
+        await Assert.ThrowsAsync<QuantAssistant.Core.Jobs.JobQuotaExceeded>(()=>jobs.EnqueueAsync(user.Id,"analysis.data_status","{\"overflow\":true}",DateTime.UtcNow.AddMinutes(2)));
+    }
 }

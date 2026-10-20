@@ -144,7 +144,7 @@ public sealed class RemainingPerformanceTests(ITestOutputHelper output)
     [InlineData("2026-10-17T02:00:00Z", false, false)]
     [InlineData("2027-01-04T02:00:00Z", null, false)]
     public void Warmup_UsesShanghaiTradingWindowAndFailsClosedForMissingCalendar(string time, bool? trading, bool expected) =>
-        Assert.Equal(expected, PublicSnapshotRefresher.InMarketWindow(DateTimeOffset.Parse(time), trading));
+        Assert.Equal(expected, PublicSnapshotRefresher.InMarketWindow(DateTimeOffset.Parse(time), trading is null?QuantAssistant.Core.Market.MarketCalendars.Empty:QuantAssistant.Core.Market.MarketCalendars.Builtin,"CN"));
 
     [Fact]
     public async Task Notifications_BufferEarlySignals_AndCancelWaitsWithoutLeakingReaders()
