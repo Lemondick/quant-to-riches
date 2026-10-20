@@ -40,9 +40,9 @@
 
 **Files:** `backtest/metrics.py`；新增 `scripts/verify_backtest_metrics.py`。
 
-- [ ] RED：NAV、外部资金流、benchmark、费用/换手同日冲突；完全重复允许；Decimal 微差和随机重排；date 列与 DatetimeIndex 使用同一日规范化。
-- [ ] 在浮点计算前，按规范日期拒绝非相同记录，错误前缀 `conflicting_duplicate_date`；只去除真正重复，不自行合并多笔现金流。
-- [ ] 运行指标和 Task 1 OOS 回归、source verify；提交。
+- [x] RED：NAV、外部资金流、benchmark、费用/换手同日冲突；完全重复允许；Decimal 微差和随机重排；date 列与 DatetimeIndex 使用同一日规范化。
+- [x] 在浮点计算前，按规范日期拒绝非相同记录，错误前缀 `conflicting_duplicate_date`；只去除真正重复，不自行合并多笔现金流。
+- [x] 运行指标和 Task 1 OOS 回归、source verify；提交。
 
 ## Task 3: 移除未来价格上下文入口
 

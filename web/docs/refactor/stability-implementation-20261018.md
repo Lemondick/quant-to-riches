@@ -159,13 +159,21 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 计划 `docs/superpowers/plans/2026-10-20-backtest-correctness.md`，分支 `codex/backtest-correctness`。
 
-### BUG-011 样本外曲线 — 本地通过，等待阶段 Linux 门禁
+### BUG-011 样本外曲线 — PASS
 
 - 先运行 9 项数学/证据回归，11 个断言失败；累计回撤、不同长度折的波动率/夏普、缺失收益等均已复现。另有历史手工报告的 4 个误标失败、缺失预期交易日期的失败，均先 RED 后 GREEN。
 - 新增 `backtest/oos.py` 保存每折实际起点、调整后净值和基准收盘、逐日策略及基准收益。原生 BacktestResult 已提供的 `trading_dates` 现为 OOS 必需信息；它与实际 NAV、benchmark 必须逐日一致。只提供摘要、只有一个收盘、缺失观测或日期越界都拒绝，不能推测日收益。
 - 拼接有效收盘观测之间的收益后复用 `calculate_performance` 重算整体收益、年化、波动、夏普、最大回撤和基准/超额；不再平均各折统计量。每折首条收盘是起点，不编造窗口前价格；折间区间明确列出并省略，未观测收益不填零，年化按有效收益观测数。
 - 费用为各折实际费用合计，换手为各折双边换手合计，保留各折原分母；报告明确其口径，不冒充连续资本账户的全期换手。JSON 暴露逐日观测与方法，Markdown 展示起点、观测数及排除区间；旧手工结果缺少证据时保持口径未知并标研究用途。
 - 专项 11/11 通过。此前同轮全量 Python 为 455 通过、1 Linux 专属跳过（456 项，最后新增的日期声明用例另在专项执行）；source verify/ruff/format/secret scan 通过。尚未把本地跳过项计为 Linux 通过。BUG-012 / BUG-013 待后续任务。
+
+`6e9982b1eb74bd75ca0e136893072be02204b39b`：[Linux 39392460995](https://github.com/Lemondick/quant-to-riches/actions/runs/39392460995)，Python 457、.NET/PG 361、Worker 126、数据库工具 15、报告 5 全通过且 0 跳过，前端浏览器及构建通过。
+
+### BUG-012 同日冲突 — 本地通过，等待阶段 Linux 门禁
+
+- 原来 `keep=last` 会按输入顺序静默选用同日净值、外流、费用、换手和基准值；先以 7 项用例复现 12 个失败断言，另复现缺失索引日期被当成观测。
+- 在规范化日期后、float 转换前比较原始整条观测。只有相同记录去重；冲突返回 `conflicting_duplicate_date`，不自行合并多笔流水。原始日期标签以规范日键表示，因此同日不同时刻但数值完全相同的日观测可去重。
+- 日期列与 DatetimeIndex 共用规则；缺失日期/索引拒绝。随机重排 8 组记录保持全部指标一致，Decimal 微差在丢失精度前被识别。指标 8 项与 OOS 11 项共 19/19 通过，source verify/ruff/format/secret scan 通过。
 
 ## 《01》后续进度
 

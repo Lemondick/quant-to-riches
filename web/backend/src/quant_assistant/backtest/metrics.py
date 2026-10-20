@@ -90,7 +90,16 @@ def _normalise_frame(frame: pd.DataFrame, label: str) -> pd.DataFrame:
     else:
         result["_metric_key"] = result.index
 
-    result = result.drop_duplicates("_metric_key", keep="last")
+    if result["_metric_key"].isna().any():
+        raise ValueError(f"{label} contains invalid index dates")
+    duplicates = result[result["_metric_key"].duplicated(keep=False)]
+    for key, group in duplicates.groupby("_metric_key", sort=False):
+        # Compare original financial values before float conversion; the source
+        # date label itself is represented by the normalized daily key.
+        comparable = group.drop(columns=[date_column]) if date_column is not None else group
+        if len(comparable.drop_duplicates()) > 1:
+            raise ValueError(f"conflicting_duplicate_date: {label} {key}")
+    result = result.drop_duplicates("_metric_key", keep="first")
     return result.sort_values("_metric_key", kind="mergesort").reset_index(drop=True)
 
 
