@@ -6,13 +6,14 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from datetime import date
 from decimal import Decimal
-from math import isfinite, isnan, sqrt
+from math import isfinite
 from numbers import Integral
 from typing import Any, Protocol
 
 import pandas as pd
 
 from quant_assistant.backtest.metrics import PerformanceMetrics, calculate_performance
+from quant_assistant.backtest.oos import OosSeries, collect_oos, concatenate_oos
 
 
 class BacktestRunner(Protocol):
@@ -70,6 +71,7 @@ class WalkForwardFold:
     validation_metrics: PerformanceMetrics | None = None
     snapshot_ids: tuple[int, ...] = ()
     limitations: tuple[str, ...] = ()
+    oos: OosSeries | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +84,10 @@ class WalkForwardResult:
     selection_metric: str = "sharpe_zero_rate"
     strategy_version: str = ""
     benchmark_name: str = "benchmark"
+    aggregation_method: str = "unknown"
+    oos_gap_policy: str = "unknown"
+    oos_excluded_intervals: tuple[tuple[date, date], ...] = ()
+    oos_return_observations: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -288,50 +294,15 @@ def _deduplicate(items: Sequence[str]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item for item in items if item))
 
 
-def _finite_average(values: Sequence[float]) -> float:
-    valid = [value for value in values if isfinite(value)]
-    return sum(valid) / len(valid) if valid else float("nan")
-
-
-def _compound(values: Sequence[float]) -> float:
-    valid = [value for value in values if isfinite(value)]
-    if not valid:
-        return float("nan")
-    result = 1.0
-    for value in valid:
-        result *= 1.0 + value
-    return result - 1.0
-
-
 def _aggregate_metrics(folds: Sequence[WalkForwardFold]) -> PerformanceMetrics:
+    if any(fold.oos is None for fold in folds):
+        raise ValueError("oos_nav_required")
+    combined = concatenate_oos([fold.oos for fold in folds if fold.oos is not None])
     metrics = [fold.test_metrics for fold in folds]
-    total_return = _compound([item.total_return for item in metrics])
-    benchmark_return = _compound([item.benchmark_return for item in metrics])
-    total_fees = sum((item.total_fees for item in metrics), start=Decimal("0"))
-    drawdowns = [item.max_drawdown for item in metrics if isfinite(item.max_drawdown)]
-    volatilities = [
-        item.annualized_volatility for item in metrics if isfinite(item.annualized_volatility)
-    ]
-    aggregate_volatility = (
-        sqrt(sum(value * value for value in volatilities) / len(volatilities))
-        if volatilities
-        else float("nan")
-    )
-    excess_return = (
-        total_return - benchmark_return
-        if isfinite(total_return) and isfinite(benchmark_return)
-        else float("nan")
-    )
-    return PerformanceMetrics(
-        total_return=total_return,
-        annualized_return=_finite_average([item.annualized_return for item in metrics]),
-        annualized_volatility=aggregate_volatility,
-        max_drawdown=min(drawdowns) if drawdowns else float("nan"),
-        sharpe_zero_rate=_finite_average([item.sharpe_zero_rate for item in metrics]),
-        turnover=sum(item.turnover for item in metrics if not isnan(item.turnover)),
-        total_fees=total_fees,
-        benchmark_return=benchmark_return,
-        excess_return=excess_return,
+    return replace(
+        combined,
+        turnover=sum(item.turnover for item in metrics),
+        total_fees=sum((item.total_fees for item in metrics), start=Decimal("0")),
     )
 
 
@@ -413,10 +384,12 @@ def run_walk_forward(
             best.parameters,
         )
         test_output = _run(selected_engine, test_request)
-        test_metrics = _metrics_from_output(
-            test_output,
-            selected_benchmark,
-            request.base_request,
+        oos, test_metrics = collect_oos(
+            _value(test_output, "nav"),
+            _result_benchmark(test_output, selected_benchmark, request.base_request),
+            window.test_start,
+            window.test_end,
+            _value(test_output, "trading_dates"),
         )
         fold_limitations = _deduplicate(
             [
@@ -451,6 +424,7 @@ def run_walk_forward(
                 validation_metrics=best.validation_metrics,
                 snapshot_ids=fold_snapshot_ids,
                 limitations=fold_limitations,
+                oos=oos,
             )
         )
 
@@ -465,6 +439,16 @@ def run_walk_forward(
         selection_metric=request.selection_metric,
         strategy_version=strategy_version,
         benchmark_name=request.benchmark_name,
+        aggregation_method="concatenated_oos_returns",
+        oos_gap_policy="omit_unobserved_returns",
+        oos_excluded_intervals=tuple(
+            (left.oos.returns[-1].date, right.oos.baseline_date)
+            for left, right in zip(folds, folds[1:], strict=False)
+            if left.oos is not None and right.oos is not None
+        ),
+        oos_return_observations=sum(
+            len(fold.oos.returns) for fold in folds if fold.oos is not None
+        ),
     )
 
 
