@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using QuantAssistant.Infrastructure.Jobs;
 using QuantAssistant.Infrastructure.Runtime;
 using QuantAssistant.Core.Errors;
@@ -9,6 +8,7 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
     TradingCalendarRepository calendar, TimeProvider clock, IConfiguration configuration, IHostEnvironment environment, ILogger<PublicSnapshotRefresher> logger) : BackgroundService
 {
     private int detailOffset;
+    private readonly PublicRefreshSettings settings = PublicRefreshSettings.From(configuration);
     public static bool InMarketWindow(DateTimeOffset utc, bool? tradingDay)
     {
         var time = TimeOnly.FromDateTime(utc.ToOffset(TimeSpan.FromHours(8)).DateTime);
@@ -19,18 +19,21 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
         var first = true;
         while (!stoppingToken.IsCancellationRequested)
         {
-            var nextRefresh = clock.GetUtcNow().AddSeconds(30);
+            var expires = clock.GetUtcNow() + settings.Deadline;
+            using var deadline = new CancellationTokenSource(settings.Deadline, clock);
+            using var cycle = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, deadline.Token);
             try
             {
-                var saved = await repository.MarketAsync(stoppingToken);
+                var saved = await repository.MarketAsync(cycle.Token);
                 if (saved is not null) snapshot.Publish(saved.Data, saved.CompletedAt);
                 var now = clock.GetUtcNow();
                 var day = DateOnly.FromDateTime(now.ToOffset(TimeSpan.FromHours(8)).DateTime);
-                var trading = await calendar.TradingDayAsync(day, stoppingToken);
+                var trading = await calendar.TradingDayAsync(day, cycle.Token);
                 snapshot.SetTradingDay(day, trading);
                 var enabled = configuration["QUANT_PUBLIC_REFRESH_ENABLED"] is "true" || configuration["QUANT_PUBLIC_REFRESH_ENABLED"] != "false" && environment.IsProduction();
-                if (enabled && configuration["QUANT_WORKER_SECRET"] is { Length: >= 32 } && (first || InMarketWindow(now, trading)))
-                    await Refresh(stoppingToken);
+                var requested = snapshot.TakeRefreshRequest();
+                if (configuration["QUANT_WORKER_SECRET"] is { Length: >= 32 } && (requested || enabled && (first || InMarketWindow(now, trading))))
+                    await Refresh(expires, cycle.Token);
                 first = false;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
@@ -39,63 +42,53 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
                 snapshot.Failed();
                 logger.LogWarning("Public snapshot refresh failed ({ErrorType})", error.GetType().Name);
             }
-            using var interval = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            var remaining = nextRefresh - clock.GetUtcNow();
-            interval.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.FromMilliseconds(1));
             try
             {
-                await snapshot.WaitForRefresh(interval.Token);
-                // Explicit refresh is allowed outside the automatic trading window.
-                if (configuration["QUANT_WORKER_SECRET"] is { Length: >= 32 }) await Refresh(stoppingToken);
+                // Both automatic and coalesced explicit refreshes wait after completion.
+                await Task.Delay(settings.Interval, clock, stoppingToken);
             }
-            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested) { }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception error) when (error is not OutOfMemoryException)
-            {
-                snapshot.Failed();
-                logger.LogWarning("Explicit public snapshot refresh failed ({ErrorType})", error.GetType().Name);
-            }
         }
     }
-    private async Task Refresh(CancellationToken cancellation)
+    private async Task Refresh(DateTimeOffset expires, CancellationToken cancellation)
     {
         var input = await repository.WarmInputsAsync(cancellation);
         if (input.UserId is null) return;
         await repository.TrimAsync(cancellation);
-        async Task Warm(string kind, object payload)
+        TimeSpan Budget()
         {
-            try
-            {
-                var result = await compute.Run(input.UserId, kind, payload, cancellation, reuseCompleted: false);
-                if (kind == "market.snapshot" && result is JsonObject data)
-                {
-                    var saved = await repository.MarketAsync(cancellation);
-                    if (saved is not null) snapshot.Publish(data, saved.CompletedAt);
-                    else snapshot.Failed();
-                }
-            }
-            catch (ApplicationFailure error)
-            {
-                if (kind == "market.snapshot") snapshot.Failed();
-                logger.LogWarning("Public refresh {Kind} failed ({Code})", kind, error.Code);
-            }
-            catch (QuantAssistant.Core.Jobs.JobQuotaExceeded) { logger.LogDebug("Public refresh deferred while the account queue is full"); }
+            cancellation.ThrowIfCancellationRequested();
+            var remaining = expires - clock.GetUtcNow();
+            if (remaining < TimeSpan.FromSeconds(1)) throw new OperationCanceledException("Public refresh deadline elapsed", cancellation);
+            return remaining < settings.TaskTimeout ? remaining : settings.TaskTimeout;
         }
-        // Historical bars are independent and cheap; queue them before the slower all-market feed.
-        foreach (var symbol in new[] { "000300", "000001", "399001", "399006" })
-            await Queue("market.history", new { symbol });
-        // Refresh the common market snapshot first so slower individual funds cannot delay it.
-        await Warm("market.snapshot", new { section = (string?)null });
+        // Core market work must finish before any historical or fund auxiliary work.
+        var budget = Budget();
+        using (var taskDeadline = new CancellationTokenSource(budget, clock))
+        using (var task = CancellationTokenSource.CreateLinkedTokenSource(cancellation, taskDeadline.Token))
+        {
+            await compute.Run(input.UserId, "market.snapshot", new { section = (string?)null }, task.Token,
+                seconds: Math.Max(1, (int)budget.TotalSeconds), reuseCompleted: false);
+            // Data and completion time must come from the same persisted result.
+            var saved = await repository.MarketAsync(task.Token);
+            if (saved is null || !snapshot.Publish(saved.Data, saved.CompletedAt))
+                throw new ApplicationFailure("public_snapshot_unavailable", 503, "公开快照没有可发布的新观测。");
+        }
         async Task Queue(string kind, object payload)
         {
+            var remaining = Budget();
+            using var taskDeadline = new CancellationTokenSource(remaining, clock);
+            using var task = CancellationTokenSource.CreateLinkedTokenSource(cancellation, taskDeadline.Token);
             try
             {
                 var json = System.Text.Json.JsonSerializer.Serialize(payload);
-                await jobs.EnqueueAsync(input.UserId, kind, json, clock.GetUtcNow().UtcDateTime.AddSeconds(55), cancellation: cancellation);
+                await jobs.EnqueueAsync(input.UserId, kind, json, DateTime.UtcNow.Add(remaining), cancellation: task.Token);
             }
             catch (QuantAssistant.Core.Jobs.JobQuotaExceeded) { logger.LogDebug("Public refresh deferred while the account queue is full"); }
         }
         // Only enqueue auxiliary refreshes here; they cannot hold up the next market refresh.
+        foreach (var symbol in new[] { "000300", "000001", "399001", "399006" })
+            await Queue("market.history", new { symbol });
         await Queue("market.quotes", new { stocks = input.Stocks.Take(16).ToArray(), indices = new[] { "000001", "399001", "399006", "000300" } });
         await Queue("market.news", new { limit = 50 });
         foreach (var batch in input.Funds.Chunk(20)) await Queue("fund.valuations", new { symbols = batch });

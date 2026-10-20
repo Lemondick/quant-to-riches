@@ -9,6 +9,7 @@ internal sealed class ManualClock(DateTimeOffset initial) : TimeProvider
     public override DateTimeOffset GetUtcNow() { lock (gate) return now; }
     public override long GetTimestamp() => GetUtcNow().UtcTicks;
     public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+    internal bool HasTimerAfter(TimeSpan delay) { lock (gate) return timers.Any(timer => timer.Due == now + delay); }
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
         lock (gate)

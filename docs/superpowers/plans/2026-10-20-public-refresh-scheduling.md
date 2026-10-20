@@ -27,13 +27,13 @@
 
 ## Task 1: 完成后间隔、截止时间、核心优先与旧证据
 
-**Files:** `PublicSnapshotRefresher.cs`、`PublicMarketSnapshot.cs`；新增 `PublicRefreshSettings.cs`（单一配置解析）；`PublicRefreshSchedulingTests.cs`、测试用 `ManualClock.cs`；架构文档及环境示例。
+**Files:** `PublicSnapshotRefresher.cs`、`PublicMarketSnapshot.cs`；新增 `PublicRefreshSettings.cs`（单一配置解析）、`migrations/0023_public_market_snapshot_guard.sql`（派生公开缓存保护）；`PublicRefreshSchedulingTests.cs`、测试用 `ManualClock.cs`；架构文档及环境示例。
 
 **Interfaces:** `QUANT_PUBLIC_REFRESH_INTERVAL_SECONDS` 默认 30，限制 15–300；`QUANT_PUBLIC_REFRESH_DEADLINE_SECONDS` 默认 75，限制 10–180；`QUANT_PUBLIC_REFRESH_TASK_TIMEOUT_SECONDS` 默认 55，限制 5–120 且不超过整体 deadline。无效值使用默认，数字越界夹取。接口 `refresh_interval_seconds` 和手动节流复用同一配置。公开快照读取 2 个间隔后标 stale，最大保留 1 天不变。
 
-- [ ] 新增真实 PG 回归：模拟 35/60 秒后仍等待完整间隔；冷启动第一项为 market.snapshot；整体/子任务超时后取消等待、保留旧时钟；连续失败请求有界并能恢复。新增纯单元回归：全空结果不覆盖有效快照。
-- [ ] 本地先确认全空回归 RED，提交测试并在 Linux CI 确认真正的调度/优先级 RED；本地 PG 跳过不算通过。
-- [ ] 最小实现完成后间隔和合并请求，配置有界，使用 TimeProvider 超时。先 await 核心行情，再排队辅助历史、报价及基金；发布数据与持久化 completed_at 成对读取。
+- [x] 新增真实 PG 回归：模拟 35/60 秒后仍等待完整间隔；冷启动第一项为 market.snapshot；整体/子任务超时后取消等待、保留旧时钟；连续失败请求有界并能恢复。新增纯单元回归：全空结果不覆盖有效快照。
+- [x] 本地先确认全空回归 RED，提交测试并在 Linux CI 确认真正的调度/优先级 RED；本地 PG 跳过不算通过。
+- [x] 最小实现完成后间隔和合并请求，配置有界，使用 TimeProvider 超时。先 await 核心行情，再排队辅助历史、报价及基金；发布数据与持久化 completed_at 成对读取。
 - [ ] 运行 .NET 全套；修正依赖空行情夹具的测试使其包含真实形状的合成观测，不降低行为断言。补充配置边界、服务停止、连续失败恢复用例。
 - [ ] 文档统一为完成后等待配置间隔，解释显式请求也受间隔约束；提交独立变更。
 

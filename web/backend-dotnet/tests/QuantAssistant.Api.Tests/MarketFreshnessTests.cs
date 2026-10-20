@@ -50,6 +50,7 @@ public sealed class MarketFreshnessTests
     {
         var store = new PublicMarketSnapshot(TimeProvider.System);
         var data = JsonNode.Parse("""{"indices":[],"fund_rankings":[],"sector_rankings":[],"unavailable":[],"stale":false,"observed_at":"2026-10-16T15:00:00+08:00","sector_catalogs":[{"source":"sina","category":"industry","observed_at":null,"fetched_at":"2026-10-18T09:00:00+08:00","stale":true,"error":"source_unavailable"}]}""")!.AsObject();
+        data["indices"] = new JsonArray(new JsonObject { ["symbol"] = "000300", ["source"] = "synthetic", ["price"] = "100" });
         store.Publish(data, DateTime.UtcNow);
         var read = store.Read(null).Data!;
         Assert.Null(read["sector_catalogs"]![0]!["observed_at"]);

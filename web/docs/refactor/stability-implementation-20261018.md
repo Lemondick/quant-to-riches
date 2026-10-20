@@ -138,6 +138,19 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 最终 `f82a329e28550c3998c87571d00c8bcd53f60c08`：[Linux 验收 39386644058](https://github.com/Lemondick/quant-to-riches/actions/runs/39386644058)，.NET/PG 347、Worker 126、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和独立编译通过。两项审查补修均已覆盖，未留下 Minor。实现取舍及不确定性见 `public-data-quality-decisions-20261020.md`。
 
+## 《01》阶段 D：BUG-010 — 等待 Linux 验证
+
+计划 `docs/superpowers/plans/2026-10-20-public-refresh-scheduling.md`；独立分支 `codex/public-refresh-scheduling`。
+
+- 根因：按本轮开始时刻计算下次刷新，抓取超过 30 秒后仅等待 1ms；历史任务先于核心行情入队；没有整体 deadline；全空行情既能覆盖内存，也能通过数据库触发器覆盖持久化缓存。
+- 先在 `bad90a5` 跑出 [Linux RED 39388178477](https://github.com/Lemondick/quant-to-riches/actions/runs/39388178477)：353 实际执行，347 通过、6 失败、0 跳过。随后 `7b892c4` 的 [持久化 RED 39388681677](https://github.com/Lemondick/quant-to-riches/actions/runs/39388681677)：354 实际执行，347 通过、7 失败、0 跳过，确认旧快照时间被空结果更新。
+- 改为每轮完成后等待配置间隔，默认 30 秒（15–300）；整体 deadline 默认 75 秒（10–180）；子任务默认 55 秒（5–120 且不超过整体剩余时间）。TimeProvider 驱动等待与取消，单循环不重叠，不补跑错过的轮次。显式请求合并到下一轮，可在休市及自动预热关闭时执行，也遵守间隔；代价是手动请求可能等待一个配置间隔。
+- 优先 await `market.snapshot`；成功发布后才排队历史、报价及基金。失败停止本轮辅助排队，按轮次记录警告；数据和 completed_at 使用同一次持久化读取，保留来源原始时钟。
+- 内存和新增迁移 `0023_public_market_snapshot_guard.sql` 拒绝全空行情覆盖。迁移只保护派生公开缓存，没有修改已有金融事件或财务历史。架构文档、配置示例与 API `refresh_interval_seconds` 统一复用新配置；公开快照超过两个间隔标 stale。
+- 以可控时钟模拟 35/60 秒、子任务与整体超时、失败恢复、休市显式刷新；停止服务的 finally 同时验证取消等待。补充配置边界和内存/数据库两层旧证据保留。
+- 本地最终 .NET 164 通过、163 PG 项跳过；source verify/secret scan 通过。实际数据库和整个 Linux 门禁尚未通过前，不将这些跳过计入成功。
+- Git HTTPS 连接重置/端口连接失败时，通过已授权的 GitHub Git 数据接口上传，逐个校验 blob、tree 与 commit SHA 和本地完全一致；没有改写 main。
+
 ## 《01》后续进度
 
 - [x] B：BUG-003 / BUG-004，账本幂等与分红估值日约束。

@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Threading.Channels;
 using QuantAssistant.Core.Errors;
 using QuantAssistant.Infrastructure.Jobs;
 using QuantAssistant.Infrastructure.Runtime;
@@ -7,36 +6,41 @@ using QuantAssistant.Core.Market;
 
 namespace QuantAssistant.Api.Services;
 
-public sealed class PublicMarketSnapshot(TimeProvider clock, TradingCalendarRepository? calendars = null)
+public sealed class PublicMarketSnapshot(TimeProvider clock, TradingCalendarRepository? calendars = null, IConfiguration? configuration = null)
 {
+    private readonly PublicRefreshSettings settings = PublicRefreshSettings.From(configuration);
     private readonly object gate = new();
     private PublicSnapshot? snapshot;
     private bool refreshFailed;
     private DateOnly calendarDay;
     private bool? tradingDay;
     private DateTimeOffset nextRequest;
-    private readonly Channel<bool> refresh = Channel.CreateBounded<bool>(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropWrite });
+    private bool refreshRequested;
     public void RequestRefresh()
     {
         lock (gate)
         {
             if (clock.GetUtcNow() < nextRequest) return;
-            nextRequest = clock.GetUtcNow().AddSeconds(30);
-            refresh.Writer.TryWrite(true);
+            nextRequest = clock.GetUtcNow() + settings.Interval;
+            refreshRequested = true;
         }
     }
     public void SetTradingDay(DateOnly day, bool? trading) { lock (gate) { calendarDay = day; tradingDay = trading; } }
     public static string SessionState(DateTimeOffset now, DateOnly day, bool? trading)
         => MarketSessions.Classify(now, day, trading);
-    public ValueTask<bool> WaitForRefresh(CancellationToken cancellation) => refresh.Reader.ReadAsync(cancellation);
-    public void Publish(JsonObject data, DateTime completedAt)
+    public bool TakeRefreshRequest()
     {
-        if (data["indices"] is not JsonArray || data["fund_rankings"] is not JsonArray || data["sector_rankings"] is not JsonArray || data["observed_at"] is not JsonValue || data["unavailable"] is not JsonArray { Count: < 3 } || data["stale"]?.GetValue<bool>() == true) { Failed(); return; }
+        lock (gate) { var requested = refreshRequested; refreshRequested = false; return requested; }
+    }
+    public bool Publish(JsonObject data, DateTime completedAt)
+    {
+        if (data["indices"] is not JsonArray indices || data["fund_rankings"] is not JsonArray funds || data["sector_rankings"] is not JsonArray sectors || indices.Count + funds.Count + sectors.Count == 0 || data["observed_at"] is not JsonValue || data["unavailable"] is not JsonArray { Count: < 3 } || data["stale"]?.GetValue<bool>() == true) { Failed(); return false; }
         lock (gate)
         {
-            if (snapshot is not null && snapshot.CompletedAt >= completedAt) return;
+            if (snapshot is not null && snapshot.CompletedAt >= completedAt) return false;
             snapshot = new(data.DeepClone().AsObject(), completedAt);
             refreshFailed = false;
+            return true;
         }
     }
     public void Failed() { lock (gate) refreshFailed = true; }
@@ -64,10 +68,10 @@ public sealed class PublicMarketSnapshot(TimeProvider clock, TradingCalendarRepo
                 throw new ApplicationFailure("public_snapshot_unavailable", 503, "行情快照正在准备，请稍后刷新。");
             }
             var data = snapshot.Data.DeepClone().AsObject();
-            var stale = refreshFailed || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > TimeSpan.FromSeconds(60);
+            var stale = refreshFailed || clock.GetUtcNow().UtcDateTime - snapshot.CompletedAt > settings.Interval * 2;
             data["stale"] = stale;
             data["market_session"] = calendars is null ? SessionState(clock.GetUtcNow(), calendarDay, tradingDay) : MarketSessions.Classify(clock.GetUtcNow(), calendars.CurrentSnapshot);
-            data["refresh_interval_seconds"] = 30;
+            data["refresh_interval_seconds"] = (int)settings.Interval.TotalSeconds;
             PublicDataQuality.Apply("market.snapshot",data,clock.GetUtcNow(),calendars:calendars?.CurrentSnapshot);
             if (section is not null)
             {

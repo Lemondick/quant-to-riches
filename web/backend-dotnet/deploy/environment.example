@@ -12,6 +12,11 @@ QUANT_QUEUE_WARNING_SECONDS=120
 # Public snapshot warm-up defaults on in Production, off in Development.
 # Uses the verified Shanghai trading calendar and the authenticated Worker.
 # QUANT_PUBLIC_REFRESH_ENABLED=false
+# Wait after each completed cycle; explicit requests coalesce until this cooldown.
+# QUANT_PUBLIC_REFRESH_INTERVAL_SECONDS=30
+# Overall cycle deadline and per-operation timeout (seconds, bounded in code).
+# QUANT_PUBLIC_REFRESH_DEADLINE_SECONDS=75
+# QUANT_PUBLIC_REFRESH_TASK_TIMEOUT_SECONDS=55
 # Optional development OpenTelemetry console export; normal request logs remain.
 # QUANT_TRACE_CONSOLE=0
 QUANT_DISK_MIN_FREE_PERCENT=10

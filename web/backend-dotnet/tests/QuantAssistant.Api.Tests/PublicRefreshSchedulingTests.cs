@@ -69,6 +69,42 @@ public sealed class PublicRefreshSchedulingTests
         return data.ToJsonString();
     }
     private static void CleanSnapshots(PgTestUser user) => user.Execute("DELETE FROM public_compute_snapshots WHERE result_json->>'refresh_test'=$1", user.Id);
+    [Theory]
+    [InlineData("bad", "NaN", "?", 30, 75, 55)]
+    [InlineData("0", "0", "0", 15, 10, 5)]
+    [InlineData("99999", "99999", "99999", 300, 180, 120)]
+    [InlineData("45", "10", "120", 45, 10, 10)]
+    public void RefreshConfigurationHasSharedBoundedValues(string interval, string deadline, string task, int expectedInterval, int expectedDeadline, int expectedTask)
+    {
+        var settings = PublicRefreshSettings.From(Configuration(("QUANT_PUBLIC_REFRESH_INTERVAL_SECONDS", interval), ("QUANT_PUBLIC_REFRESH_DEADLINE_SECONDS", deadline), ("QUANT_PUBLIC_REFRESH_TASK_TIMEOUT_SECONDS", task)));
+        Assert.Equal(expectedInterval, settings.Interval.TotalSeconds);
+        Assert.Equal(expectedDeadline, settings.Deadline.TotalSeconds);
+        Assert.Equal(expectedTask, settings.TaskTimeout.TotalSeconds);
+    }
+    [Fact]
+    public void DisplayAndCoalescedExplicitRequestsUseTheSameConfiguredInterval()
+    {
+        var clock = new ManualClock(DateTimeOffset.UtcNow);
+        var config = Configuration(("QUANT_PUBLIC_REFRESH_INTERVAL_SECONDS", "45"));
+        var snapshot = new PublicMarketSnapshot(clock, configuration: config);
+        snapshot.RequestRefresh();
+        Assert.True(snapshot.TakeRefreshRequest());
+        snapshot.RequestRefresh();
+        Assert.False(snapshot.TakeRefreshRequest());
+        clock.Advance(TimeSpan.FromSeconds(44));
+        snapshot.RequestRefresh();
+        Assert.False(snapshot.TakeRefreshRequest());
+        clock.Advance(TimeSpan.FromSeconds(1));
+        snapshot.RequestRefresh();
+        Assert.True(snapshot.TakeRefreshRequest());
+        Assert.False(snapshot.TakeRefreshRequest());
+        snapshot.Publish(JsonNode.Parse(Market)!.AsObject(), clock.GetUtcNow().UtcDateTime);
+        Assert.Equal(45, snapshot.Read(null).Data!["refresh_interval_seconds"]!.GetValue<int>());
+        clock.Advance(TimeSpan.FromSeconds(90));
+        Assert.Equal("hit", snapshot.Read(null).Cache);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal("stale", snapshot.Read(null).Cache);
+    }
     [Fact]
     public void EmptyResultCannotReplaceValidEvidenceOrItsSourceClock()
     {
@@ -160,7 +196,10 @@ public sealed class PublicRefreshSchedulingTests
         }
     }
     [PgFact]
-    public async Task TaskDeadlineCancelsWaitAndKeepsOldObservation()
+    public Task TaskDeadlineCancelsWaitAndKeepsOldObservation() => Deadline("5", 6, 5);
+    [PgFact]
+    public Task OverallDeadlineBoundsTheCycleAndChildTask() => Deadline("120", 11, 10);
+    private static async Task Deadline(string taskSeconds, int elapsed, int expectedSeconds)
     {
         using var user = new PgTestUser(); OwnWarmup(user);
         var clock = new ManualClock(DateTimeOffset.UtcNow);
@@ -168,17 +207,40 @@ public sealed class PublicRefreshSchedulingTests
         snapshot.Publish(JsonNode.Parse(Market)!.AsObject(), clock.GetUtcNow().UtcDateTime.AddSeconds(1));
         using var memory = new MemoryCache(new MemoryCacheOptions());
         var log = new WarningLog();
-        using var service = Service(user, clock, snapshot, memory, Configuration(("QUANT_PUBLIC_REFRESH_DEADLINE_SECONDS", "10"), ("QUANT_PUBLIC_REFRESH_TASK_TIMEOUT_SECONDS", "5")), log);
+        using var service = Service(user, clock, snapshot, memory, Configuration(("QUANT_PUBLIC_REFRESH_DEADLINE_SECONDS", "10"), ("QUANT_PUBLIC_REFRESH_TASK_TIMEOUT_SECONDS", taskSeconds)), log);
         await service.StartAsync(CancellationToken.None);
         try
         {
             var claimed = await Claim(new(user.Connection), ["market.snapshot"]);
-            Assert.InRange((claimed.Deadline - DateTime.UtcNow).TotalSeconds, 0, 5.5);
-            clock.Advance(TimeSpan.FromSeconds(6));
+            Assert.InRange((claimed.Deadline - DateTime.UtcNow).TotalSeconds, 0, expectedSeconds + 0.5);
+            clock.Advance(TimeSpan.FromSeconds(elapsed));
             await Wait(() => log.Warnings == 1);
             Assert.Equal("stale", snapshot.Read(null).Cache);
             Assert.Equal("2026-10-19T10:00:00+08:00", snapshot.Read(null).Data!["observed_at"]!.GetValue<string>());
             Assert.Equal(0L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND kind<>'market.snapshot'", user.Id));
+        }
+        finally { await Stop(service); }
+    }
+    [PgFact]
+    public async Task ExplicitRefreshWorksWhenClosedAndAutomaticWarmupIsDisabled()
+    {
+        using var user = new PgTestUser(); OwnWarmup(user);
+        var clock = new ManualClock(DateTimeOffset.Parse("2026-10-18T02:00:00Z"));
+        var snapshot = new PublicMarketSnapshot(clock);
+        using var memory = new MemoryCache(new MemoryCacheOptions());
+        using var service = Service(user, clock, snapshot, memory, Configuration(("QUANT_PUBLIC_REFRESH_ENABLED", "false")));
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            await Wait(() => clock.HasTimerAfter(TimeSpan.FromSeconds(30)));
+            Assert.Equal(0L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1", user.Id));
+            snapshot.RequestRefresh();
+            clock.Advance(TimeSpan.FromSeconds(29));
+            await Task.Delay(50);
+            Assert.Equal(0L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1", user.Id));
+            clock.Advance(TimeSpan.FromSeconds(1));
+            var claimed = await Claim(new(user.Connection), ["market.snapshot"]);
+            Assert.Equal("market.snapshot", claimed.Kind);
         }
         finally { await Stop(service); }
     }
