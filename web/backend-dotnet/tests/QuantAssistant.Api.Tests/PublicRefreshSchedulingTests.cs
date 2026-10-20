@@ -101,6 +101,32 @@ public sealed class PublicRefreshSchedulingTests
         finally { await Stop(service); }
     }
     [PgFact]
+    public async Task PersistedEmptyResultCannotOverwriteLastValidSnapshot()
+    {
+        using var user = new PgTestUser();
+        var jobs = new ComputeJobRepository(user.Connection);
+        var repository = new PublicSnapshotRepository(new AccountDatabase(user.Connection));
+        var input = "{\"section\":null,\"guard_test\":\"" + user.Id + "\"}";
+        try
+        {
+            await jobs.EnqueueAsync(user.Id, "market.snapshot", input, DateTime.UtcNow.AddMinutes(1), reuseCompleted: false);
+            var first = await Claim(jobs, ["market.snapshot"]);
+            Assert.True(await jobs.FinishAsync(user.Id, first.JobId, first.Attempt, first.OwnerToken, Result(user), null));
+            var before = await repository.MarketAsync();
+            Assert.NotNull(before);
+            await jobs.EnqueueAsync(user.Id, "market.snapshot", input, DateTime.UtcNow.AddMinutes(1), reuseCompleted: false);
+            var second = await Claim(jobs, ["market.snapshot"]);
+            var empty = JsonNode.Parse(Result(user))!.AsObject();
+            empty["indices"] = new JsonArray();
+            empty["observed_at"] = "2026-10-20T10:00:00+08:00";
+            Assert.True(await jobs.FinishAsync(user.Id, second.JobId, second.Attempt, second.OwnerToken, empty.ToJsonString(), null));
+            var after = await repository.MarketAsync();
+            Assert.Equal(before.CompletedAt, after!.CompletedAt);
+            Assert.True(JsonNode.DeepEquals(before.Data, after.Data));
+        }
+        finally { CleanSnapshots(user); }
+    }
+    [PgFact]
     public Task ThirtyFiveSecondRefreshWaitsAfterCompletion() => Slow(35);
     [PgFact]
     public Task SixtySecondRefreshWaitsAfterCompletion() => Slow(60);
