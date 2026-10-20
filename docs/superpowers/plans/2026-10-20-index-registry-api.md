@@ -59,5 +59,5 @@
 
 ## Task 4: StageA acceptance
 
-- [ ] Full exact-source Linux CI with PG/Worker0skip, frontend/browser/build. Fresh whole-branch reviewer per executing-plans; Important/Critical RED->GREEN once and fullgate; archive all rulings/minors.
-- [ ] Update docs/API/evidence with actual source/counts, source capabilities and limitations, registry ownership and provisional16th. Report stage summary then continue Doc02 StageB original UI indexstrip; no repeated permission or merge/deploy.
+- [x] Full exact-source Linux CI with PG/Worker0skip, frontend/browser/build. Fresh whole-branch reviewer per executing-plans; Important/Critical RED->GREEN once and fullgate; archive all rulings/minors.
+- [x] Update docs/API/evidence with actual source/counts, source capabilities and limitations, registry ownership and provisional16th. Report stage summary then continue Doc02 StageB original UI indexstrip; no repeated permission or merge/deploy.
