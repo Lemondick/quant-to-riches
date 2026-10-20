@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from quant_assistant.controllers.schemas import MarketSnapshotResponse
-from quant_assistant.providers.market_feed import AkshareMarketFeedProvider, _Section
+from quant_assistant.providers.market_feed import AkshareMarketFeedProvider, MarketQuote, _Section
 
 NOW = datetime(2026, 10, 18, 9, tzinfo=ZoneInfo("Asia/Shanghai"))
 HTML = (
@@ -63,7 +63,23 @@ class MarketBreadthTests(unittest.TestCase):
             "_load_fund_rankings",
             "_load_sector_rankings",
         ]:
-            patcher = patch.object(provider, name, return_value=_Section((), "synthetic"))
+            rows = (
+                (
+                    MarketQuote(
+                        symbol="000001",
+                        name="上证指数",
+                        asset_type="index",
+                        price=Decimal("100"),
+                        change=Decimal("0"),
+                        change_rate=Decimal("0"),
+                        observed_at=NOW,
+                        source="synthetic",
+                    ),
+                )
+                if name == "_load_main_indices"
+                else ()
+            )
+            patcher = patch.object(provider, name, return_value=_Section(rows, "synthetic"))
             patcher.start()
             self.addCleanup(patcher.stop)
         return provider
@@ -225,6 +241,7 @@ class MarketBreadthTests(unittest.TestCase):
         ).model_dump(mode="json")
         self.assertIn("breadth", result)
         self.assertIsNone(result["breadth"])
+        self.assertEqual(result["indices"][0]["symbol"], "000001")
         self.assertEqual(result["unavailable"], [])
         self.assertFalse(result["stale"])
 

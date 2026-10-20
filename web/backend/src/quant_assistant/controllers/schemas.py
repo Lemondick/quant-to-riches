@@ -15,6 +15,8 @@ from quant_assistant.models.entities import (
     MarketRegime,
     ReadinessStatus,
 )
+from quant_assistant.providers.index_quotes import IndexQuoteStatus
+from quant_assistant.providers.index_registry import IndexDefinition
 
 from .candidate_schemas import AssetTypeValue as AssetTypeValue
 from .candidate_schemas import CandidateListResponse as CandidateListResponse
@@ -322,13 +324,22 @@ class MarketQuoteResponse(ObservationModel):
     price: DecimalString
     change: DecimalString
     change_rate: DecimalString
-    observed_at: datetime
+    observed_at: datetime | None
     source: str
     trade_time_verified: bool = False
     volume: DecimalString | None = None
     turnover: DecimalString | None = None
     volume_unit: str | None = None
     turnover_unit: str | None = None
+    id: str | None = None
+    currency: str | None = None
+    currency_basis: str | None = None
+    calendar_id: str | None = None
+    source_symbol: str | None = None
+    raw_source_time: str | None = None
+    change_basis: str | None = None
+    cache_fallback: bool = False
+    cache_read_at: datetime | None = None
 
 
 class MarketFundRankingResponse(NavObservationModel):
@@ -413,10 +424,14 @@ class MarketSnapshotResponse(ApiModel):
     breadth: MarketBreadthResponse | None = None
     sector_catalogs: tuple[MarketSectorCatalogResponse, ...] = ()
     stale_sections: tuple[str, ...] = ()
+    registry_version: str | None = None
+    index_registry: tuple[IndexDefinition, ...] = ()
+    index_statuses: tuple[IndexQuoteStatus, ...] = ()
 
 
 class MarketQuoteListResponse(ApiModel):
     items: tuple[MarketQuoteResponse, ...]
+    index_statuses: tuple[IndexQuoteStatus, ...] = ()
     unavailable: tuple[str, ...]
     observed_at: datetime
     source: str

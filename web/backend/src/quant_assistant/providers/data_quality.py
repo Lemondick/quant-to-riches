@@ -281,6 +281,10 @@ def enrich_payload(kind: str, data: dict, *, calendar=None, as_of=None) -> dict:
             nav_publication_lag_sessions=row.get("nav_publication_lag_sessions"),
         )
         info["fetched_at"] = info["fetched_at"].isoformat()
+        if row.get("cache_fallback") is True and info["quality_status"] != "invalid":
+            info["is_stale"] = True
+            if info["quality_status"] == "valid":
+                info.update(quality_status="stale", quality_reason="index_refresh_failed")
         row.update(info)
 
     if kind == "market.quotes":

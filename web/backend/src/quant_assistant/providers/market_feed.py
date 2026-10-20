@@ -13,6 +13,7 @@ import re
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import suppress
 from contextvars import copy_context
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
@@ -28,8 +29,14 @@ from quant_assistant.common.performance import measure
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.providers._lazy_akshare import ak
 from quant_assistant.providers.base import ProviderDataError, ProviderUnavailable
-from quant_assistant.providers.data_quality import MemoryCache, ObservationMetadata, metadata
-from quant_assistant.providers.market_breadth import MarketBreadth, read_market_breadth
+from quant_assistant.providers.data_quality import MemoryCache, metadata
+from quant_assistant.providers.index_quotes import IndexQuoteProvider, IndexQuoteStatus
+from quant_assistant.providers.index_registry import (
+    definitions,
+    registry_version,
+    resolve_legacy_index,
+)
+from quant_assistant.providers.market_breadth import read_market_breadth
 from quant_assistant.providers.market_calendar import MarketCalendars
 from quant_assistant.providers.market_feed_parsing import (
     _MAIN_INDEX_IDS as _MAIN_INDEX_IDS,
@@ -88,6 +95,12 @@ from quant_assistant.providers.market_feed_parsing import (
 from quant_assistant.providers.market_feed_parsing import (
     quote_conflict as quote_conflict,
 )
+from quant_assistant.providers.market_observations import FundRanking as FundRanking
+from quant_assistant.providers.market_observations import MarketNewsFeed as MarketNewsFeed
+from quant_assistant.providers.market_observations import MarketNewsItem as MarketNewsItem
+from quant_assistant.providers.market_observations import MarketQuote as MarketQuote
+from quant_assistant.providers.market_observations import MarketQuoteList as MarketQuoteList
+from quant_assistant.providers.market_observations import MarketSnapshot as MarketSnapshot
 from quant_assistant.providers.market_sectors import (
     SectorCatalog,
     SectorRanking,
@@ -97,80 +110,6 @@ from quant_assistant.providers.public_http import PublicHttp, log_validation
 from quant_assistant.services.news_sentiment import classify_news_sentiment
 
 _QUOTE_ROW_RE = re.compile(r'v_([a-z]{2}\d+)="(.*)";')
-
-
-@dataclass(frozen=True, slots=True)
-class MarketQuote(ObservationMetadata):
-    symbol: str
-    name: str
-    asset_type: str
-    price: Decimal
-    change: Decimal
-    change_rate: Decimal
-    observed_at: datetime
-    source: str
-    trade_time_verified: bool = False
-    volume: Decimal | None = None
-    turnover: Decimal | None = None
-    volume_unit: str | None = None
-    turnover_unit: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class FundRanking(ObservationMetadata):
-    symbol: str
-    name: str
-    unit_nav: Decimal
-    change_rate: Decimal
-    one_month_return: Decimal | None
-    nav_date: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class MarketSnapshot:
-    indices: tuple[MarketQuote, ...]
-    fund_rankings: tuple[FundRanking, ...]
-    sector_rankings: tuple[SectorRanking, ...]
-    observed_at: datetime
-    source: str
-    stale: bool
-    unavailable: tuple[str, ...]
-    breadth: MarketBreadth | None = None
-    sector_catalogs: tuple[SectorCatalog, ...] = ()
-    stale_sections: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class MarketQuoteList:
-    items: tuple[MarketQuote, ...]
-    unavailable: tuple[str, ...]
-    observed_at: datetime
-    source: str
-    stale: bool
-
-
-@dataclass(frozen=True, slots=True)
-class MarketNewsItem:
-    id: str
-    title: str
-    summary: str
-    category: str
-    published_at: datetime
-    source: str
-    url: str
-    important: bool
-    sentiment: str = "neutral"
-    sentiment_score: float = 0.0
-    sentiment_keywords: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class MarketNewsFeed:
-    items: tuple[MarketNewsItem, ...]
-    observed_at: datetime
-    source: str
-    stale: bool
-    unavailable: bool
 
 
 @runtime_checkable
@@ -191,6 +130,7 @@ class _Section:
     value: object
     source: str
     sector_catalogs: tuple[SectorCatalog, ...] = ()
+    index_statuses: tuple[IndexQuoteStatus, ...] = ()
 
 
 class AkshareMarketFeedProvider:
@@ -215,13 +155,20 @@ class AkshareMarketFeedProvider:
         self._ak = akshare_module
         self._http_get = http_get
         self._quote_http = PublicHttp(http_get, now=self._now)
+        self._index_quotes = IndexQuoteProvider(
+            http=self._quote_http,
+            now=self._now,
+            calendar=self._calendar,
+            ttl_seconds=min(300, ttl_seconds),
+            monotonic_clock=monotonic_clock,
+        )
         self._memory = MemoryCache(capacity=128, clock=monotonic_clock)
         self._taxonomy_cache = MemoryCache(capacity=1, clock=monotonic_clock)
         self._cache: dict[str, tuple[float, _Section]] = {}
         self._lock = RLock()
         self._source_state: dict[str, dict[str, object]] = {
             source: {"failures": 0, "last_error": None, "last_success_at": None}
-            for source in ("cls", "eastmoney", "sina", "tencent")
+            for source in ("cls", "eastmoney", "sina", "tencent", "yahoo")
         }
 
     def source_status(self) -> pd.DataFrame:
@@ -282,6 +229,8 @@ class AkshareMarketFeedProvider:
                         unavailable.append(key)
                     continue
                 sections[key] = section
+                if key == "indices" and not section.value:
+                    unavailable.append(key)
                 if key == "breadth":
                     breadth_stale = section_stale
                 else:
@@ -303,6 +252,9 @@ class AkshareMarketFeedProvider:
             breadth=replace(sections["breadth"].value, stale=breadth_stale)
             if "breadth" in sections
             else None,
+            registry_version=registry_version(),
+            index_registry=definitions(),
+            index_statuses=sections.get("indices", _Section((), "")).index_statuses,
         )
 
     def _load_breadth(self) -> _Section:
@@ -324,6 +276,8 @@ class AkshareMarketFeedProvider:
     ) -> MarketQuoteList:
         stocks = tuple(dict.fromkeys(_normalize_code(item) for item in stock_symbols))
         indices = tuple(dict.fromkeys(_normalize_code(item) for item in index_symbols))
+        for code in indices:
+            resolve_legacy_index(code)
         if len(stocks) + len(indices) > 20:
             raise ValueError("at most 20 market quotes can be requested")
         if not stocks and not indices:
@@ -346,13 +300,14 @@ class AkshareMarketFeedProvider:
                 False,
             )
         items = tuple(section.value)
-        returned = {item.symbol for item in items}
+        returned = {(item.symbol, item.asset_type) for item in items}
         return MarketQuoteList(
             items,
-            tuple(symbol for symbol, _kind in requested if symbol not in returned),
+            tuple(symbol for symbol, kind in requested if (symbol, kind) not in returned),
             self._observed_at(),
             section.source,
             stale or any(not item.trade_time_verified for item in items),
+            index_statuses=section.index_statuses,
         )
 
     def market_news(self, limit: int = 30) -> MarketNewsFeed:
@@ -375,6 +330,23 @@ class AkshareMarketFeedProvider:
         key: str,
         loader: Callable[[], _Section],
     ) -> tuple[_Section, bool]:
+        if key == "indices":
+            # The adapter owns per-ID caches and single-flight batches. An empty
+            # batch must not become a successful collection cache entry.
+            value = loader()
+            for source in {row.source for row in value.value}:
+                fresh = [
+                    row for row in value.value if row.source == source and not row.cache_fallback
+                ]
+                if fresh:
+                    self._mark_source_success(source, max(row.fetched_at for row in fresh))
+                else:
+                    self._mark_source_failure(source, "index_refresh_failed")
+            stale = bool(value.value) and all(
+                row.is_stale or row.cache_fallback for row in value.value
+            )
+            return value, stale
+
         def load():
             try:
                 with measure("provider"):
@@ -398,13 +370,13 @@ class AkshareMarketFeedProvider:
             )
         return value, stale
 
-    def _mark_source_success(self, source: str) -> None:
+    def _mark_source_success(self, source: str, captured_at: datetime | None = None) -> None:
         state = self._source_state.get(source)
         if state is None:
             return
         state["failures"] = 0
         state["last_error"] = None
-        state["last_success_at"] = self._observed_at()
+        state["last_success_at"] = captured_at or self._observed_at()
 
     def _mark_source_failure(self, source: str, error: str) -> None:
         state = self._source_state.get(source)
@@ -414,12 +386,31 @@ class AkshareMarketFeedProvider:
         state["last_error"] = error
 
     def _load_main_indices(self) -> _Section:
-        requests_with_types = tuple((symbol, "index") for symbol in _MAIN_INDEX_IDS)
-        return self._quote_section(requests_with_types)
+        batch = self._index_quotes.fetch()
+        return _Section(
+            batch.items,
+            "+".join(sorted({row.source for row in batch.items})) or "unavailable",
+            index_statuses=batch.statuses,
+        )
 
     def _quote_section(self, requested):
-        rows = self._fetch_tencent_quotes(requested)
-        return _Section(rows, "+".join(sorted({row.source for row in rows})))
+        stocks = tuple(item for item in requested if item[1] == "stock")
+        indices = tuple(
+            resolve_legacy_index(symbol).id for symbol, kind in requested if kind == "index"
+        )
+        rows, statuses = [], ()
+        if stocks:
+            with suppress(ProviderUnavailable, ProviderDataError):
+                rows.extend(self._fetch_tencent_quotes(stocks))
+        if indices:
+            batch = self._index_quotes.fetch(indices)
+            rows.extend(batch.items)
+            statuses = batch.statuses
+        if not rows:
+            raise ProviderDataError("market_quotes: provider returned no valid rows")
+        return _Section(
+            tuple(rows), "+".join(sorted({row.source for row in rows})), index_statuses=statuses
+        )
 
     def _load_fund_rankings(self) -> _Section:
         if self._ak is ak:
@@ -537,6 +528,7 @@ class AkshareMarketFeedProvider:
         with self._lock:
             self._cache = {key: (float("-inf"), value) for key, (_, value) in self._cache.items()}
         self._memory.expire()
+        self._index_quotes.expire()
 
     def _load_news(self) -> _Section:
         try:

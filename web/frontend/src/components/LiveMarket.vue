@@ -6,7 +6,7 @@
     <template v-if="data">
       <p class="market-observation" role="status">{{ sessionLabel }} · 页面每 15 秒检查更新，交易时段后台每 30 秒采集；各项时间以数据源为准。</p>
       <div v-if="currentTab === 'index'" class="tab-content-fade">
-        <div class="stats-grid"><StatCard v-for="(item, index) in data.indices.slice(0, 4)" :key="item.symbol" :updated-at="item.updated_at ?? null" :label="item.name" :value="number(Number(item.price), 2)" :delta="percent(Number(item.change_rate))" :note="item.observed_at.slice(0, 10)" :tone="tones[index]" :icon="TrendingUp" /></div>
+        <div class="stats-grid"><StatCard v-for="(item, index) in data.indices.slice(0, 4)" :key="item.symbol" :updated-at="item.updated_at ?? null" :label="item.name" :value="number(Number(item.price), 2)" :delta="percent(Number(item.change_rate))" :note="item.source_time?.slice(0, 10) ?? '来源时间未知'" :tone="tones[index]" :icon="TrendingUp" /></div>
         <div class="sub-indices-bar"><div v-for="name in ['科创50', '中证500', '中证1000']" :key="name" class="sub-index-item"><span class="sub-index-name">{{ name }}</span><span class="sub-index-val">{{ data.indices.find(item => item.name === name)?.price ?? '—' }}</span><span class="subtle">{{ subIndexDelta(name) }}</span></div></div>
         <div class="two-col">
           <IndexHistory />
@@ -23,7 +23,7 @@
             <div class="panel card-pad market-industry-card"><div class="panel-header-inline"><div><div class="card-title">行业涨跌速览</div><p class="subtle">{{ sourceLabel(previewSource) }} · 行业分类<span data-update-time> · {{ updateTime(data.sector_catalogs?.find(item => item.source === previewSource && item.category === 'industry')?.updated_at) }}</span></p></div><button class="text-link-btn" @click="currentTab = 'sectors'">查看全部板块 →</button></div><div class="row-list"><div v-for="item in industryPreview" :key="item.code" class="row"><span class="industry-name">{{ item.name }}</span><b :class="item.change_rate == null ? '' : Number(item.change_rate) >= 0 ? 'up' : 'down'">{{ item.change_rate == null ? '—' : percent(Number(item.change_rate)) }}</b></div></div></div>
           </div>
         </div>
-        <div class="panel table-panel"><div class="panel-head"><div><h2>主要指数</h2><p><span data-update-time>{{ updateTime(oldestUpdate(data.indices)) }}</span></p></div><button class="btn ghost" @click="currentTab = 'funds'">切换至基金榜单</button></div><DataTable table-id="live-market-indices" label="主要指数" :headers="['指数', '代码', '点位', '涨跌幅', '观测时间']" :rows="data.indices.map(item => [item.name, item.symbol, item.price, item.change_rate + '%', item.observed_at])" :numeric-columns="[2, 3]" empty-title="暂无可用指数快照" /></div>
+        <div class="panel table-panel"><div class="panel-head"><div><h2>主要指数</h2><p><span data-update-time>{{ updateTime(oldestUpdate(data.indices)) }}</span></p></div><button class="btn ghost" @click="currentTab = 'funds'">切换至基金榜单</button></div><DataTable table-id="live-market-indices" label="主要指数" :headers="['指数', '代码', '点位', '涨跌幅', '观测时间']" :rows="data.indices.map(item => [item.name, item.symbol, item.price, item.change_rate + '%', item.source_time ?? '来源时间未知'])" :numeric-columns="[2, 3]" empty-title="暂无可用指数快照" /></div>
       </div>
       <div v-else-if="currentTab === 'funds'" class="tab-content-fade">
         <div class="fund-context-line"><span class="data-badge">指数型基金日涨幅前十</span><span>{{ data.fund_rankings.length }} 只基金 · 净值日期以原始公告为准</span></div>
