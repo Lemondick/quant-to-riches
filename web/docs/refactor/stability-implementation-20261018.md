@@ -189,6 +189,16 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 最终源码 `e07aa833012fcb508e81e47de6c14eb2e73b3f63`：[Linux 39395377198](https://github.com/Lemondick/quant-to-riches/actions/runs/39395377198)，Python 477、.NET/PG 361、Worker 126、工具 15、报告 5 全通过，0 跳过；前端、浏览器回归、构建通过。独立整体审查无 Critical / Important / Minor，另独立复跑 31 项专项全过；[全部取舍记录](backtest-decisions-20261020.md)。没有合并 main、部署或改写真实财务数据。
 
+## 《01》阶段 F：BUG-014 与文档 — Linux 通过，整体审查中
+
+分支 `codex/model-network-boundary`，继承阶段 E 文档提交 `99ae143`。实际源码 `8b9a2e3c08a7c5434ee6526c679e99bce740643f`：[Linux 39424757711](https://github.com/Lemondick/quant-to-riches/actions/runs/39424757711)，Python 492、.NET/PG 385、Worker 128、数据库工具 15、报告 5 全通过，0 跳过；前端、浏览器和构建通过。
+
+- 兼容研究子进程在每次实际连接时校验全部 DNS 结果后固定数值 TCP 目标，默认可信 TLS 保留原域名的 SNI/证书/Host；混合非公开地址整组拒绝，不会再次解析域名或使用代理。每次重试重新验证，读失败不重放 POST，父进程原有 deadline/parent PID 保护继续保留。
+- 支持公开自定义 HTTPS443 域名，URL 不含凭据、查询、片段、编码/点/反斜线/重复斜线路径；没有擅自改成固定供应商 allowlist。原生 Worker 复用同一标准库地址/路径规则，保留既有连接池；.NET 修正歧义路径、过渡、IETF 非公开和文档网段遗漏，保留 IANA 已登记公开子分配。
+- 先 RED 后 GREEN 的证据包含 DNS rebind/mixed/private、URL/端口、IPv4-mapped/IPv6、TLS fallback、总连接预算、禁止 read retry、无 key 零联网、provider key echo。专项网络15、目录30、原生Worker128通过；Windows旧子进程18项中1项Linux专属跳过，最终Linux已真实执行且无跳过。
+- README、架构、前端说明、原生和Ubuntu手册统一当前入口、0001–0023迁移、默认30秒及75/55秒预算；删除过时14天净值统一阈值说明。升级步骤补迁移后才启动，保留恢复到新空库/新目录与财务指纹流程。对照阶段E确认6个备份/恢复文件Git blob未改；Windows工作区换行规范化后内容一致，未把CRLF字节差异误认为源码变化。
+- [完整边界和主来源依据](model-network-boundary-20261020.md)。未调用真实模型、访问真实内部网络、合并main或部署；真实服务器运维验收继续未执行。
+
 ## 《01》后续进度
 
 - [x] B：BUG-003 / BUG-004，账本幂等与分红估值日约束。

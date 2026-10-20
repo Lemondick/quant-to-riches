@@ -32,9 +32,9 @@
 
 **Files:** README.md, web/README.md, web/backend-dotnet/ARCHITECTURE.md, web/frontend/README.md, web/docs/refactor/p7-runbook.md, web/backend-dotnet/deploy/ubuntu-runbook.md, current StageF evidence/decision notes. CI/migration source changes only if actual mismatch requires them.
 
-- [ ] Compare actual migrations through0023, CI job commands/results, native startup/publish config, refresh defaults and model boundary to docs.
-- [ ] Correct current instructions, mark legacy FastAPI/container/exchange entry as compatibility only and distinguish historical release evidence from undeployed branch. Preserve recovery/fingerprints and explain migration compatibility, no blanket claim no new migrations.
-- [ ] State exact source-bound tests and any skipped/unknown operational evidence; source/build/doc-contract checks pass. No redundant behavioral tests for prose-only edits; commit.
+- [x] Compare actual migrations through0023, CI job commands/results, native startup/publish config, refresh defaults and model boundary to docs.
+- [x] Correct current instructions, mark legacy FastAPI/container/exchange entry as compatibility only and distinguish historical release evidence from undeployed branch. Preserve recovery/fingerprints and explain migration compatibility, no blanket claim no new migrations.
+- [x] State exact source-bound tests and any skipped/unknown operational evidence; source/build/doc-contract checks pass. No redundant behavioral tests for prose-only edits; commit.
 
 ## Task 3: Final Doc01 acceptance
 

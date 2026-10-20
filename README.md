@@ -3,7 +3,7 @@
 当前只维护网页端。前端、后端、部署与文档统一放在[`web/`](web/README.md)。其他客户端已归档到桌面。
 
 ```text
-web/       网页项目：frontend、backend、deploy、docs
+web/       网页项目：frontend、backend-dotnet、worker、backend、deploy、docs
 data/      账户、账本、证据及网页运行资源
 deploy/    本机私有模型配置与密钥
 .github/   源码检查与构建流程
@@ -14,7 +14,7 @@ deploy/    本机私有模型配置与密钥
 
 11 个页面已接入原生业务后端，保留提供的 Vue 工作台布局和主题。前端默认开发模式为显式演示；连接真实 API 时设置 `VITE_API_BASE_URL=/api/v1`，原生发布脚本默认启用该设置。浏览器演示数据不用于生产行情。连接方式及验证命令见[前端说明](web/frontend/README.md)。
 
-截至 2026-10-18，线上版本为 `quality-v18-1`。公开行情按来源显示数据时间、延迟与不可用状态；正式净值与盘中估值分别处理，不补造缺失报价、时间或估值。最新验证及上游限制见[数据质量验收](web/docs/refactor/public-data-quality-20261018.md)。
+仓库保留的 2026-10-18 历史上线记录为 `quality-v18-1`，见[当时的数据质量验收](web/docs/refactor/public-data-quality-20261018.md)。2026-10-20 的稳定性修复在独立 `codex/` 分支验证，未合并 main、未部署生产；各提交的实际 CI、范围与待完成项见[稳定性实施记录](web/docs/refactor/stability-implementation-20261018.md)。公开行情保留来源时间、延迟与不可用状态，正式净值与盘中估值分别处理，不补造缺失数据。
 
 仓库包含前端、.NET API、Python Worker、数据库迁移、测试和部署脚本。数据库、账户账本、密钥、运行日志、依赖目录及构建产物不随源码上传；新环境需安装依赖并按示例配置数据库与服务凭据。历史验收截图、导出文件、原始证据和内部研究文档保留在本地，文档中的历史产物链接可能仅适用于原工作区。
 
@@ -23,6 +23,8 @@ deploy/    本机私有模型配置与密钥
 ```
 
 先按[原生部署及恢复手册](web/docs/refactor/p7-runbook.md)发布版本并配置数据库。业务 API 默认监听 `127.0.0.1:8765`，生产浏览器通过 Caddy HTTPS 访问。迁移和验收状态见[实施记录](web/docs/refactor/native-migration-progress.md)。
+
+当前迁移目录为 `0001`–`0023`，发布前须执行完整迁移。活动入口是 `web/backend-dotnet/deploy/` 的原生发布及监督程序；`web/backend/` 内旧 FastAPI、`web/deploy/cloud_up.sh` 和旧容器/exchange 入口仅用于兼容及历史恢复核验，不是当前生产入口。模型请求的公开网络边界及源码验证见[网络边界说明](web/docs/refactor/model-network-boundary-20261020.md)。
 
 | 文档 | 内容 |
 | --- | --- |

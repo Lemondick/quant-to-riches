@@ -127,6 +127,8 @@ sudo systemd-run --wait --pipe --collect -p User=quant -p Group=quant -p Environ
 
 ## 7. 升级、回退与现场验收
 
+当前源码包含完整迁移 `0001`–`0023`，最近的 `0023_public_market_snapshot_guard.sql` 保护公开派生缓存。旧 FastAPI、`web/deploy/cloud_up.sh` 与容器/exchange 入口仅用于兼容和历史核验，不是本手册的生产入口。后台刷新在每轮结束后默认等待 30 秒（15–300 秒），整体/任务预算默认 75/55 秒，详见[架构配置](../ARCHITECTURE.md)。当前独立修复分支尚未部署，本文提供操作契约，不表示服务器验收已完成。
+
 先准备新目录并完成第 2 节，再停服务、备份，记录当前链接目标，然后原子切换：
 
 ```bash
@@ -135,10 +137,11 @@ sudo systemctl stop quant-api
 # 完成并核验备份后执行；目标版本号须是已准备好的目录。
 sudo ln -s /opt/quant/releases/新版本号 /opt/quant/current.next
 sudo mv -T /opt/quant/current.next /opt/quant/current
+sudo systemd-run --wait --pipe --collect -p User=quant -p Group=quant -p EnvironmentFile=/etc/quant/environment /usr/bin/dotnet /opt/quant/current/api/QuantAssistant.Api.dll --migrate /opt/quant/current/migrations
 sudo systemctl start quant-api
 curl --fail http://127.0.0.1:8765/readyz
 ```
 
-同结构版本可用相同步骤切回已记录的旧版本。包含不向后兼容的数据库迁移时，不能只切程序链接；保留现场，将备份恢复到新空库和目录后再决定回切。本次版本没有新增数据库迁移，本机验收会对旧版→新版→恢复副本核对财务指纹。
+迁移成功后才启动新服务；迁移失败时保留现场，按所涉及迁移的兼容性决定恢复或回切。同结构且已经验证兼容的版本可用相同步骤切回已记录的旧版本。包含不向后兼容的数据库迁移时，不能只切程序链接；先将备份恢复到新空库和目录后再决定回切。当前迁移目录已至 0023，不能沿用旧版本“没有新增迁移”的结论；升级及恢复验收须对旧版→新版→恢复副本核对财务指纹，公开缓存保护迁移不替代该核验。
 
 目标服务器仍需完成：实际域名 HTTPS、服务账号权限、数据库重启、API/worker 崩溃恢复、开机启动、日志和磁盘容量、备份恢复、证书续期及至少 24 小时观察。本包只交付部署准备，本机短时测试不替代这些结果。管理页的主机部署就绪和策略证据就绪分别评估，不完整的真实研究证据继续保持阻断。

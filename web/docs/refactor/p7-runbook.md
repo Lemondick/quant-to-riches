@@ -1,6 +1,6 @@
 # 原生部署、迁移与恢复手册
 
-更新时间：2026-10-09。当前方案为单台服务器、ASP.NET Core 10、PostgreSQL 18、Python 3.12、Vue 3 / TypeScript 和 Caddy，不使用 Docker。用户已授权直接实施和测试修复；本文替代初版容器切换流程。
+更新时间：2026-10-20。当前源码契约为单台服务器、ASP.NET Core 10、PostgreSQL 18、Python 3.12、Vue 3 / TypeScript 和 Caddy，不使用 Docker。本文替代初版容器切换流程；当前稳定性分支未合并 main 或部署生产，执行发布仍须取得相应授权。
 
 Ubuntu 已有域名和证书时，按发布包内的 [Ubuntu 部署说明](../../backend-dotnet/deploy/ubuntu-runbook.md)执行环境检查、证书权限检查及 systemd 安装。Windows 可用 `publish.ps1 -Target linux` 生成 Linux 便携包；Python 环境在目标机的最终版本目录创建，不携带 Windows 虚拟环境。
 
@@ -41,6 +41,10 @@ bash web/backend-dotnet/deploy/publish.sh /opt/quant/releases/20261006
 发布会构建 Release API，执行 `npm ci`、严格类型检查和 H5 构建，再用 `uv sync --frozen --no-dev --python 3.12` 安装锁定环境。包内含 `api/`、`frontend/`、`backend/`、`worker/`、`migrations/` 和 `tools/`。失败时保留失败目录用于排查，下次使用新目录。
 
 2026-10-17 性能更新包含迁移 `0020_public_snapshots_and_notifications.sql` 和 `0021_account_display_revision.sql`；先运行下方迁移命令再启动新版 API 和 Worker。0021 让账户写入和公开数据提交在同一事务中更新展示版本，确保短缓存立即失效。发布脚本默认将前端 `VITE_API_BASE_URL` 设为 `/api/v1`，11 个页面接入真实账户和业务接口。生产环境默认开启交易时段预热；开关、缺失快照语义和追踪配置见 [架构说明](../../backend-dotnet/ARCHITECTURE.md)。首次没有快照时返回明确不可用并后台准备，不能填入演示行情。
+
+当前目录已累积至 `0001`–`0023`：`0022_public_index_history.sql` 增加公开指数历史，`0023_public_market_snapshot_guard.sql` 拒绝空行情覆盖有效派生缓存。每次发布按完整目录执行迁移，不只执行旧说明中的 0020/0021。0023 不改写财务历史，仍须保留备份、恢复演练及财务指纹核对。后台默认完成后等待 30 秒（15–300 秒），整体/任务预算 75/55 秒，详见架构配置；浏览器快照复核不绕过上游调度。
+
+`web/deploy/cloud_up.sh`、旧 FastAPI 和容器/exchange 入口只保留兼容及历史恢复用途；正式发布使用本节的 `backend-dotnet/deploy` 脚本、原生 API 和 Worker。源码 CI 的通过记录必须绑定具体提交，见[稳定性实施记录](stability-implementation-20261018.md)，不能以历史上线、短时本地测试或跳过 PostgreSQL 的结果替代当前服务器验收。
 
 ## 3. 新建站点或迁移旧站
 
