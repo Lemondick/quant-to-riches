@@ -1,19 +1,19 @@
 """One task, stdin JSON -> stdout JSON; no database, tools, SDK or hidden retries."""
 
-import http.client
 import json
 import os
 import ssl
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urlsplit
 
 # The parent starts Python with -I; only this audited adapter directory is importable.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from contract import ROLES, validate_role
 from prompts import ROLE_PROMPTS
+from public_https import EndpointError, PinnedHTTPSConnection
+from public_https import endpoint as model_endpoint
 
 
 class WorkerError(Exception):
@@ -43,9 +43,10 @@ def mock_role(role, request):
 
 
 def call_model(config, role, request, previous, deadline, retry_budget):
-    endpoint = urlsplit(config["endpoint"])
-    if endpoint.scheme != "https" or not endpoint.hostname or endpoint.username or endpoint.query:
-        raise WorkerError("model_not_configured")
+    try:
+        endpoint = model_endpoint(config["endpoint"])
+    except EndpointError:
+        raise WorkerError("model_not_configured") from None
     key_path = os.environ.get("QUANT_AGENT_KEY_FILE", "")
     try:
         key = Path(key_path).read_text(encoding="utf-8").strip() if key_path else ""
@@ -80,7 +81,7 @@ def call_model(config, role, request, previous, deadline, retry_budget):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise WorkerError("timed_out")
-        connection = http.client.HTTPSConnection(
+        connection = PinnedHTTPSConnection(
             endpoint.hostname,
             endpoint.port,
             timeout=min(5, remaining),
@@ -116,6 +117,8 @@ def call_model(config, role, request, previous, deadline, retry_budget):
             if choice.get("finish_reason") != "stop":
                 raise WorkerError("invalid_output")
             value = json.loads(choice["message"]["content"])
+            if key in json.dumps(value, ensure_ascii=False):
+                raise WorkerError("invalid_output")
             usage = payload.get("usage")
             # Whitelist numeric usage fields. Never archive provider response metadata.
             usage = (
@@ -128,6 +131,8 @@ def call_model(config, role, request, previous, deadline, retry_budget):
                 else None
             )
             return value, usage or None
+        except EndpointError:
+            raise WorkerError("model_not_configured") from None
         except TimeoutError as exc:
             raise WorkerError("timed_out") from exc
         except (KeyError, IndexError, TypeError, ValueError) as exc:

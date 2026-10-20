@@ -194,8 +194,8 @@ class WorkerSubprocessTest(unittest.TestCase):
             patch.dict(os.environ, {"QUANT_AGENT_KEY_FILE": ""}),
             patch("socket.getaddrinfo", side_effect=AssertionError("unexpected DNS")),
             patch.object(
-                adapter.http.client,
-                "HTTPSConnection",
+                adapter,
+                "PinnedHTTPSConnection",
                 side_effect=AssertionError("unexpected connection"),
             ),
             self.assertRaisesRegex(adapter.WorkerError, "^model_not_configured$"),

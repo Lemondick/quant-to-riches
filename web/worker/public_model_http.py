@@ -1,15 +1,20 @@
 """HTTPS model requests pinned to validated public addresses, with bounded responses."""
 
-import ipaddress
 import json as json_module
 import socket
 import ssl
 import time
-from urllib.parse import urlsplit
 
 import requests
 import urllib3
 
+from quant_assistant.integrations.tradingagents_worker.public_https import (
+    EndpointError,
+    public_address,
+)
+from quant_assistant.integrations.tradingagents_worker.public_https import (
+    endpoint as model_endpoint,
+)
 from quant_assistant.providers.advisor_models import AdvisorModelError
 
 
@@ -46,26 +51,13 @@ class PinnedHTTPSConnection(urllib3.connection.HTTPSConnection):
             self.timeout = original_timeout
 
 
-def public_address(value):
-    address = ipaddress.ip_address(value)
-    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
-        address = address.ipv4_mapped
-    return address.is_global and not address.is_multicast
-
-
 def post(endpoint, *, headers, json, timeout, allow_redirects=False):
-    target = urlsplit(endpoint)
-    if (
-        target.scheme != "https"
-        or not target.hostname
-        or target.username
-        or target.password
-        or target.port not in {None, 443}
-        or target.query
-        or target.fragment
-        or allow_redirects
-    ):
-        raise AdvisorModelError("model_configuration")
+    try:
+        target = model_endpoint(endpoint)
+        if allow_redirects:
+            raise EndpointError()
+    except EndpointError:
+        raise AdvisorModelError("model_configuration") from None
     try:
         addresses = socket.getaddrinfo(target.hostname, 443, type=socket.SOCK_STREAM)
         if not addresses or any(not public_address(entry[4][0]) for entry in addresses):

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using QuantAssistant.Core.Errors;
 using QuantAssistant.Infrastructure.Runtime;
 
@@ -11,6 +12,15 @@ namespace QuantAssistant.Api.Services;
 /// <summary>HTTPS model discovery with DNS validation on the actual socket and no redirects.</summary>
 public sealed class PublicModelCatalog
 {
+    // IANA special-purpose registry: the parent is non-global unless a more
+    // specific public allocation applies. Transition mechanisms are excluded.
+    private static readonly IPNetwork IetfAssignments = IPNetwork.Parse("2001::/23");
+    private static readonly IPNetwork[] IetfGlobal = [
+        IPNetwork.Parse("2001:1::1/128"), IPNetwork.Parse("2001:1::2/128"), IPNetwork.Parse("2001:1::3/128"),
+        IPNetwork.Parse("2001:3::/32"), IPNetwork.Parse("2001:4:112::/48"),
+        IPNetwork.Parse("2001:20::/28"), IPNetwork.Parse("2001:30::/28")
+    ];
+    private static readonly IPNetwork DocumentationV6 = IPNetwork.Parse("3fff::/20");
     private readonly Func<string, CancellationToken, Task<IPAddress[]>> resolve;
     private readonly Func<IPAddress, HttpMessageHandler> transport;
     public PublicModelCatalog() : this(Dns.GetHostAddressesAsync, CreateTransport) { }
@@ -32,10 +42,20 @@ public sealed class PublicModelCatalog
     }
     public static string Endpoint(string value)
     {
-        var endpoint = value.Trim().TrimEnd('/');
-        if (endpoint.Length is < 8 or > 500 || !Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) || uri.Scheme != "https"
-            || uri.Port != 443 || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0)
+        if (string.IsNullOrWhiteSpace(value) || value.Any(char.IsControl))
             throw Failure("请输入公开HTTPS兼容API地址，不包含密钥或查询参数。");
+        var original = value.Trim();
+        var endpoint = original.TrimEnd('/');
+        if (endpoint.Length is < 8 or > 500 || !Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) || uri.Scheme != "https"
+            || uri.Port != 443 || uri.UserInfo.Length > 0 || uri.Query.Length > 0 || uri.Fragment.Length > 0
+            || endpoint.IndexOfAny(['?', '#', '%', '\\', '@']) >= 0 || endpoint.Any(char.IsWhiteSpace))
+            throw Failure("请输入公开HTTPS兼容API地址，不包含密钥或查询参数。");
+        // Inspect the original path before Uri normalizes dot segments.
+        var pathStart = original.IndexOf('/', original.IndexOf("://", StringComparison.Ordinal) + 3);
+        var path = pathStart < 0 ? "" : original[pathStart..];
+        if (path.Contains("//", StringComparison.Ordinal) || path.TrimEnd('/').Split('/').Skip(1).Any(
+            part => part is "." or ".." || !Regex.IsMatch(part, @"\A[A-Za-z0-9._~-]+\z")))
+            throw Failure("请输入不含转义或相对路径的兼容API地址。");
         return endpoint;
     }
     private static ApplicationFailure Failure(string message) => new("model_discovery_failed", 422, message);
@@ -44,10 +64,17 @@ public sealed class PublicModelCatalog
         if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
         var bytes = address.GetAddressBytes();
         if (address.AddressFamily == AddressFamily.InterNetworkV6)
-            return (bytes[0] & 0xe0) == 0x20 && !(bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0d && bytes[3] == 0xb8);
+        {
+            if (IetfAssignments.Contains(address)) return IetfGlobal.Any(network => network.Contains(address));
+            return (bytes[0] & 0xe0) == 0x20
+                && !(bytes[0] == 0x20 && bytes[1] == 0x02) // 6to4 embeds IPv4 destinations
+                && !DocumentationV6.Contains(address)
+                && !(bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0d && bytes[3] == 0xb8);
+        }
         return !(bytes[0] is 0 or 10 or 127 || bytes[0] >= 224 || bytes[0] == 169 && bytes[1] == 254
             || bytes[0] == 172 && bytes[1] is >= 16 and <= 31 || bytes[0] == 192 && bytes[1] == 168
             || bytes[0] == 100 && bytes[1] is >= 64 and <= 127 || bytes[0] == 192 && bytes[1] == 0
+            || bytes[0] == 192 && bytes[1] == 88 && bytes[2] == 99 // retired IPv4 transition relays
             || bytes[0] == 198 && bytes[1] is 18 or 19 || bytes[0] == 198 && bytes[1] == 51 && bytes[2] == 100
             || bytes[0] == 203 && bytes[1] == 0 && bytes[2] == 113);
     }

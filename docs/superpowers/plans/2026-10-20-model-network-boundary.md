@@ -23,10 +23,10 @@
 
 **Files:** legacy integrations/tradingagents_worker/main.py, new standard-library public_https.py; new scripts/verify_model_network_boundary.py. Touch native transport only for reproduced failures within same boundary requirement.
 
-- [ ] Inventory actual endpoint/transport/config boundary, record chosen supported path/custom-host policy.
-- [ ] RED mocked regressions for private/mixed/rebound DNS, URL credentials/query/fragment/ports/path controls, mappedIPv6; verify missing key no network and original TLS/SNI/Host with public pinned socket.
-- [ ] Implement runtime resolution and validated numeric direct connect, verified original-host TLS, bounded setup and sanitized error mapping. Keep adapters standard-library-only and existing parent-PID/process restrictions.
-- [ ] Exercise IPv4/IPv6 fallback and setup/read deadlines, socket close and no POST replay on failure; existing research/native Worker suites and source checks pass; commit.
+- [x] Inventory actual endpoint/transport/config boundary, record chosen supported path/custom-host policy.
+- [x] RED mocked regressions for private/mixed/rebound DNS, URL credentials/query/fragment/ports/path controls, mappedIPv6; verify missing key no network and original TLS/SNI/Host with public pinned socket.
+- [x] Implement runtime resolution and validated numeric direct connect, verified original-host TLS, bounded setup and sanitized error mapping. Keep adapters standard-library-only and existing parent-PID/process restrictions.
+- [x] Exercise IPv4/IPv6 fallback and setup/read deadlines, socket close and no POST replay on failure; existing research/native Worker suites and source checks pass; commit.
 
 ## Task 2: Current deployment and documentation contracts
 

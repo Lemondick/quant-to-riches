@@ -7,6 +7,58 @@ namespace QuantAssistant.Api.Tests;
 
 public sealed class PublicModelCatalogTests
 {
+    [Theory]
+    [InlineData("https://models.example.org/v1?")]
+    [InlineData("https://models.example.org/v1#")]
+    [InlineData("https://models.example.org/a/../v1")]
+    [InlineData("https://models.example.org/%2fprivate")]
+    [InlineData("https://models.example.org//v1")]
+    [InlineData("https://models.example.org/v1\n")]
+    [InlineData("https://models.example.org/v1\\other")]
+    [InlineData("https://models.example.org/v1//")]
+    [InlineData("https://@models.example.org/v1")]
+    public void AmbiguousEndpoint_IsRejectedBeforeDiscovery(string endpoint)
+        => Assert.Throws<ApplicationFailure>(() => PublicModelCatalog.Endpoint(endpoint));
+
+    [Theory]
+    [InlineData("2002:0a00:0001::1")]
+    [InlineData("2001:0:4136:e378:8000:63bf:3fff:fdd2")]
+    [InlineData("2001:2::1")]
+    [InlineData("2001:100::1")]
+    [InlineData("3fff::1")]
+    [InlineData("192.88.99.1")]
+    public async Task NonPublicOrTransitionAddress_IsRejectedBeforeTransport(string address)
+    {
+        var created = false;
+        var catalog = new PublicModelCatalog((_, _) => Task.FromResult(new[] { IPAddress.Parse(address) }), _ =>
+        {
+            created = true;
+            return new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+        });
+        await Assert.ThrowsAsync<ApplicationFailure>(() => catalog.Discover("https://models.example.org/v1", "synthetic-value", CancellationToken.None));
+        Assert.False(created);
+    }
+
+    [Theory]
+    [InlineData("2001:1::1")]
+    [InlineData("2001:1::2")]
+    [InlineData("2001:1::3")]
+    [InlineData("2001:3::1")]
+    [InlineData("2001:4:112::1")]
+    [InlineData("2001:20::1")]
+    [InlineData("2001:30::1")]
+    [InlineData("2606:4700:4700::1111")]
+    [InlineData("::ffff:8.8.8.8")]
+    public async Task RegisteredGlobalAddress_RemainsSupported(string address)
+    {
+        var catalog = new PublicModelCatalog((_, _) => Task.FromResult(new[] { IPAddress.Parse(address) }), _ =>
+            new Handler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"data\":[{\"id\":\"synthetic-model\"}]}")
+            })));
+        Assert.Equal(new[] { "synthetic-model" }, await catalog.Discover("https://models.example.org/v1", "synthetic-value", CancellationToken.None));
+    }
+
     [Fact]
     public async Task JevOfficialCatalog_UsesNamesAndKeepsProviderIdsSeparate()
     {

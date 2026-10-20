@@ -27,6 +27,41 @@ from quant_assistant.providers.advisor_models import AdvisorModelError
 
 
 class NativeWorkerTests(unittest.TestCase):
+    def test_transition_addresses_cannot_route_model_calls_to_embedded_private_ipv4(self):
+        for address in ("64:ff9b::a00:1", "2002:0a00:0001::1"):
+            with (
+                self.subTest(address=address),
+                patch.object(
+                    public_model_http.socket,
+                    "getaddrinfo",
+                    return_value=[(10, 1, 6, "", (address, 443, 0, 0))],
+                ),
+                patch.object(public_model_http.urllib3, "HTTPSConnectionPool") as pool,
+                self.assertRaises(AdvisorModelError),
+            ):
+                public_model_http.post(
+                    "https://models.example.org/v1/chat/completions",
+                    headers={},
+                    json={},
+                    timeout=(1, 1),
+                )
+            pool.assert_not_called()
+
+    def test_ambiguous_paths_and_empty_query_are_rejected_before_model_dns(self):
+        for path in ("/v1?", "/a/../v1", "/%2fprivate", "//v1"):
+            with (
+                self.subTest(path=path),
+                patch.object(public_model_http.socket, "getaddrinfo") as dns,
+                self.assertRaises(AdvisorModelError),
+            ):
+                public_model_http.post(
+                    "https://models.example.org" + path,
+                    headers={},
+                    json={},
+                    timeout=(1, 1),
+                )
+            dns.assert_not_called()
+
     def test_tls_failure_tries_another_public_address_before_http_is_sent(self):
         addresses = ["2606:4700:4700::1111", "8.8.8.8"]
         connection = public_model_http.PinnedHTTPSConnection(
