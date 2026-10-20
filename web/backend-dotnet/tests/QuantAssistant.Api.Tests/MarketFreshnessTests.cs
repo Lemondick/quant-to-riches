@@ -7,6 +7,18 @@ namespace QuantAssistant.Api.Tests;
 public sealed class MarketFreshnessTests
 {
     [Fact]
+    public void LegacyCatalogRowCountsCannotBeAdvertisedAsAuthoritativeCoverage()
+    {
+        var data = JsonNode.Parse("""{"indices":[],"fund_rankings":[],"sector_rankings":[],"sector_catalogs":[{"source":"sina","category":"industry","total":25,"received":25,"complete":true,"observed_at":null,"fetched_at":"2026-10-18T09:00:00+08:00"}]}""")!.AsObject();
+        PublicDataQuality.Apply("market.snapshot", data, DateTimeOffset.Parse("2026-10-18T10:00:00+08:00"));
+        var catalog = data["sector_catalogs"]![0]!;
+        Assert.Null(catalog["total"]);
+        Assert.Null(catalog["complete"]);
+        Assert.Equal(25, catalog["received"]!.GetValue<int>());
+        Assert.Equal("unknown", catalog["catalog_status"]!.GetValue<string>());
+        Assert.Null(catalog["source_time"]);
+    }
+    [Fact]
     public void LegacyClientsReceiveOneIndustryTaxonomyAndNeverNullPercentages()
     {
         var data = JsonNode.Parse("""{"sector_rankings":[{"source":"eastmoney","category":"industry","code":"missing","change_rate":null},{"source":"sina","category":"industry","code":"zero","change_rate":"0"},{"source":"sina","category":"concept","code":"concept","change_rate":"99"},{"source":"sina","category":"industry","code":"up","change_rate":"1.25"}]}""")!.AsObject();

@@ -1,4 +1,4 @@
-"""Complete public board catalogs. Never mix vendors' taxonomies or quote clocks."""
+"""Public board catalogs. Never mix vendors' taxonomies or quote clocks."""
 
 import json
 import os
@@ -12,7 +12,7 @@ from decimal import Decimal, DecimalException
 from pathlib import Path
 
 from quant_assistant.common.time import SHANGHAI_TZ
-from quant_assistant.providers.public_http import PublicHttp
+from quant_assistant.providers.public_http import PublicHttp, PublicHttpError
 
 CATEGORIES = {"industry": 2, "concept": 3, "region": 1}
 
@@ -43,13 +43,31 @@ class SectorCatalog:
     source: str
     total: int | None
     received: int
-    complete: bool
+    complete: bool | None
     fetched_at: datetime | None
     observed_at: datetime | None = None
     stale: bool = False
     error: str | None = None
     listed_total: int | None = None
     unquoted: int = 0
+    catalog_status: str = "unknown"
+    quote_total: int | None = None
+    quote_payload_complete: bool | None = None
+    quotes_complete: bool = False
+    http_ok: bool | None = None
+    parse_ok: bool | None = None
+    source_time_known: bool = False
+    cache_used: bool = False
+    listed_received: int | None = None
+    coverage_version: int = 2
+
+
+@dataclass(frozen=True, slots=True)
+class _CatalogRows:
+    rows: tuple[SectorRanking, ...]
+    quote_total: int | None = None
+    quote_payload_complete: bool | None = None
+    listed_received: int | None = None
 
 
 def _number(value):
@@ -174,7 +192,7 @@ def _eastmoney(http_get, category, now, taxonomy):
                 for code, name in taxonomy.items()
                 if code not in quoted
             )
-            return tuple(rows)
+            return _CatalogRows(tuple(rows), total, True, len(taxonomy))
         if len(items) < 100:
             raise ValueError("truncated catalog")
     raise ValueError("catalog exceeds page limit")
@@ -221,7 +239,7 @@ def _sina(http_get, category, now):
         )
     # This endpoint does not publish a quote timestamp. A response Date header is
     # not a substitute; keep observed_at null even when fetched just now.
-    return tuple(rows)
+    return _CatalogRows(tuple(rows), listed_received=len(rows))
 
 
 def _cache_read(path, source, category, now):
@@ -238,19 +256,42 @@ def _cache_read(path, source, category, now):
         for key in ("observed_at", "fetched_at"):
             item[key] = datetime.fromisoformat(item[key]) if item[key] else None
         rows.append(SectorRanking(**item))
-    if len(rows) != data["total"] or not rows or len({r.code for r in rows}) != len(rows):
+    version = data.get("version")
+    if version not in (None, 1, 2):
+        raise ValueError("unknown cache version")
+    received = data["row_count"] if version == 2 else data["total"]
+    if len(rows) != received or not rows or len({r.code for r in rows}) != len(rows):
         raise ValueError("incomplete cached catalog")
-    return tuple(rows), fetched
+    # Old 'total' was merely the serialized row count, never a supplier total.
+    total = (
+        _optional(data.get("quote_total"), _count)
+        if version == 2 and source == "eastmoney"
+        else None
+    )
+    complete = (
+        data.get("quote_payload_complete") if version == 2 and source == "eastmoney" else None
+    )
+    if complete is not None and type(complete) is not bool:
+        raise ValueError("invalid cached quote completeness")
+    if complete and (total is None or sum(row.change_rate is not None for row in rows) != total):
+        raise ValueError("cached quote count mismatch")
+    listed = _optional(data.get("listed_received"), _count) if version == 2 else None
+    return _CatalogRows(tuple(rows), total, complete, listed), fetched
 
 
-def _cache_write(path, rows, now):
+def _cache_write(path, batch, now):
+    rows = batch.rows
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(prefix="sector-", dir=path.parent)
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as output:
             json.dump(
                 {
-                    "total": len(rows),
+                    "version": 2,
+                    "row_count": len(rows),
+                    "quote_total": batch.quote_total,
+                    "quote_payload_complete": batch.quote_payload_complete,
+                    "listed_received": batch.listed_received,
                     "fetched_at": now.isoformat(),
                     "rows": [asdict(row) for row in rows],
                 },
@@ -286,23 +327,53 @@ def read_sector_catalogs(*, http_get, now, cache_dir=None, taxonomy_cache=None, 
     def load(job):
         source, category = job
         path = Path(cache_dir) / f"{source}-{category}.json" if cache_dir else None
-        stale, error, fetched = False, None, now
+        stale, error, fetched, cache_used = False, None, now, False
+        http_ok, parse_ok = None, None
+        batch = _CatalogRows(())
+
+        def checked_get(url, **kwargs):
+            nonlocal http_ok, parse_ok
+            try:
+                response = get(url, **kwargs)
+                http_ok = True
+                return response
+            except PublicHttpError as failure:
+                if failure.http_status is not None:
+                    http_ok = failure.http_status == 200
+                elif str(failure) in {"circuit_open", "concurrency_limit"}:
+                    http_ok = None
+                else:
+                    http_ok = False
+                if failure.http_status == 200:
+                    parse_ok = False
+                raise
+            except Exception:
+                http_ok = False
+                raise
+
         try:
             if source == "eastmoney":
                 if taxonomy is None:
                     raise ValueError("official taxonomy unavailable")
-                rows = _eastmoney(get, category, now, taxonomy[category])
+                batch = _eastmoney(checked_get, category, now, taxonomy[category])
             else:
-                rows = _sina(get, category, now)
+                batch = _sina(checked_get, category, now)
+            parse_ok = True
             if path:
                 with suppress(OSError):
-                    _cache_write(path, rows, now)
+                    _cache_write(path, batch, now)
         except Exception:
-            error, stale, rows = "source_unavailable", True, ()
+            error, stale = "source_unavailable", True
+            if http_ok is True:
+                parse_ok, error = False, "source_parse_failed"
+            elif source == "eastmoney" and taxonomy is None:
+                error = "taxonomy_unavailable"
             fetched = None
             if path:
                 with suppress(OSError, ValueError, KeyError, TypeError, DecimalException):
-                    rows, fetched = _cache_read(path, source, category, now)
+                    batch, fetched = _cache_read(path, source, category, now)
+                    cache_used = True
+        rows = batch.rows
         if not rows and source == "eastmoney" and taxonomy:
             rows = tuple(
                 SectorRanking(
@@ -317,21 +388,34 @@ def read_sector_catalogs(*, http_get, now, cache_dir=None, taxonomy_cache=None, 
                 for code, name in taxonomy[category].items()
             )
             fetched = taxonomy.fetched_at
+            batch = _CatalogRows(
+                rows, quote_payload_complete=False, listed_received=len(taxonomy[category])
+            )
         elif rows and not stale:
             fetched = max((row.fetched_at for row in rows if row.fetched_at), default=fetched)
         observed = [row.observed_at for row in rows if row.observed_at]
+        unquoted = sum(row.change_rate is None for row in rows)
+        # Neither registry endpoint publishes an authoritative catalog total.
+        # Eastmoney's clist total proves quote pagination only, not registry coverage.
         return rows, SectorCatalog(
-            category,
-            source,
-            len(rows) if rows else None,
-            len(rows),
-            bool(rows),
-            fetched,
-            min(observed) if observed else None,
-            stale,
-            error,
-            len(rows) if rows else None,
-            sum(row.change_rate is None for row in rows),
+            category=category,
+            source=source,
+            total=None,
+            received=len(rows),
+            complete=None,
+            fetched_at=fetched,
+            observed_at=min(observed) if observed else None,
+            stale=stale,
+            error=error,
+            unquoted=unquoted,
+            quote_total=batch.quote_total,
+            quote_payload_complete=batch.quote_payload_complete,
+            quotes_complete=bool(rows) and unquoted == 0,
+            http_ok=http_ok,
+            parse_ok=parse_ok,
+            source_time_known=bool(rows) and len(observed) == len(rows),
+            cache_used=cache_used,
+            listed_received=batch.listed_received,
         )
 
     with ThreadPoolExecutor(max_workers=3) as pool:

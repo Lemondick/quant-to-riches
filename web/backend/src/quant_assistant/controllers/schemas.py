@@ -363,11 +363,21 @@ class MarketSectorCatalogResponse(ObservationModel):
     source: str
     total: int | None
     received: int
-    complete: bool
+    complete: bool | None = None
     fetched_at: datetime | None
     observed_at: datetime | None = None
     stale: bool = False
     error: str | None = None
+    coverage_version: int = 0
+    catalog_status: str = "unknown"
+    quote_total: int | None = None
+    quote_payload_complete: bool | None = None
+    quotes_complete: bool | None = None
+    http_ok: bool | None = None
+    parse_ok: bool | None = None
+    source_time_known: bool = False
+    cache_used: bool | None = None
+    listed_received: int | None = None
 
 
 class MarketBreadthResponse(ObservationModel):

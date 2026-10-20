@@ -134,6 +134,15 @@ public static class PublicDataQuality
         {
             Quotes(Rows("indices"));
             foreach (var row in Rows("fund_rankings")) Stamp(row, "official_nav", "fund", Text(row, "nav_date"), now, calendars);
+            foreach (var catalog in Rows("sector_catalogs"))
+            {
+                if (catalog["coverage_version"] is JsonValue version && version.TryGetValue<int>(out var value) && value == 2) continue;
+                // Earlier snapshots used received rows as a fabricated supplier total.
+                catalog["total"] = catalog["complete"] = catalog["listed_total"] = null;
+                catalog["catalog_status"] = "unknown";
+                catalog["quote_total"] = catalog["quote_payload_complete"] = catalog["quotes_complete"] = null;
+                catalog["http_ok"] = catalog["parse_ok"] = catalog["cache_used"] = null;
+            }
             foreach (var row in Rows("sector_rankings").Concat(Rows("sector_catalogs")))
             {
                 Stamp(row, "realtime_quote", "sector", Text(row, "source_time") ?? Text(row, "observed_at"), now, calendars);

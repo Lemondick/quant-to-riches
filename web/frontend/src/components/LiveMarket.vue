@@ -31,9 +31,9 @@
         <div class="panel table-panel section-space"><div class="panel-head"><div><h2>指数型基金日涨幅前十</h2><p>东方财富指数型基金榜单；公布净值非盘中实时估值，点击名称查看详情。<span data-update-time> · {{ updateTime(oldestUpdate(data.fund_rankings)) }}</span></p></div></div><FilterBar v-model="category" v-model:query="query" :options="['全部', '上涨', '下跌']" class="panel-filters" label="基金表现" placeholder="搜索基金名称或代码" search-label="搜索基金名称或代码" /><DataTable table-id="live-market-funds" label="基金排行" :headers="['基金', '代码', '单位净值', '涨跌幅', '净值日期', '操作']" :rows="fundRows" :numeric-columns="[2, 3]" :min-width="800" empty-title="暂无可用基金排行"><template #cell-0="{ row, value }"><button class="table-name-button" @pointerenter="prepareFundDetail(String(row[1]))" @focus="prepareFundDetail(String(row[1]))" @click="selected = String(row[1])">{{ value }}</button></template><template #cell-5="{ row }"><button class="text-action" :disabled="account.mutating.value" :aria-label="(isFollowed(String(row[1])) ? '取消关注：' : '关注：') + row[0]" @click="toggleFollow(String(row[1]), String(row[0]))">{{ isFollowed(String(row[1])) ? '已关注' : '关注' }}</button></template></DataTable></div>
       </div>
       <div v-else class="tab-content-fade">
-        <div class="sector-kpi-grid"><div v-for="kind in sectorKinds" :key="kind.id" class="panel metric-card"><span class="metric-label">{{ kind.label }}</span><div class="metric-value">{{ catalogFor(kind.id)?.received ?? '—' }} <small>个</small></div><div class="metric-note">{{ catalogFor(kind.id)?.complete ? (catalogFor(kind.id)?.stale ? '目录完整 · 报价更新失败' : '完整读取源目录') : '目录暂不可用' }}</div></div></div>
+        <div class="sector-kpi-grid"><div v-for="kind in sectorKinds" :key="kind.id" class="panel metric-card"><span class="metric-label">{{ kind.label }}</span><div class="metric-value">{{ catalogFor(kind.id)?.received ?? '—' }} <small>个</small></div><div class="metric-note">{{ catalogFor(kind.id)?.received ? (catalogFor(kind.id)?.stale ? '旧目录快照 · 总数未知' : catalogFor(kind.id)?.complete === true ? '目录覆盖已核验' : '已接收条目 · 来源总数未知') : '目录暂不可用' }}</div></div></div>
         <div class="panel table-panel section-space">
-          <div class="panel-head"><div><h2>全部板块</h2><p>按数据源分类展示完整目录，涨跌幅单位为百分比。<span data-update-time> · {{ updateTime(activeCatalog?.updated_at) }}</span></p></div><label class="sector-source-label">数据源<select v-model="sectorSource" class="btn" aria-label="板块数据源"><option v-for="source in sectorSources" :key="source" :value="source">{{ sourceLabel(source) }}</option></select></label></div>
+          <div class="panel-head"><div><h2>全部板块</h2><p>按数据源分类展示已接收条目，覆盖状态见下方；涨跌幅单位为百分比。<span data-update-time> · {{ updateTime(activeCatalog?.updated_at) }}</span></p></div><label class="sector-source-label">数据源<select v-model="sectorSource" class="btn" aria-label="板块数据源"><option v-for="source in sectorSources" :key="source" :value="source">{{ sourceLabel(source) }}</option></select></label></div>
           <p class="sector-source-note">{{ sectorSource === 'sina' ? '新浪分类；涨跌幅为源提供的板块平均涨跌，与东方财富板块指数口径不同。该接口未提供行情时间，无法确认延迟。' : sectorSource === 'eastmoney' ? '东方财富分类，行业包含一、二、三级；涨跌幅与行情时间直接取自板块指数原始记录。' : '该快照未提供板块来源信息，请刷新页面以重新获取。' }}</p>
           <FilterBar v-model="sectorCategory" v-model:query="sectorQuery" :options="['行业', '概念', '地域']" class="panel-filters" label="板块分类" placeholder="搜索全部板块名称或代码" search-label="搜索全部板块名称或代码" />
           <p class="sector-source-note" role="status">{{ sectorStatus }} · 抓取 {{ displayTime(activeCatalog?.fetched_at) }} · 行情 {{ activeCatalog?.observed_at ? displayTime(activeCatalog.observed_at) : '来源未提供' }} <a :href="sectorSource === 'sina' ? 'https://finance.sina.com.cn/stock/sl/' : 'https://quote.eastmoney.com/center/boardlist.html'" target="_blank" rel="noopener noreferrer">核对来源 ↗</a></p>
@@ -94,18 +94,19 @@ const subIndexDelta = (name: string) => { const item = data.value?.indices.find(
 const sectorSource = ref(''), sectorCategory = ref('行业'), sectorQuery = ref('')
 const sectorKinds = [{ id: 'industry', label: '行业' }, { id: 'concept', label: '概念' }, { id: 'region', label: '地域' }]
 const sectorSources = computed(() => data.value?.sector_catalogs?.length ? [...new Set(data.value.sector_catalogs.map(item => item.source))] : ['unknown'])
-watch(data, value => { if (!sectorSource.value && value) sectorSource.value = value.sector_catalogs?.find(item => item.complete && !item.stale)?.source ?? sectorSources.value[0] ?? 'unknown' }, { immediate: true })
+watch(data, value => { if (!sectorSource.value && value) sectorSource.value = value.sector_catalogs?.find(item => item.received > (item.unquoted ?? 0) && !item.stale)?.source ?? sectorSources.value[0] ?? 'unknown' }, { immediate: true })
 const catalogFor = (category: string) => data.value?.sector_catalogs?.find(item => item.source === sectorSource.value && item.category === category)
 const activeCatalog = computed(() => catalogFor(sectorKinds.find(item => item.label === sectorCategory.value)?.id ?? 'industry'))
 const sectorStatus = computed(() => {
   const catalog = activeCatalog.value
-  if (!catalog?.complete) return '该数据源目录暂不可用'
-  if (catalog.stale) return catalog.unquoted === catalog.received ? '目录已核对 · 行情源暂不可用，暂无报价' : '更新失败 · 显示原始快照'
-  if (!catalog.observed_at) return '已重新抓取 · 行情时间未提供，延迟未知'
-  if (['continuous_trading', 'auction', 'trading'].includes(data.value?.market_session ?? '') && Date.now() - Date.parse(catalog.observed_at) > 90000) return '行情延迟 · 保留原始时间'
-  return `${catalog.received} / ${catalog.total} 个板块 · ${catalog.unquoted ?? 0} 个暂无报价 · ${sessionLabel.value}`
+  if (!catalog?.received) return catalog?.http_ok === true && catalog.parse_ok === false ? '响应解析失败 · 暂无可用板块' : '该数据源暂无可用板块'
+  const coverage = catalog.total == null ? `已接收 ${catalog.received} 个板块 · 来源总数未知` : `${catalog.received} / ${catalog.total} 个板块`
+  if (catalog.stale) return coverage + (catalog.unquoted === catalog.received ? ' · 暂无报价' : ' · 更新失败，保留原始快照')
+  if (!catalog.observed_at) return coverage + ' · 来源未提供行情时间，延迟未知'
+  if (['continuous_trading', 'auction', 'trading'].includes(data.value?.market_session ?? '') && Date.now() - Date.parse(catalog.observed_at) > 90000) return coverage + ' · 行情延迟，保留原始时间'
+  return coverage + ` · ${catalog.unquoted ?? 0} 个暂无报价 · ${sessionLabel.value}`
 })
-const previewSource = computed(() => data.value?.sector_catalogs?.find(item => item.category === 'industry' && item.complete && !item.stale)?.source ?? data.value?.sector_rankings[0]?.source ?? 'unknown')
+const previewSource = computed(() => data.value?.sector_catalogs?.find(item => item.category === 'industry' && item.received > (item.unquoted ?? 0) && !item.stale)?.source ?? data.value?.sector_rankings[0]?.source ?? 'unknown')
 const industryPreview = computed(() => (data.value?.sector_rankings ?? []).filter(item => (item.category ?? 'industry') === 'industry' && (item.source ?? 'unknown') === previewSource.value).sort((a, b) => (b.change_rate == null ? -Infinity : Number(b.change_rate)) - (a.change_rate == null ? -Infinity : Number(a.change_rate))).slice(0, 6))
 const sectorRows = computed(() => {
   const category = sectorKinds.find(item => item.label === sectorCategory.value)?.id ?? 'industry', query = sectorQuery.value.trim().toLowerCase()

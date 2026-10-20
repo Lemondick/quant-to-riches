@@ -76,9 +76,9 @@
 
 **Interfaces:** 正式净值携带 `nav_freshness_policy`（`daily_t1` / `qdii_t3` / `weekly` / `unknown`）、`nav_age_sessions` 和策略理由。策略来自已验证基金类型/发布频率，未知类型或日历保持时效未知；不按基金名称猜类型。每日与 QDII 策略分别允许 1 / 3 个已完成交易日延迟；周频按明确发布周期判断，不能套用日频；货币基金缺少对应净值发布契约时 unknown。
 
-- [ ] 写失败测试：日频缺失多个交易日 stale；跨国庆长假不按自然日误判；未知年份/基金策略 unknown；QDII 独立宽限；周频独立周期；正式净值始终不写入 estimate_nav。
-- [ ] 运行测试确认失败；移除两个 provider 的 14 自然日统一拒绝，将旧正式净值保留为带 stale 的真实证据。
-- [ ] Python 和 C# 共用测试参数；运行基金估值、资料、公开缓存测试并提交。
+- [x] 写失败测试：日频缺失多个交易日 stale；跨国庆长假不按自然日误判；未知年份/基金策略 unknown；QDII 独立宽限；周频独立周期；正式净值始终不写入 estimate_nav。
+- [x] 运行测试确认失败；移除两个 provider 的 14 自然日统一拒绝，将旧正式净值保留为带 stale 的真实证据。
+- [x] Python 和 C# 共用测试参数；运行基金估值、资料、公开缓存测试并提交。
 
 ## Task 4: 目录覆盖、报价覆盖和时钟状态分别表达
 
@@ -86,9 +86,9 @@
 
 **Interfaces:** `total` 仅为供应商权威目录总数；Sina 未提供时 null。`received` 为接收行数。`complete` 为 bool|null，另给 `catalog_status=complete|incomplete|unknown`；`http_ok`、`parse_ok`、`quotes_complete`、`source_time_known`、`cache_used` 独立。Eastmoney 的目录总数与行情接口 quote_total 分离；无报价的注册板块保留 null。
 
-- [ ] 写失败测试：Sina 有 25 行但 total/complete 未知；HTTP 成功解析失败；Eastmoney 多页截断/重复；目录完整但有未报价板块；旧缓存保留原时间、原目录证据和本轮失败状态；旧版缓存的自填 total 不升级为权威 total。
-- [ ] 运行失败测试；只扩展缓存版本和质量契约，不更换板块身份，不混合供应商分类，不调整页面布局。
-- [ ] 运行 sector/provider/schema 测试及前端 typecheck/tests/build；提交。
+- [x] 写失败测试：Sina 有 25 行但 total/complete 未知；HTTP 成功解析失败；Eastmoney 多页截断/重复；目录完整但有未报价板块；旧缓存保留原时间、原目录证据和本轮失败状态；旧版缓存的自填 total 不升级为权威 total。
+- [x] 运行失败测试；只扩展缓存版本和质量契约，不更换板块身份，不混合供应商分类，不调整页面布局。
+- [x] 运行 sector/provider/schema 测试及前端 typecheck/tests/build；提交。
 
 ## Task 5: 阶段 C 验收
 

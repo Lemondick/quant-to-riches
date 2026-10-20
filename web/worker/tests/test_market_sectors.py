@@ -70,6 +70,67 @@ def feed(url, **kwargs):
 
 
 class SectorCatalogTests(unittest.TestCase):
+    def test_received_rows_never_manufacture_an_authoritative_catalog_total(self):
+        _, catalogs = self.read()
+        for catalog in catalogs:
+            with self.subTest(source=catalog.source, category=catalog.category):
+                self.assertIsNone(catalog.total)
+                self.assertIsNone(catalog.complete)
+                self.assertEqual("unknown", catalog.catalog_status)
+                self.assertTrue(catalog.http_ok)
+                self.assertTrue(catalog.parse_ok)
+                self.assertFalse(catalog.cache_used)
+                if catalog.source == "sina":
+                    self.assertIsNone(catalog.quote_total)
+                    self.assertFalse(catalog.source_time_known)
+                else:
+                    self.assertEqual(123, catalog.quote_total)
+                    self.assertTrue(catalog.quote_payload_complete)
+
+    def test_catalog_and_quote_coverage_are_separate(self):
+        def extra(url, **kwargs):
+            response = feed(url, **kwargs)
+            if "sidemenu_new" in url:
+                response.data["bklist"].append({"code": "BK9999", "name": "无报价测试", "type": 2})
+            return response
+
+        _, catalogs = self.read(extra)
+        value = next(c for c in catalogs if c.source == "eastmoney" and c.category == "industry")
+        self.assertIsNone(value.total)
+        self.assertEqual((124, 123, 1), (value.received, value.quote_total, value.unquoted))
+        self.assertFalse(value.quotes_complete)
+        self.assertTrue(value.quote_payload_complete)
+
+    def test_http_success_is_not_parse_success(self):
+        for body in ("var x={bad-json}", "<html>rejected payload</html>"):
+
+            def broken(url, body=body, **kwargs):
+                return Response(text=body) if "sina" in url else feed(url, **kwargs)
+
+            _, catalogs = self.read(broken)
+            for catalog in (c for c in catalogs if c.source == "sina"):
+                with self.subTest(body=body, category=catalog.category):
+                    self.assertTrue(getattr(catalog, "http_ok", None))
+                    self.assertFalse(catalog.parse_ok)
+                    self.assertEqual(0, catalog.received)
+
+    def test_cached_payload_retains_source_counts_and_original_clocks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original, _ = self.read(cache=Path(directory))
+
+            def offline(*args, **kwargs):
+                raise OSError("offline")
+
+            rows, catalogs = self.read(offline, Path(directory))
+            self.assertEqual(original, rows)
+            for catalog in catalogs:
+                self.assertIsNone(catalog.total)
+                self.assertIsNone(catalog.complete)
+                self.assertTrue(catalog.cache_used)
+                self.assertTrue(catalog.stale)
+                self.assertFalse(catalog.http_ok)
+                self.assertEqual(NOW, catalog.fetched_at)
+
     def read(self, get=feed, cache=None, now=NOW):
         return read_sector_catalogs(http_get=get, now=now, cache_dir=cache)
 
@@ -77,7 +138,9 @@ class SectorCatalogTests(unittest.TestCase):
         rows, catalogs = self.read()
         self.assertEqual(len(rows), 3 * 123 + 3 * 25)
         self.assertEqual(len(catalogs), 6)
-        self.assertTrue(all(item.complete and not item.stale for item in catalogs))
+        self.assertTrue(
+            all(item.complete is None and not item.stale and item.received > 0 for item in catalogs)
+        )
         em = next(row for row in rows if row.source == "eastmoney")
         self.assertEqual(em.observed_at, QUOTE_TIME)
         self.assertEqual(em.fetched_at, NOW)
@@ -171,7 +234,9 @@ class SectorCatalogTests(unittest.TestCase):
 
             rows, catalogs = self.read(offline, Path(directory))
             self.assertEqual(rows, original)
-            self.assertTrue(all(c.stale and c.error and c.complete for c in catalogs))
+            self.assertTrue(
+                all(c.stale and c.error and c.complete is None and c.cache_used for c in catalogs)
+            )
             self.assertTrue(all(c.fetched_at == NOW for c in catalogs))
 
     def test_corrupt_or_expired_cache_is_unavailable(self):
@@ -184,6 +249,28 @@ class SectorCatalogTests(unittest.TestCase):
             rows, catalogs = self.read(offline, Path(directory), NOW.replace(day=27))
             self.assertEqual(rows, ())
             self.assertTrue(all(not c.complete and c.received == 0 for c in catalogs))
+
+    def test_old_cache_row_count_is_not_upgraded_to_a_supplier_total(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.read(cache=Path(directory))
+            for path in Path(directory).glob("*.json"):
+                current = json.loads(path.read_text(encoding="utf-8"))
+                legacy = {
+                    "total": len(current["rows"]),
+                    "fetched_at": current["fetched_at"],
+                    "rows": current["rows"],
+                }
+                path.write_text(json.dumps(legacy), encoding="utf-8")
+
+            def offline(*args, **kwargs):
+                raise OSError("offline")
+
+            _, catalogs = self.read(offline, Path(directory))
+            for catalog in catalogs:
+                self.assertIsNone(catalog.total)
+                self.assertIsNone(catalog.complete)
+                self.assertIsNone(catalog.quote_total)
+                self.assertTrue(catalog.cache_used)
 
 
 if __name__ == "__main__":

@@ -18,7 +18,9 @@ _SLOTS = BoundedSemaphore(4)
 
 
 class PublicHttpError(ProviderUnavailable):
-    pass
+    def __init__(self, reason, http_status=None):
+        super().__init__(reason)
+        self.http_status = http_status
 
 
 class PublicHttp:
@@ -126,7 +128,7 @@ class PublicHttp:
             )
             while len(self._states) > 64:
                 self._states.popitem(last=False)
-        raise PublicHttpError(error or "transport_unavailable")
+        raise PublicHttpError(error or "transport_unavailable", status)
 
 
 def log_validation(

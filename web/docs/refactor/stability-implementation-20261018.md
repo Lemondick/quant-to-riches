@@ -103,7 +103,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 最终 `8006a8051c98aa2f5a8c0ed88712d9e8f91143de`：[Linux 验收 39123091682](https://github.com/Lemondick/quant-to-riches/actions/runs/39123091682)，.NET/PG 317、Worker 114、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和编译通过。
 
-### 正式净值发布策略 — 子任务 3 等待 Linux 验证
+### 正式净值发布策略 — 子任务 3 PASS
 
 - 用例先复现 C# 14 项策略失败与 Python 3 项旧净值丢失/误报；另验证了视图白名单丢失策略、周频忽略发布滞后的问题，均先 RED 后修复。
 - 共用 `nav_freshness_policies.json` 配置应用阈值：日频 `daily_t1` 最多 1 个已完成交易日，QDII `qdii_t3` 最多 3 个；周频需明确估值星期，另计可配置发布滞后（默认 1 个交易日）。这些是应用时效容忍规则，不代表公开源保证的更新时间。
@@ -114,7 +114,18 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - 现有基金资料状态标签和图表说明显示“旧官方净值”或“时效待确认”，没有改动布局、主题或 CSS。
 - 本地全量：.NET 150 通过 / 155 PG 跳过；Worker 120/120；Python 445 通过 / 1 Linux 专属跳过；前端 43/43，typecheck/lint 通过。真实 PG 和 Linux 专属门禁仍等待本次 CI，不把本地跳过计为通过。
 
-板块目录完整性仍在后续子任务中；阶段 C 整体尚未宣告完成。
+最终 `e28b050872850c053f57cc73e95cb1b0eaa8c4ca`：[Linux 验收 39124567531](https://github.com/Lemondick/quant-to-riches/actions/runs/39124567531)，.NET/PG 339、Worker 120、Python 446、数据库工具 15、报告 5 全部通过，0 跳过；前端浏览器和编译通过。
+
+### 板块目录证据 — 子任务 4 等待 Linux 验证
+
+- 先复现“收到 25 行就声称供应商总数 25”、HTTP 200 被当作解析成功、旧缓存伪总数升级等问题；新增 Python 5 项回归和 C# 旧快照修正回归，保留 RED 日志。
+- 东方财富注册目录及新浪接口未提供权威目录总数，`total`、`complete` 保持 null，`catalog_status=unknown`。东方财富行情分页 `quote_total` 单独保留，`quote_payload_complete` 只说明行情分页完成；没有报价的注册条目仍显示 null。
+- 独立提供 `http_ok`、`parse_ok`、`quotes_complete`、`source_time_known`、`cache_used`，旧缓存保留原始行情/采集时间及本次失败状态。缓存格式升级为 v2；旧版 `total` 只用于校验缓存行数，不能当作供应商总数。
+- 2026-10-18 只读探测：东方财富注册接口实际接收 1044 条，新浪行业接口接收 49 条，均无权威目录总数字段。这些是当次接收数量，不是全市场总数，也不代表当前实时行情。
+- Native gateway 修正已存的旧版公开快照，不再通过它展示伪完整状态。前端仅调整现有状态文案与可用来源选择，不改布局、主题或 CSS。
+- 本地 .NET 151 通过、155 PG 跳过；Worker 125/125；前端 43/43 与 typecheck/lint/build 通过；source verify、Worker ruff 通过。真实数据库及 Linux 专属用例以随后 CI 为准。
+
+阶段 C 等待最终 Linux 验收与整体代码审查，尚未宣告完成。
 
 ## 《01》后续进度
 
