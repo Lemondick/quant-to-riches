@@ -189,7 +189,7 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 
 最终源码 `e07aa833012fcb508e81e47de6c14eb2e73b3f63`：[Linux 39395377198](https://github.com/Lemondick/quant-to-riches/actions/runs/39395377198)，Python 477、.NET/PG 361、Worker 126、工具 15、报告 5 全通过，0 跳过；前端、浏览器回归、构建通过。独立整体审查无 Critical / Important / Minor，另独立复跑 31 项专项全过；[全部取舍记录](backtest-decisions-20261020.md)。没有合并 main、部署或改写真实财务数据。
 
-## 《01》阶段 F：BUG-014 与文档 — Linux 通过，整体审查中
+## 《01》阶段 F：BUG-014 与文档 — PASS
 
 分支 `codex/model-network-boundary`，继承阶段 E 文档提交 `99ae143`。实际源码 `8b9a2e3c08a7c5434ee6526c679e99bce740643f`：[Linux 39424757711](https://github.com/Lemondick/quant-to-riches/actions/runs/39424757711)，Python 492、.NET/PG 385、Worker 128、数据库工具 15、报告 5 全通过，0 跳过；前端、浏览器和构建通过。
 
@@ -199,13 +199,15 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - README、架构、前端说明、原生和Ubuntu手册统一当前入口、0001–0023迁移、默认30秒及75/55秒预算；删除过时14天净值统一阈值说明。升级步骤补迁移后才启动，保留恢复到新空库/新目录与财务指纹流程。对照阶段E确认6个备份/恢复文件Git blob未改；Windows工作区换行规范化后内容一致，未把CRLF字节差异误认为源码变化。
 - [完整边界和主来源依据](model-network-boundary-20261020.md)。未调用真实模型、访问真实内部网络、合并main或部署；真实服务器运维验收继续未执行。
 
+最终审查的完整提交 `b3d54e63db77f91de6c1b09741db7948b9b69089`：[Linux 39425425785](https://github.com/Lemondick/quant-to-riches/actions/runs/39425425785) 四 job 成功，仍为 Python492/.NETPG385/Worker128/工具15/报告5全通过且0跳过，前端/浏览器/构建成功。独立审查无 Critical/Important/Minor，未判定项为空；另复跑网络15/15。[全部取舍](model-network-decisions-20261020.md)与[《01》PASS / SKIPPED逐项清单](stability-doc01-acceptance-20261020.md)已归档。阶段F完成，继续《02》，不要求重复批准。
+
 ## 《01》后续进度
 
 - [x] B：BUG-003 / BUG-004，账本幂等与分红估值日约束。
 - [x] C：BUG-005 至 BUG-009，行情时效、日历、时间解析与目录完整性。
 - [x] D：BUG-010，刷新器调度。
 - [x] E：BUG-011 至 BUG-013，回测指标与未来价格边界。
-- [ ] F：BUG-014、文档与部署契约一致性。
+- [x] F：BUG-014、文档与部署契约一致性。
 
 ## 《02》后续进度
 

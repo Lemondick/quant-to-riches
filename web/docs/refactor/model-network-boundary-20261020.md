@@ -17,7 +17,7 @@
 
 源码提交 `8b9a2e3c08a7c5434ee6526c679e99bce740643f`：先复现旧适配器 URL/DNS/TLS 缺陷、原生过渡地址/路径缺陷及 .NET 配置与特殊网段缺陷，再修复。另先复现模型回显密钥进入输出，再增加拒绝。
 
-本地实际通过：网络专项 15/15、.NET 模型目录 30/30、原生 Worker 128/128，source verify、ruff、format、secret scan 通过。旧研究子进程专项为 18 项、17 通过、1 项 Linux parent-death 保护在 Windows 跳过；该跳过不算通过。[Linux CI 39424757711](https://github.com/Lemondick/quant-to-riches/actions/runs/39424757711) 已在该源码提交实际执行：Python 492、.NET/PostgreSQL 385、Worker 128、工具 15、报告 5 全通过且 0 跳过，前端/浏览器/构建通过。最终整体审查见[阶段实施记录](stability-implementation-20261018.md)，审查完成前保持阶段进行中。
+本地实际通过：网络专项 15/15、.NET 模型目录 30/30、原生 Worker 128/128，source verify、ruff、format、secret scan 通过。旧研究子进程专项为 18 项、17 通过、1 项 Linux parent-death 保护在 Windows 跳过；该跳过不算通过。[Linux CI 39424757711](https://github.com/Lemondick/quant-to-riches/actions/runs/39424757711) 已在该源码提交实际执行：Python 492、.NET/PostgreSQL 385、Worker 128、工具 15、报告 5 全通过且 0 跳过，前端/浏览器/构建通过。最终整体审查无 Critical/Important/Minor、未判定项为空；完整文档提交 `b3d54e6` 的 [Linux 39425425785](https://github.com/Lemondick/quant-to-riches/actions/runs/39425425785) 同样全部通过。逐项范围和外部操作 SKIPPED 见[最终清单](stability-doc01-acceptance-20261020.md)。
 
 ## 部署契约
 

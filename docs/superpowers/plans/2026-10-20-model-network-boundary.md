@@ -38,5 +38,5 @@
 
 ## Task 3: Final Doc01 acceptance
 
-- [ ] Exact-source Linux CI green: realPG/Worker no skips; frontend/browser/build pass. One required fresh whole-branch read-only review, fix Important/Critical RED->GREEN once, then full gate.
-- [ ] Archive exhaustive ledger rulings/minors and Doc01 PASS/FAIL/SKIPPED checklist with evidence and real limits, no deployment claims. Continue Doc02 in order under same original authorization, no repeated approval.
+- [x] Exact-source Linux CI green: realPG/Worker no skips; frontend/browser/build pass. One required fresh whole-branch read-only review, fix Important/Critical RED->GREEN once, then full gate.
+- [x] Archive exhaustive ledger rulings/minors and Doc01 PASS/FAIL/SKIPPED checklist with evidence and real limits, no deployment claims. Continue Doc02 in order under same original authorization, no repeated approval.
