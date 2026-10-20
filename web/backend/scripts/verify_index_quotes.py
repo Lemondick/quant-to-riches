@@ -93,10 +93,10 @@ class SyntheticHttp:
         )
 
 
-def provider(http):
+def provider(http, **kwargs):
     from quant_assistant.providers.index_quotes import IndexQuoteProvider
 
-    return IndexQuoteProvider(http=http, now=lambda: http.now, ttl_seconds=5)
+    return IndexQuoteProvider(http=http, now=lambda: http.now, ttl_seconds=5, **kwargs)
 
 
 class IndexQuoteTests(unittest.TestCase):
@@ -178,7 +178,9 @@ class IndexQuoteTests(unittest.TestCase):
                 )
 
     def test_overseas_clocks_use_their_market_and_unknown_calendar_stays_unknown(self):
-        batch = provider(SyntheticHttp()).fetch()
+        from quant_assistant.providers.market_calendar import MarketCalendars
+
+        batch = provider(SyntheticHttp(), calendar=MarketCalendars()).fetch()
         us = next(row for row in batch.items if row.id == "us.dowjones")
         self.assertEqual(us.source_time, "2026-10-19T16:00:00-04:00")
         self.assertEqual(us.trade_date, "2026-10-19")

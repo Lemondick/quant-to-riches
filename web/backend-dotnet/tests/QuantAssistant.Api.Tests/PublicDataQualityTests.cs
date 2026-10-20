@@ -79,7 +79,7 @@ public class PublicDataQualityTests
     public void UnconfiguredOverseasMarketDoesNotUseMainlandCalendar()
     {
         var row = new JsonObject { ["market"] = "HK" };
-        PublicDataQuality.Stamp(row, "realtime_quote", "index", "2026-10-16T15:00:00+08:00", Now);
+        PublicDataQuality.Stamp(row, "realtime_quote", "index", "2026-10-16T15:00:00+08:00", Now, calendars: MarketCalendars.Empty);
         Assert.Equal("unknown_time", row["quality_status"]!.GetValue<string>());
         Assert.Equal("HK", row["market"]!.GetValue<string>());
         Assert.Equal("2026-10-16T15:00:00+08:00", row["source_time"]!.GetValue<string>());

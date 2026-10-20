@@ -1,0 +1,221 @@
+{
+  "format_version": 1,
+  "revision": "verified-cash-sessions:2026-10-20.1",
+  "markets": [
+    {
+      "market": "CN",
+      "source": "https://edu.sse.com.cn/best/article/gsxlsc/c/4725367.shtml",
+      "years": [],
+      "regular": [
+        [
+          "00:00",
+          "09:15",
+          "pre_market"
+        ],
+        [
+          "09:15",
+          "09:25",
+          "auction"
+        ],
+        [
+          "09:25",
+          "09:30",
+          "pre_market"
+        ],
+        [
+          "09:30",
+          "11:30",
+          "continuous_trading"
+        ],
+        [
+          "11:30",
+          "13:00",
+          "lunch_break"
+        ],
+        [
+          "13:00",
+          "14:57",
+          "continuous_trading"
+        ],
+        [
+          "14:57",
+          "15:00",
+          "auction"
+        ],
+        [
+          "15:00",
+          "24:00",
+          "closed"
+        ]
+      ],
+      "half_day": [],
+      "half_days": [],
+      "half_day_source": null
+    },
+    {
+      "market": "HK",
+      "source": "https://www.hkex.com.hk/Services/Trading-hours-and-Severe-Weather-Arrangements/Trading-Hours/Securities-Market?sc_lang=en",
+      "years": [
+        2026
+      ],
+      "regular": [
+        [
+          "00:00",
+          "09:00",
+          "pre_market"
+        ],
+        [
+          "09:00",
+          "09:30",
+          "auction"
+        ],
+        [
+          "09:30",
+          "12:00",
+          "continuous_trading"
+        ],
+        [
+          "12:00",
+          "13:00",
+          "lunch_break"
+        ],
+        [
+          "13:00",
+          "16:00",
+          "continuous_trading"
+        ],
+        [
+          "16:00",
+          "16:10",
+          "auction"
+        ],
+        [
+          "16:10",
+          "24:00",
+          "closed"
+        ]
+      ],
+      "half_day": [
+        [
+          "00:00",
+          "09:00",
+          "pre_market"
+        ],
+        [
+          "09:00",
+          "09:30",
+          "auction"
+        ],
+        [
+          "09:30",
+          "12:00",
+          "continuous_trading"
+        ],
+        [
+          "12:00",
+          "12:10",
+          "auction"
+        ],
+        [
+          "12:10",
+          "24:00",
+          "closed"
+        ]
+      ],
+      "half_days": [
+        "2026-02-16",
+        "2026-12-24",
+        "2026-12-31"
+      ],
+      "half_day_source": "https://www.hkex.com.hk/-/media/HKEX-Market/Services/Circulars-and-Notices/Participant-and-Members-Circulars/SEHK/2025/cc_SEHK_CT_075_2025.pdf"
+    },
+    {
+      "market": "US",
+      "source": "https://www.nyse.com/trade/hours-calendars",
+      "years": [
+        2026
+      ],
+      "regular": [
+        [
+          "00:00",
+          "09:30",
+          "pre_market"
+        ],
+        [
+          "09:30",
+          "16:00",
+          "continuous_trading"
+        ],
+        [
+          "16:00",
+          "24:00",
+          "closed"
+        ]
+      ],
+      "half_day": [
+        [
+          "00:00",
+          "09:30",
+          "pre_market"
+        ],
+        [
+          "09:30",
+          "13:00",
+          "continuous_trading"
+        ],
+        [
+          "13:00",
+          "24:00",
+          "closed"
+        ]
+      ],
+      "half_days": [
+        "2026-11-27",
+        "2026-12-24"
+      ],
+      "half_day_source": "https://www.nyse.com/trade/hours-calendars"
+    },
+    {
+      "market": "JP",
+      "source": "https://www.jpx.co.jp/english/equities/trading/domestic/04.html",
+      "years": [
+        2026
+      ],
+      "regular": [
+        [
+          "00:00",
+          "09:00",
+          "pre_market"
+        ],
+        [
+          "09:00",
+          "11:30",
+          "continuous_trading"
+        ],
+        [
+          "11:30",
+          "12:30",
+          "lunch_break"
+        ],
+        [
+          "12:30",
+          "15:25",
+          "continuous_trading"
+        ],
+        [
+          "15:25",
+          "15:30",
+          "auction"
+        ],
+        [
+          "15:30",
+          "24:00",
+          "closed"
+        ]
+      ],
+      "half_day": [],
+      "half_days": [],
+      "half_day_source": null
+    }
+  ]
+}

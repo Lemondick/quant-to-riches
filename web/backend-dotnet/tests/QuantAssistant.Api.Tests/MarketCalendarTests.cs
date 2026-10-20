@@ -19,7 +19,8 @@ public sealed class MarketCalendarTests
         var calendars = MarketCalendars.Builtin;
         Assert.False(calendars.TradingDay("CN", new(2026, 10, 5)));
         Assert.True(calendars.TradingDay("CN", new(2026, 10, 19)));
-        Assert.Null(calendars.TradingDay("HK", new(2026, 10, 5)));
+        Assert.True(calendars.TradingDay("HK", new(2026, 10, 5)));
+        Assert.Null(calendars.TradingDay("HK", new(2028, 10, 5)));
         Assert.Null(calendars.TradingDay("CN", new(2027, 1, 4)));
     }
 
@@ -52,7 +53,7 @@ public sealed class MarketCalendarTests
     {
         using var admin = new PgTestUser();
         admin.Execute("UPDATE users SET role='admin' WHERE id=$1", admin.Id);
-        const string key = "calendar:HK:2026";
+        const string key = "calendar:HK:2028";
         var old = admin.Query("SELECT value FROM site_settings WHERE key=$1", key) as string;
         admin.Execute("DELETE FROM site_settings WHERE key=$1", key);
         try
@@ -61,13 +62,13 @@ public sealed class MarketCalendarTests
             using var client = factory.CreateClient();
             PgTestUser.AttachSession(client, admin.Connection, admin.Id);
             var cn = await Json(await client.GetAsync("/api/v1/admin/calendar?year=2026&market=CN"));
-            var hk = await Json(await client.GetAsync("/api/v1/admin/calendar?year=2026&market=HK"));
+            var hk = await Json(await client.GetAsync("/api/v1/admin/calendar?year=2028&market=HK"));
             Assert.True(cn.GetProperty("configured").GetBoolean());
             Assert.False(hk.GetProperty("configured").GetBoolean());
             Assert.Equal("HK", hk.GetProperty("market").GetString());
             var saved = await Json(await client.PutAsJsonAsync("/api/v1/admin/calendar", new
             {
-                year = 2026, market = "HK", source = "https://www.hkex.com.hk/synthetic-test", holidays = new[] { "2026-10-19" },
+                year = 2028, market = "HK", source = "https://www.hkex.com.hk/synthetic-test", holidays = new[] { "2028-10-19" },
                 expected_revision = hk.GetProperty("revision").GetString(),
             }));
             Assert.Equal("HK", saved.GetProperty("market").GetString());

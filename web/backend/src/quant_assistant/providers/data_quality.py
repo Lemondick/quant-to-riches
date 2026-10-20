@@ -12,7 +12,6 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from datetime import time as day_time
 from hashlib import sha256
 from threading import RLock
 from zoneinfo import ZoneInfo
@@ -25,6 +24,7 @@ from quant_assistant.providers.market_calendar import (
     session_boundary,
 )
 from quant_assistant.providers.market_calendar import latest_session as _latest_session
+from quant_assistant.providers.market_session_rules import unsupported_auction
 from quant_assistant.providers.nav_freshness import nav_freshness, policy_for_fund
 
 logger = logging.getLogger(__name__)
@@ -110,12 +110,7 @@ def metadata(
                     elif (
                         not auction_supported
                         and day == now.date()
-                        and (
-                            day_time(9, 15) <= now.time() < day_time(9, 30)
-                            and parsed.time() >= day_time(9, 15)
-                            or day_time(14, 57) <= now.time() < day_time(15)
-                            and parsed.time() >= day_time(14, 57)
-                        )
+                        and unsupported_auction(now, parsed, market)
                     ):
                         status, reason = "unavailable", "auction_not_supported"
                     elif day < session:
@@ -123,7 +118,7 @@ def metadata(
                     elif day > session:
                         status = "invalid"
                     else:
-                        boundary = session_boundary(now, session, auction_supported)
+                        boundary = session_boundary(now, session, auction_supported, market)
                         tolerance = timedelta(minutes=15 if data_type == "intraday_estimate" else 2)
                         if boundary - parsed > tolerance:
                             status = "stale"

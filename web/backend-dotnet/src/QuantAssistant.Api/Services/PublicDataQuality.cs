@@ -41,15 +41,13 @@ public static class PublicDataQuality
                 {
                     var session = MarketSessions.Latest(now, calendars, market, supportsAuction);
                     if (session is null) { quality = "unknown_time"; reason = "calendar_or_session_unavailable"; }
-                    else if (!supportsAuction && day == today &&
-                        ((local.TimeOfDay >= TimeSpan.FromHours(9.25) && local.TimeOfDay < TimeSpan.FromHours(9.5) && source.TimeOfDay >= TimeSpan.FromHours(9.25)) ||
-                         (local.TimeOfDay >= new TimeSpan(14, 57, 0) && local.TimeOfDay < TimeSpan.FromHours(15) && source.TimeOfDay >= new TimeSpan(14, 57, 0))))
+                    else if (!supportsAuction && day == today && MarketSessions.UnsupportedAuction(local, source, market))
                     { quality = "unavailable"; reason = "auction_not_supported"; }
                     else if (day < session) quality = "stale";
                     else if (day > session) quality = "invalid";
                     else
                     {
-                        var boundary = MarketSessions.Boundary(local, session.Value, supportsAuction);
+                        var boundary = MarketSessions.Boundary(local, session.Value, supportsAuction, market);
                         if (boundary - source.DateTime > TimeSpan.FromMinutes(type == "intraday_estimate" ? 15 : 2)) quality = "stale";
                     }
                 }

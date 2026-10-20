@@ -68,7 +68,7 @@ public sealed class IndexApiTests
         var actual = Assert.Single(data["indices"]!.AsArray().OfType<JsonObject>(), x => x["id"]!.GetValue<string>() == "us.sp500");
         Assert.Equal("US", actual["market"]!.GetValue<string>());
         Assert.Equal("America/New_York", actual["market_timezone"]!.GetValue<string>());
-        Assert.Equal("unknown_time", actual["quality_status"]!.GetValue<string>());
+        Assert.Equal("valid", actual["quality_status"]!.GetValue<string>());
         Assert.Equal("2026-10-19T16:00:00-04:00", actual["source_time"]!.GetValue<string>());
         Assert.Null(data["indices"]!.AsArray().OfType<JsonObject>().Single(x => x["id"]!.GetValue<string>() == "cn.sse.composite")["source_time"]);
     }

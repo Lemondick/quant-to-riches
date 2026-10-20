@@ -12,16 +12,10 @@ public static class MarketSessions
         var local = Local(now, market);
         if (local is null || DateOnly.FromDateTime(local.Value.DateTime) != day || trading is null) return "unknown";
         if (trading == false) return "closed";
-        // Overseas session schedules require a verified market contract; never use the CN schedule.
-        if (market != "CN") return "unknown";
-        var time = local.Value.TimeOfDay;
-        if (time < TimeSpan.FromHours(9.25)) return "pre_market";
-        if (time < new TimeSpan(9, 25, 0)) return "auction";
-        if (time < TimeSpan.FromHours(9.5)) return "pre_market";
-        if (time < TimeSpan.FromHours(11.5)) return "continuous_trading";
-        if (time < TimeSpan.FromHours(13)) return "lunch_break";
-        if (time < new TimeSpan(14, 57, 0)) return "continuous_trading";
-        return time < TimeSpan.FromHours(15) ? "auction" : "closed";
+        var rows = MarketSessionRules.For(market, day);
+        if (rows is null) return "unknown";
+        var minute = local.Value.TimeOfDay.TotalMinutes;
+        return rows.Single(row => row.Start <= minute && minute < row.End).Phase;
     }
 
     public static string Classify(DateTimeOffset now, MarketCalendars calendars, string market = "CN") => Local(now, market) is { } local
@@ -29,26 +23,40 @@ public static class MarketSessions
 
     public static DateOnly? Latest(DateTimeOffset now, MarketCalendars calendars, string market, bool auctionSupported)
     {
-        if (market != "CN" || Local(now, market) is not { } local) return null;
+        if (Local(now, market) is not { } local) return null;
         var day = DateOnly.FromDateTime(local.DateTime);
-        if (calendars.TradingDay(market, day) is not { } trading) return null;
-        if (trading && local.TimeOfDay >= TimeSpan.FromHours(auctionSupported ? 9.25 : 9.5)) return day;
-        for (var index = 0; index < 370; index++)
+        for (var offset = 0; offset < 371; offset++)
         {
+            if (calendars.TradingDay(market, day) is not { } trading || MarketSessionRules.For(market, day) is not { } rows) return null;
+            var opening = rows.Where(row => row.Phase == "continuous_trading" || auctionSupported && row.Phase == "auction").Min(row => row.Start);
+            if (trading && (offset > 0 || local.TimeOfDay.TotalMinutes >= opening)) return day;
             day = day.AddDays(-1);
-            if (calendars.TradingDay(market, day) is not { } previous) return null;
-            if (previous) return day;
         }
         return null;
     }
 
-    public static DateTime Boundary(DateTimeOffset local, DateOnly session, bool auctionSupported)
+    public static bool UnsupportedAuction(DateTimeOffset now, DateTimeOffset source, string market)
     {
-        if (session != DateOnly.FromDateTime(local.DateTime) || local.TimeOfDay >= TimeSpan.FromHours(15))
-            return session.ToDateTime(new TimeOnly(15, 0));
-        if (auctionSupported && local.TimeOfDay < TimeSpan.FromHours(9.5))
-            return local.TimeOfDay < new TimeSpan(9, 25, 0) ? local.DateTime : local.Date.AddHours(9).AddMinutes(25);
-        if (local.TimeOfDay >= TimeSpan.FromHours(11.5) && local.TimeOfDay < TimeSpan.FromHours(13)) return local.Date.AddHours(11.5);
-        return local.DateTime;
+        var day = DateOnly.FromDateTime(now.DateTime);
+        if (day != DateOnly.FromDateTime(source.DateTime) || MarketSessionRules.For(market, day) is not { } rows) return false;
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            if (row.Phase != "auction") continue;
+            var end = index + 1 < rows.Count && rows[index + 1].Phase == "pre_market" ? rows[index + 1].End : row.End;
+            if (row.Start <= now.TimeOfDay.TotalMinutes && now.TimeOfDay.TotalMinutes < end && source.TimeOfDay.TotalMinutes >= row.Start) return true;
+        }
+        return false;
+    }
+
+    public static DateTime Boundary(DateTimeOffset local, DateOnly session, bool auctionSupported, string market = "CN")
+    {
+        var rows = MarketSessionRules.For(market, session) ?? throw new ArgumentException("Session schedule unavailable");
+        var close = rows.Where(row => row.Phase is "continuous_trading" or "auction").Max(row => row.End);
+        var minute = local.TimeOfDay.TotalMinutes;
+        if (session != DateOnly.FromDateTime(local.DateTime) || minute >= close) return session.ToDateTime(TimeOnly.MinValue).AddMinutes(close);
+        var current = rows.Single(row => row.Start <= minute && minute < row.End);
+        return current.Phase == "continuous_trading" || current.Phase == "auction" && auctionSupported
+            ? local.DateTime : session.ToDateTime(TimeOnly.MinValue).AddMinutes(current.Start);
     }
 }

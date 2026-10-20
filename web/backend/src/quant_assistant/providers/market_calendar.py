@@ -2,11 +2,13 @@
 
 import json
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, timedelta
 from functools import cache
 from importlib.resources import files
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
+
+from quant_assistant.providers.market_session_rules import at_minute, minute, periods
 
 MARKETS = frozenset({"CN", "HK", "US", "JP"})
 ZONES = {
@@ -27,51 +29,48 @@ def market_session(now, calendars, market="CN"):
         return "unknown"
     if not trading:
         return "closed"
-    if market != "CN":
+    rows = periods(market, local.date())
+    if rows is None:
         return "unknown"
-    clock = local.time()
-    if clock < time(9, 15):
-        return "pre_market"
-    if clock < time(9, 25):
-        return "auction"
-    if clock < time(9, 30):
-        return "pre_market"
-    if clock < time(11, 30):
-        return "continuous_trading"
-    if clock < time(13):
-        return "lunch_break"
-    if clock < time(14, 57):
-        return "continuous_trading"
-    return "auction" if clock < time(15) else "closed"
+    return next(phase for start, end, phase in rows if start <= minute(local.time()) < end)
 
 
 def latest_session(now, calendars, market="CN", auction_supported=False):
-    if market != "CN":
+    if market not in ZONES:
         return None
     now = now.astimezone(ZoneInfo(ZONES[market]))
     day = now.date()
-    trading = calendars.trading_day(day, market)
-    if trading is None:
+    if periods(market, day) is None:
         return None
-    if trading and now.time() >= (time(9, 15) if auction_supported else time(9, 30)):
-        return day
-    for _ in range(370):
-        day -= timedelta(days=1)
-        previous = calendars.trading_day(day, market)
-        if previous is None:
+    for offset in range(371):
+        trading = calendars.trading_day(day, market)
+        rows = periods(market, day)
+        if trading is None or rows is None:
             return None
-        if previous:
+        opening = min(
+            start
+            for start, _, phase in rows
+            if phase == "continuous_trading" or auction_supported and phase == "auction"
+        )
+        if trading and (offset > 0 or minute(now.time()) >= opening):
             return day
+        day -= timedelta(days=1)
     return None
 
 
-def session_boundary(now, session, auction_supported=False):
-    if session != now.date() or now.time() >= time(15):
-        return datetime.combine(session, time(15), now.tzinfo)
-    if auction_supported and now.time() < time(9, 30):
-        return min(now, datetime.combine(session, time(9, 25), now.tzinfo))
-    if time(11, 30) <= now.time() < time(13):
-        return datetime.combine(session, time(11, 30), now.tzinfo)
+def session_boundary(now, session, auction_supported=False, market="CN"):
+    rows = periods(market, session)
+    if rows is None:
+        raise ValueError("session schedule unavailable")
+    close = max(end for _, end, phase in rows if phase in {"continuous_trading", "auction"})
+    clock = minute(now.time())
+    if session != now.date() or clock >= close:
+        return at_minute(session, close, now.tzinfo)
+    for start, end, phase in rows:
+        if start <= clock < end:
+            if phase == "continuous_trading" or phase == "auction" and auction_supported:
+                return now
+            return at_minute(session, start, now.tzinfo)
     return now
 
 

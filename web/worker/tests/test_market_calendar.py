@@ -27,7 +27,8 @@ class MarketCalendarTests(unittest.TestCase):
         calendars = MarketCalendars.builtin()
         self.assertFalse(calendars.trading_day(date(2026, 10, 5)))
         self.assertTrue(calendars.trading_day(date(2026, 10, 19)))
-        self.assertIsNone(calendars.trading_day(date(2026, 10, 5), "HK"))
+        self.assertTrue(calendars.trading_day(date(2026, 10, 5), "HK"))
+        self.assertIsNone(calendars.trading_day(date(2028, 10, 5), "HK"))
         self.assertIsNone(calendars.trading_day(date(2027, 1, 4)))
         legacy = TradingCalendar().load(2026)
         self.assertEqual(
