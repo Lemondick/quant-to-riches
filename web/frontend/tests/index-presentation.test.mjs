@@ -134,3 +134,24 @@ test('history response must match exact requested ID and real series contract', 
   assert.throws(() => indexHistoryResponse({ ...data, items: [{}] }, 'cn.csi.300'), /指数历史/)
   assert.throws(() => indexHistoryResponse({ id: 'cn.csi.300' }, 'cn.csi.300'), /指数历史/)
 })
+test('explicitly invalid history never enters the successful chart cache', () => {
+  const payload = {
+    id: 'cn.sse.composite',
+    quality_status: 'invalid',
+    quality_reason: 'invalid_source_time',
+    items: [{ date: '2099-01-05', open: '100', high: '110', low: '90', close: '105' }],
+  }
+  assert.throws(() => indexHistoryResponse(payload, 'cn.sse.composite'), /未通过质量校验/)
+  assert.throws(
+    () => indexHistoryResponse({ ...payload, quality_status: 'unrecognized' }, 'cn.sse.composite'),
+    /未通过质量校验/,
+  )
+  for (const status of [undefined, 'valid', 'stale', 'unknown_time'])
+    assert.equal(
+      indexHistoryResponse(
+        { ...payload, items: [{ ...payload.items[0], date: '2026-10-19' }], quality_status: status },
+        'cn.sse.composite',
+      ).quality_status,
+      status,
+    )
+})

@@ -34,6 +34,11 @@ try {
     if (url.pathname.endsWith('/market/history')) {
       const id = url.searchParams.get('index_id')
       historyIds.push(id)
+      if (mode === 'invalid-history' && id === 'cn.sse.composite') {
+        data.quality_status = 'invalid'
+        data.quality_reason = 'invalid_source_time'
+        data.items = [{ date: '2099-01-05', open: '100', high: '110', low: '90', close: '105' }]
+      }
       if (mode === 'wrong-history' && id === 'cn.sse.composite') data.id = 'cn.csi.300'
       if (mode === 'late-history' && id === 'cn.sse.composite') {
         markOldRequested()
@@ -127,6 +132,12 @@ try {
   await page.locator('[data-index-id]').first().waitFor()
   assert.equal(await page.locator('[data-index-id]').first().locator('.index-source').innerText(), '来源时间未知')
   assert.match(await page.locator('[data-index-id]').first().innerText(), /时间待核验/)
+  mode = 'invalid-history'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
+  await page.getByLabel('选择指数', { exact: true }).selectOption('cn.sse.composite')
+  await page.getByText('指数历史数据未通过质量校验。', { exact: true }).waitFor()
+  assert.equal(await page.locator('.candle-card canvas').count(), 0)
   mode = 'wrong-history'
   await page.reload()
   await page.locator('[data-index-id]').first().waitFor()

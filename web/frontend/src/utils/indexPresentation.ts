@@ -50,6 +50,7 @@ export function indexCards(snapshot?: Pick<MarketSnapshot, 'indices' | 'index_re
 export function indexHistoryResponse(value: unknown, requestedId: string): IndexHistory {
   if (!value || typeof value !== 'object' || !('id' in value) || value.id !== requestedId) throw new Error('指数历史标识与当前选择不一致。')
   const data = value as IndexHistory
+  if (data.quality_status !== undefined && !['valid', 'stale', 'unknown_time', 'unavailable'].includes(data.quality_status)) throw new Error('指数历史数据未通过质量校验。')
   if (!Array.isArray(data.items) || data.quality_status === 'unavailable' && data.items.length) throw new Error('指数历史数据格式无效。')
   return data
 }

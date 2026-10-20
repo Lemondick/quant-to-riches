@@ -21,6 +21,6 @@ const { data, error, refreshing, stale, refresh } = useApiLoader(computed(() => 
   return readPreparedPublic(async () => indexHistoryResponse(await api.read('/market/history?index_id=' + encodeURIComponent(id), signal), id), signal)
 }, 3600000, true)
 const history = computed(() => data.value?.id === indexId.value ? data.value : undefined)
-const historyError = computed(() => history.value?.quality_reason === 'history_not_connected' ? '历史行情尚未接入' : error.value instanceof Error ? error.value.message : '')
-const points = computed<Candle[]>(() => (history.value?.quality_status === 'unavailable' ? [] : history.value?.items ?? []).map(item => ({ date: item.date, open: Number(item.open), high: Number(item.high), low: Number(item.low), close: Number(item.close), ...(item.volume === undefined ? {} : { volume: Number(item.volume) }) })))
+const historyError = computed(() => history.value?.quality_status === 'invalid' ? '指数历史数据未通过质量校验。' : history.value?.quality_reason === 'history_not_connected' ? '历史行情尚未接入' : error.value instanceof Error ? error.value.message : '')
+const points = computed<Candle[]>(() => (history.value?.quality_status === 'unavailable' || history.value?.quality_status === 'invalid' ? [] : history.value?.items ?? []).map(item => ({ date: item.date, open: Number(item.open), high: Number(item.high), low: Number(item.low), close: Number(item.close), ...(item.volume === undefined ? {} : { volume: Number(item.volume) }) })))
 </script>
