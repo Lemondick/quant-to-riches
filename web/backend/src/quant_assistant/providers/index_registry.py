@@ -53,7 +53,7 @@ def _mapping(value):
         }
     )
     if (
-        result.provider not in {"tencent", "yahoo"}
+        result.provider not in {"tencent", "yahoo", "eastmoney"}
         or result.verification_status not in {"verified", "pending", "unavailable"}
         or not result.symbol
         or not result.response_symbol
@@ -101,6 +101,7 @@ def _registry():
             or row.timezone != ZONES[row.market]
             or row.calendar_id != row.market
             or row.quote.source_timezone != row.timezone
+            or row.quote.provider not in {"tencent", "yahoo"}
             or row.product_status not in {"confirmed", "provisional"}
             or not row.name
             or not row.official_name

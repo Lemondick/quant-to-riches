@@ -1,16 +1,27 @@
-"""Bounded true daily OHLC history for registry-verified index capabilities."""
+"""Bounded daily OHLC for verified cash indices, without invented volume or dates."""
 
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
+from functools import lru_cache
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import requests
 
 from quant_assistant.providers.data_quality import metadata
-from quant_assistant.providers.index_registry import definitions, resolve_legacy_index
+from quant_assistant.providers.index_registry import definitions, get_index, resolve_legacy_index
+from quant_assistant.providers.market_calendar import (
+    MarketCalendars,
+    latest_session,
+    session_boundary,
+)
 from quant_assistant.providers.public_http import PublicHttp
 
-_HTTP = PublicHttp()
+
+@lru_cache(maxsize=4)
+def _transport(http_get):
+    return PublicHttp(http_get)
+
 
 INDICES = {
     row.legacy_history_symbol: (row.history.symbol, row.name)
@@ -22,41 +33,198 @@ INDICES = {
 }
 
 
-def index_history(symbol, *, http_get=requests.get, calendar=None):
-    if symbol not in INDICES:
-        raise ValueError("unsupported index symbol")
-    definition = resolve_legacy_index(symbol)
-    ticker, name = INDICES[symbol]
-    response = (_HTTP if http_get is requests.get else PublicHttp(http_get)).get(
-        "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
-        params={"param": ticker + ",day,,,640,qfq"},
-        headers={"User-Agent": "Mozilla/5.0"},
-        timeout=(3, 10),
-    )
+def _number(value):
+    try:
+        if value is None or isinstance(value, bool):
+            raise ValueError("invalid history number")
+        result = Decimal(str(value))
+        if not result.is_finite():
+            raise ValueError("invalid history number")
+        return result
+    except InvalidOperation:
+        raise ValueError("invalid history number") from None
+
+
+def _tencent(payload, row):
+    mapping = row.history
+    part = payload["data"][mapping.symbol]
+    qt = part["qt"][mapping.symbol]
+    if (
+        payload.get("code") != 0
+        or len(qt) <= 30
+        or qt[0] != mapping.response_type
+        or qt[1] not in mapping.response_names
+        or qt[2] != mapping.response_symbol
+        or not mapping.symbol.startswith(mapping.response_market)
+    ):
+        raise ValueError("history identity mismatch")
+    raw = qt[30]
+    observed = None
+    if raw:
+        pattern = (
+            "%Y-%m-%d %H:%M:%S"
+            if row.market == "US"
+            else "%Y/%m/%d %H:%M:%S"
+            if row.market == "HK"
+            else "%Y%m%d%H%M%S"
+        )
+        naive = datetime.strptime(raw, pattern)
+        observed = naive.replace(tzinfo=ZoneInfo(mapping.source_timezone))
+        if (
+            naive.strftime(pattern) != raw
+            or observed.utcoffset() != naive.replace(tzinfo=observed.tzinfo, fold=1).utcoffset()
+        ):
+            raise ValueError("invalid history source clock")
+    return part["day"], observed, 641
+
+
+def _eastmoney(payload, row):
+    data, mapping = payload["data"], row.history
+    if (
+        payload.get("rc") != 0
+        or data["code"] != mapping.response_symbol
+        or data["name"] not in mapping.response_names
+        or type(data["market"]) is not int
+        or str(data["market"]) != mapping.response_market
+        or mapping.symbol != str(data["market"]) + "." + data["code"]
+    ):
+        raise ValueError("history identity mismatch")
+    if not isinstance(data["klines"], list) or any(
+        not isinstance(item, str) for item in data["klines"]
+    ):
+        raise ValueError("invalid daily observations")
+    return [item.split(",") for item in data["klines"]], None, 640
+
+
+def _yahoo(payload, row):
+    chart, mapping = payload["chart"], row.history
+    if chart.get("error") is not None or len(chart["result"]) != 1:
+        raise ValueError("invalid history payload")
+    part = chart["result"][0]
+    meta = part["meta"]
+    if (
+        meta.get("symbol") != mapping.response_symbol
+        or meta.get("shortName") not in mapping.response_names
+        or meta.get("instrumentType") != mapping.response_type
+        or meta.get("currency") != mapping.response_currency
+        or meta.get("exchangeName") != mapping.response_market
+        or meta.get("exchangeTimezoneName") != mapping.source_timezone
+    ):
+        raise ValueError("history identity mismatch")
+    times = part["timestamp"]
+    quotes = part["indicators"]["quote"]
+    if (
+        not isinstance(times, list)
+        or not 1 <= len(times) <= 640
+        or any(type(t) is not int for t in times)
+        or times != sorted(set(times))
+        or len(quotes) != 1
+    ):
+        raise ValueError("invalid daily observations")
+    fields = quotes[0]
+    if any(
+        not isinstance(fields.get(key), list) or len(fields[key]) != len(times)
+        for key in ("open", "close", "high", "low")
+    ):
+        raise ValueError("invalid daily observations")
+    zone = ZoneInfo(mapping.source_timezone)
+    rows = [
+        [
+            datetime.fromtimestamp(stamp, zone).date().isoformat(),
+            *(fields[key][index] for key in ("open", "close", "high", "low")),
+        ]
+        for index, stamp in enumerate(times)
+    ]
+    stamp = meta.get("regularMarketTime")
+    if type(stamp) is not int:
+        raise ValueError("invalid history source clock")
+    return rows, datetime.fromtimestamp(stamp, zone), 640
+
+
+def _load(http, row):
+    mapping = row.history
+    if mapping.provider == "tencent":
+        url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        params = {"param": mapping.symbol + ",day,,,640,qfq"}
+        parser = _tencent
+    elif mapping.provider == "eastmoney":
+        url = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+        params = {
+            "secid": mapping.symbol,
+            "klt": 101,
+            "fqt": 0,
+            "lmt": 640,
+            "end": "20500101",
+            "fields1": "f1,f2,f3,f4,f5,f6",
+            "fields2": "f51,f52,f53,f54,f55,f56,f57",
+        }
+        parser = _eastmoney
+    elif mapping.provider == "yahoo":
+        url = "https://query1.finance.yahoo.com/v8/finance/chart/" + quote(mapping.symbol, safe="")
+        params = {"range": "2y", "interval": "1d"}
+        parser = _yahoo
+    else:
+        raise ValueError("unverified history provider")
+    response = http.get(url, params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=(3, 10))
     response.raise_for_status()
-    payload = response.json()
-    quote = payload.get("data", {}).get(ticker, {})
-    rows = quote.get("day")  # Index OHLC is never silently substituted with adjusted equity prices.
-    if payload.get("code") != 0 or not isinstance(rows, list) or not 1 <= len(rows) <= 640:
-        raise ValueError("missing index history")
-    now = datetime.now(ZoneInfo("Asia/Shanghai"))
-    seen, items = set(), []
-    for row in rows:
-        day = date.fromisoformat(row[0])
-        if day > now.date() or day in seen or day.isoformat() != row[0]:
+    try:
+        return (*parser(response.json(), row), response.public_fetched_at)
+    except (KeyError, IndexError, TypeError, OverflowError, OSError) as error:
+        raise ValueError("invalid history payload") from error
+
+
+def index_history(symbol=None, *, index_id=None, http_get=requests.get, calendar=None, now=None):
+    row = get_index(index_id) if index_id is not None else resolve_legacy_index(symbol)
+    if symbol is not None and symbol != row.exchange_code:
+        raise ValueError("conflicting index identifiers")
+    if not row.enabled or row.history is None or row.history.verification_status != "verified":
+        raise ValueError("unsupported index history")
+    instant = now or datetime.now(UTC)
+    if instant.tzinfo is None:
+        raise ValueError("history check requires a timezone")
+    local = instant.astimezone(ZoneInfo(row.timezone))
+    calendars = calendar if calendar is not None else MarketCalendars.builtin()
+    http = _transport(http_get) if now is None else PublicHttp(http_get, now=lambda: instant)
+    bars, observed, bound, fetched = _load(http, row)
+    if not isinstance(bars, list) or not 1 <= len(bars) <= bound:
+        raise ValueError("missing or excessive index history")
+    if observed is not None and observed > instant + timedelta(minutes=1):
+        raise ValueError("future history source clock")
+    items, previous = [], None
+    for bar in bars:
+        if (
+            not isinstance(bar, list)
+            or len(bar) < 5
+            or not isinstance(bar[0], str)
+            or len(bar[0]) != 10
+        ):
+            raise ValueError("incomplete index OHLC")
+        day = date.fromisoformat(bar[0])
+        if (
+            bar[0] != day.isoformat()
+            or day > local.date()
+            or previous is not None
+            and day <= previous
+            or day.weekday() >= 5
+            or calendars.trading_day(day, row.market) is False
+        ):
             raise ValueError("invalid index observation date")
-        seen.add(day)
-        values = [Decimal(str(value)) for value in row[1:6]]
-        if len(values) != 5 or not all(value.is_finite() for value in values):
-            raise ValueError("invalid index observation")
-        opening, close, high, low, volume = values
+        opening, close, high, low = map(_number, bar[1:5])
         if (
             min(opening, close, high, low) <= 0
             or high < max(opening, close)
             or low > min(opening, close)
-            or volume < 0
         ):
             raise ValueError("inconsistent index OHLC")
+        if observed is not None and day > observed.date():
+            raise ValueError("history beyond source clock")
+        partial = day == local.date()
+        if partial and observed is not None:
+            try:
+                closing = session_boundary(local.replace(hour=23, minute=59), day, True, row.market)
+                partial = local < closing or observed < closing
+            except ValueError:
+                pass  # Unknown schedule cannot certify that today's bar is complete.
         items.append(
             {
                 "date": day.isoformat(),
@@ -64,32 +232,50 @@ def index_history(symbol, *, http_get=requests.get, calendar=None):
                 "high": str(high),
                 "low": str(low),
                 "close": str(close),
-                "volume": str(volume),
+                "is_partial": partial,
             }
         )
+        previous = day
+    items = items[-640:]
+    info = metadata(
+        "historical_quote",
+        row.history.provider,
+        items[-1]["date"],
+        fetched,
+        as_of=instant,
+        instrument_type="index",
+        market=row.market,
+        calendar=calendars,
+    )
+    latest = latest_session(instant, calendars, row.market)
+    if latest is None:
+        info.update(quality_status="unknown_time", quality_reason="calendar_or_session_unavailable")
+    elif previous < latest:
+        info.update(
+            quality_status="stale", is_stale=True, quality_reason="history_last_session_old"
+        )
     return {
-        "id": definition.id,
-        "market": definition.market,
-        "currency": definition.currency,
-        "calendar_id": definition.calendar_id,
-        "source_symbol": ticker,
-        "symbol": symbol,
-        "name": name,
-        "items": sorted(items, key=lambda item: item["date"]),
-        "source": "tencent",
-        "observed_at": now.isoformat(),
-        "stale": False,
+        "id": row.id,
+        "market": row.market,
+        "currency": row.currency,
+        "calendar_id": row.calendar_id,
+        "currency_basis": row.history.currency_basis,
+        "source_symbol": row.history.symbol,
+        "symbol": row.exchange_code,
+        "name": row.name,
+        "items": items,
+        "source": row.history.provider,
+        "observed_at": None,
+        "stale": info["is_stale"],
         "unavailable": [],
+        "source_quote_time": observed.isoformat() if observed else None,
+        "last_bar_partial": items[-1]["is_partial"],
+        "volume_status": "omitted_unverified_unit",
+        "history_count": len(items),
+        "history_start": items[0]["date"],
+        "history_end": items[-1]["date"],
         **{
             key: value.isoformat() if isinstance(value, datetime) else value
-            for key, value in metadata(
-                "historical_quote",
-                "tencent",
-                max(items, key=lambda item: item["date"])["date"],
-                now,
-                instrument_type="index",
-                market=definition.market,
-                calendar=calendar,
-            ).items()
+            for key, value in info.items()
         },
     }

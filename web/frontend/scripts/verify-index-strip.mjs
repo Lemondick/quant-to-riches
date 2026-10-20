@@ -34,6 +34,11 @@ try {
     if (url.pathname.endsWith('/market/history')) {
       const id = url.searchParams.get('index_id')
       historyIds.push(id)
+      if (mode === 'unconnected-history' && id === 'jp.nikkei225') {
+        data.items = []
+        data.quality_status = 'unavailable'
+        data.quality_reason = 'history_not_connected'
+      }
       if (mode === 'invalid-history' && id === 'cn.sse.composite') {
         data.quality_status = 'invalid'
         data.quality_reason = 'invalid_source_time'
@@ -108,6 +113,11 @@ try {
     await page.screenshot({ path: path.join(output, `${width}.png`), fullPage: true })
     checks.push({ width, ...layout })
   }
+  await page.getByLabel('选择指数', { exact: true }).selectOption('jp.nikkei225')
+  await page.locator('.candle-card[data-symbol="jp.nikkei225"] canvas').first().waitFor()
+  mode = 'unconnected-history'
+  await page.reload()
+  await page.locator('[data-index-id]').first().waitFor()
   await page.getByLabel('选择指数', { exact: true }).selectOption('jp.nikkei225')
   await page.getByText('历史行情尚未接入', { exact: true }).waitFor()
   assert.equal(await page.locator('.candle-card canvas').count(), 0)

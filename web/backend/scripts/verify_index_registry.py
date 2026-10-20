@@ -57,15 +57,17 @@ class IndexRegistryTests(unittest.TestCase):
         self.assertEqual(get_index("cn.sse.return").exchange_code, "000888")
         self.assertIn("全收益", get_index("cn.sse.return").official_name)
 
-    def test_legacy_aliases_and_four_verified_history_capabilities(self):
+    def test_legacy_aliases_and_verified_history_capabilities(self):
         from quant_assistant.providers.index_registry import definitions, resolve_legacy_index
 
         for symbol in ("000001", "399001", "399006", "000300"):
             row = resolve_legacy_index(symbol)
             self.assertEqual(row.legacy_history_symbol, symbol)
             self.assertEqual(row.history.verification_status, "verified")
-        self.assertEqual(sum(row.history is not None for row in definitions()), 4)
-        self.assertIsNone(resolve_legacy_index("000888").history)
+        self.assertEqual(sum(row.history is not None for row in definitions()), 16)
+        self.assertEqual(resolve_legacy_index("000888").history.provider, "tencent")
+        self.assertEqual(resolve_legacy_index("899050").history.provider, "eastmoney")
+        self.assertEqual(sum(row.legacy_history_symbol is not None for row in definitions()), 4)
         for unknown in ("600000", "999999", "N225", "not-an-index"):
             with self.subTest(unknown=unknown), self.assertRaises(ValueError):
                 resolve_legacy_index(unknown)

@@ -49,8 +49,10 @@ public sealed class IndexRegistryTests
             Assert.Equal(symbol, row.LegacyHistorySymbol);
             Assert.Equal("verified", row.History!.VerificationStatus);
         }
-        Assert.Equal(4, IndexRegistry.All.Count(row => row.History is not null));
-        Assert.Null(IndexRegistry.ResolveLegacy("000888").History);
+        Assert.Equal(16, IndexRegistry.All.Count(row => row.History is not null));
+        Assert.Equal("tencent", IndexRegistry.ResolveLegacy("000888").History!.Provider);
+        Assert.Equal("eastmoney", IndexRegistry.ResolveLegacy("899050").History!.Provider);
+        Assert.Equal(4, IndexRegistry.All.Count(row => row.LegacyHistorySymbol is not null));
         Assert.Throws<ArgumentException>(() => IndexRegistry.ResolveLegacy("600000"));
         Assert.Throws<ArgumentException>(() => IndexRegistry.Get("us.nasdaq100"));
     }

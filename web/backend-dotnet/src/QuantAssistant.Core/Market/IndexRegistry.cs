@@ -29,7 +29,7 @@ public static class IndexRegistry
 
     private static IndexProviderMapping Freeze(IndexProviderMapping value)
     {
-        if (value.Provider is not ("tencent" or "yahoo") || value.VerificationStatus is not ("verified" or "pending" or "unavailable")
+        if (value.Provider is not ("tencent" or "yahoo" or "eastmoney") || value.VerificationStatus is not ("verified" or "pending" or "unavailable")
             || string.IsNullOrEmpty(value.Symbol) || string.IsNullOrEmpty(value.ResponseSymbol)
             || value.ResponseNames is not { Count: > 0 } || value.ResponseNames.Any(string.IsNullOrEmpty)
             || value.EvidenceUrls is not { Count: > 0 } || value.EvidenceUrls.Any(url => !url.StartsWith("https://", StringComparison.Ordinal))
@@ -53,7 +53,7 @@ public static class IndexRegistry
             var currency = row.Market switch { "CN" => "CNY", "HK" => "HKD", "JP" => "JPY", "US" => "USD", _ => null };
             if (currency is null || !row.Id.StartsWith(row.Market.ToLowerInvariant() + ".", StringComparison.Ordinal)
                 || row.Currency != currency || row.Timezone != MarketSessions.ZoneId(row.Market) || row.CalendarId != row.Market
-                || row.Quote.SourceTimezone != row.Timezone || row.ProductStatus is not ("confirmed" or "provisional")
+                || row.Quote.SourceTimezone != row.Timezone || row.Quote.Provider is not ("tencent" or "yahoo") || row.ProductStatus is not ("confirmed" or "provisional")
                 || string.IsNullOrEmpty(row.Name) || string.IsNullOrEmpty(row.OfficialName) || string.IsNullOrEmpty(row.ExchangeCode)
                 || row.Enabled && row.Quote.VerificationStatus != "verified"
                 || row.History is not null && row.History.SourceTimezone != row.Timezone
