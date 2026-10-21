@@ -6,7 +6,7 @@ using QuantAssistant.Core.Market;
 namespace QuantAssistant.Api.Services;
 
 public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRepository jobs, PublicMarketSnapshot snapshot, PublicSnapshotRepository repository,
-    TradingCalendarRepository calendar, TimeProvider clock, IConfiguration configuration, IHostEnvironment environment, ILogger<PublicSnapshotRefresher> logger) : BackgroundService
+    TradingCalendarRepository calendar, TimeProvider clock, IConfiguration configuration, IHostEnvironment environment, ILogger<PublicSnapshotRefresher> logger, QuantAssistant.Api.Configuration.QuantOptions? options = null) : BackgroundService
 {
     private int detailOffset, historyOffset;
     private readonly PublicRefreshSettings settings = PublicRefreshSettings.From(configuration);
@@ -74,8 +74,7 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
             if (saved is null || !snapshot.Publish(saved.Data, saved.CompletedAt))
                 throw new ApplicationFailure("public_snapshot_unavailable", 503, "公开快照没有可发布的新观测。");
             // F3：公开源连续失败达到阈值后给管理员写 critical 告警（B 未上报 provider_failures 则静默）。
-            var alertRounds = int.TryParse(configuration["QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS"], out var rounds) && rounds > 0 ? rounds : 3;
-            await repository.CheckPublicSourceFailuresAsync(saved.Data, alertRounds, task.Token);
+            await repository.CheckPublicSourceFailuresAsync(saved.Data, (options ?? new QuantAssistant.Api.Configuration.QuantOptions()).PublicSourceFailAlertRounds, task.Token);
         }
         async Task Queue(string kind, object payload, bool reuseCompleted=true)
         {

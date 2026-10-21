@@ -169,7 +169,7 @@ builder.Services.AddSingleton(_ => new AccountDatabase(connectionString));
 // E5：Api 层只依赖 IAccountDatabase 抽象（依赖倒置）；具体类保留供 CLI 同步适配器使用。
 builder.Services.AddSingleton<IAccountDatabase>(sp => sp.GetRequiredService<AccountDatabase>());
 builder.Services.AddSingleton<ModelCostRepository>(sp => new ModelCostRepository(sp.GetRequiredService<AccountDatabase>(),
-    double.TryParse(sp.GetRequiredService<IConfiguration>()["QUANT_MODEL_BUDGET_WARN_RATIO"], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var warnRatio) ? warnRatio : 0.8));
+    sp.GetRequiredService<QuantAssistant.Api.Configuration.QuantOptions>().ModelBudgetWarnRatio));
 builder.Services.AddSingleton<FundFeeRepository>();
 builder.Services.AddSingleton<FundLotRepository>();
 builder.Services.AddSingleton<ReconciliationRepository>();
@@ -199,7 +199,7 @@ builder.Services.AddSingleton<QuantAssistant.Api.Services.LinkedAttributionServi
 builder.Services.AddSingleton<AdminDataRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Runtime.UserOperationAuditWriter>();
 builder.Services.AddSingleton<TradingCalendarRepository>(sp => new TradingCalendarRepository(sp.GetRequiredService<AccountDatabase>(),
-    sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<IConfiguration>()["QUANT_CALENDAR_AUTO_ACCEPT"] == "true"));
+    sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<QuantAssistant.Api.Configuration.QuantOptions>().CalendarAutoAccept));
 var keyProtection = builder.Services.AddDataProtection().SetApplicationName("QuantAssistant.Native");
 if (options.SecretRoot is { Length: > 0 })
 {
