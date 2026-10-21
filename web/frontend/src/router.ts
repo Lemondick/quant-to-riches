@@ -14,6 +14,7 @@ const Admin = import.meta.env.VITE_API_BASE_URL ? () => import('./components/Liv
 const AccountSettings = () => import('./views/AccountSettings.vue')
 const ApiConsole = () => import('./components/LiveApiConsole.vue')
 const ReportTasks = () => import('./components/LiveReportTasks.vue')
+const Calendar = () => import('./components/LiveCalendar.vue')
 
 const routePreloader = createRoutePreloader({
   '/': () => import.meta.env.VITE_API_BASE_URL ? Promise.resolve(LiveAssetOverview) : import('./views/AssetOverview.vue'),
@@ -22,6 +23,7 @@ const routePreloader = createRoutePreloader({
   '/quant': QuantStrategy, '/news': News, '/admin': Admin, '/settings': AccountSettings,
   '/api-console': ApiConsole,
   '/reports': ReportTasks,
+  '/calendar': Calendar,
 })
 export const preloadRoute = routePreloader.preload
 export const warmRouteComponents = routePreloader.warm
@@ -39,7 +41,8 @@ export const navItems = [
   { path: '/admin', label: '管理者后台', group: '系统', icon: 'UsersRound' },
   { path: '/settings', label: '账号与设置', group: '系统', icon: 'Settings2' },
   { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' },
-  { path: '/reports', label: '报告任务', group: '高级工具', icon: 'ClipboardList' }
+  { path: '/reports', label: '报告任务', group: '高级工具', icon: 'ClipboardList' },
+  { path: '/calendar', label: '交易日历', group: '高级工具', icon: 'CalendarDays' }
 ]
 
 export default createRouter({
@@ -57,6 +60,7 @@ export default createRouter({
     { path: '/admin', component: Admin },
     { path: '/settings', component: AccountSettings },
     { path: '/api-console', component: ApiConsole },
-    { path: '/reports', component: ReportTasks }
+    { path: '/reports', component: ReportTasks },
+    { path: '/calendar', component: Calendar }
   ]
 })
