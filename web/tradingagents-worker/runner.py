@@ -308,7 +308,7 @@ def run(task: dict) -> dict:
                 callbacks=[callbacks],
             )
             try:
-                final_state, signal = graph.propagate(symbol, trade_date)
+                final_state, signal = graph.propagate(symbol.split('.')[0], trade_date)
             finally:
                 # Upstream normally closes the graph during propagate; close again
                 # defensively if a provider failed before normal graph cleanup.
