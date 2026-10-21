@@ -36,7 +36,9 @@ Copy-Item -LiteralPath (Join-Path $repoPath 'web/worker') -Destination $releaseP
 $backendPath = Join-Path $releasePath 'backend'
 New-Item -ItemType Directory -Path $backendPath | Out-Null
 foreach ($part in @('pyproject.toml', 'uv.lock', 'src')) {
-    Copy-Item -LiteralPath (Join-Path $repoPath ('web/backend/' + $part)) -Destination $backendPath -Recurse
+    # Archived legacy modules (web/backend/archive) are kept for git history only
+    # and must never be bundled into the production release.
+    Copy-Item -LiteralPath (Join-Path $repoPath ('web/backend/' + $part)) -Destination $backendPath -Recurse -Exclude 'archive'
 }
 if ($Target -eq 'windows') {
     & $Uv sync --project $backendPath --frozen --no-dev --python $Python

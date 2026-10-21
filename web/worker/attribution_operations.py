@@ -2,39 +2,19 @@
 
 import hashlib
 import json
+from contextlib import ExitStack
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import pandas as pd
-from analysis_context import build_context, site_directory
+from analysis_context import analytical_context, site_directory
+from attribution_shared import EvidenceMissing, _amount, _day, _text
+from ledger_attribution import calculate_periods
 
 from quant_assistant.data.snapshots import _frame_sha256
 
 ATTRIBUTION_CAPABILITIES = ("analysis.brinson",)
-
-
-class EvidenceMissing(ValueError):
-    pass
-
-
-def _day(value):
-    return date.fromisoformat(str(value)[:10])
-
-
-def _amount(value):
-    try:
-        result = Decimal(str(value))
-    except (InvalidOperation, ValueError) as failure:
-        raise EvidenceMissing("标的金额或价格证据不是有效十进制数。") from failure
-    if not result.is_finite():
-        raise EvidenceMissing("标的金额或价格证据不是有限数。")
-    return result
-
-
-def _text(value):
-    text = format(value, "f")
-    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 def _original(tables, start, end, *, ledger=False):
@@ -139,16 +119,17 @@ class Marks:
         self.history_used |= any(row[2] == "history" for row in latest)
         return str(rows[0][0]).strip(), str(rows[0][1])
 
-    def price(self, symbol, day, *, asset="stock"):
-        table, field, amount = (
-            ("fund_nav", "nav_date", "unit_nav")
-            if asset == "fund"
-            else ("daily_prices", "trade_date", "close")
-        )
-        row = self.connection.execute(
-            f"SELECT {amount},source_snapshot_id FROM {table} WHERE symbol=? AND {field}=?",
-            [symbol, day],
-        ).fetchone()
+    @staticmethod
+    def _price_table(asset):
+        if asset == "fund":
+            return "fund_nav", "nav_date", "unit_nav"
+        if asset == "stock":
+            return "daily_prices", "trade_date", "close"
+        raise EvidenceMissing(f"不支持的价格资产类型{asset}。")
+
+    def _validate_price_source(self, symbol, day, asset, row):
+        """Validate one located price row; return (source, table, field, amount)."""
+        table, field, amount = self._price_table(asset)
         if row is None or row[1] not in self.metadata:
             raise EvidenceMissing(f"{symbol}缺少{day}的已验证收盘价格；不会使用上一日价格替代。")
         source = self.metadata[row[1]]
@@ -163,42 +144,56 @@ class Marks:
         )
         if source["dataset"] not in datasets or source["status"] != "valid" or issues:
             raise EvidenceMissing(f"{symbol}在{day}的价格来源尚未通过校验。")
-        if source["id"] not in self.frames:
-            path = Path(source["path"])
+        return source, table, field, amount
+
+    def _source_frame(self, source, symbol, table, field, amount):
+        """Load, integrity-check and cache the immutable snapshot frame."""
+        if source["id"] in self.frames:
+            return self.frames[source["id"]]
+        path = Path(source["path"])
+        if (
+            not path.is_absolute()
+            or path.resolve() != path
+            or not path.is_relative_to(self.directory)
+            or path.is_symlink()
+        ):
+            raise EvidenceMissing(f"{symbol}的价格文件不在当前账号的真实目录内。")
+        if not path.is_file() or path.stat().st_size > 50_000_000:
+            raise EvidenceMissing(f"{symbol}的价格文件缺失或超过单次读取上限。")
+        try:
+            with path.open("rb") as stream:
+                file_hash = hashlib.file_digest(stream, "sha256").hexdigest()
+            frame = pd.read_parquet(path)
             if (
-                not path.is_absolute()
-                or path.resolve() != path
-                or not path.is_relative_to(self.directory)
-                or path.is_symlink()
+                len(frame) != source["row_count"]
+                or len(frame) > 250_000
+                or _frame_sha256(frame) != source["sha256"]
             ):
-                raise EvidenceMissing(f"{symbol}的价格文件不在当前账号的真实目录内。")
-            if not path.is_file() or path.stat().st_size > 50_000_000:
-                raise EvidenceMissing(f"{symbol}的价格文件缺失或超过单次读取上限。")
-            try:
-                with path.open("rb") as stream:
-                    file_hash = hashlib.file_digest(stream, "sha256").hexdigest()
-                frame = pd.read_parquet(path)
-                if (
-                    len(frame) != source["row_count"]
-                    or len(frame) > 250_000
-                    or _frame_sha256(frame) != source["sha256"]
-                ):
-                    raise EvidenceMissing(f"{symbol}的价格文件内容校验失败。")
-                if not {"symbol", field, amount}.issubset(frame.columns):
-                    raise EvidenceMissing(f"{symbol}的价格文件缺少必需字段。")
-            except (OSError, ValueError) as failure:
-                if isinstance(failure, EvidenceMissing):
-                    raise
-                raise EvidenceMissing(f"{symbol}的价格文件无法读取或校验。") from failure
-            self.frames[source["id"]] = frame
-            self.files.append({"path": str(path), "sha256": file_hash})
-            self.sources.append(
-                {
-                    key: source[key]
-                    for key in ("id", "dataset", "source", "as_of_date", "sha256", "row_count")
-                }
-            )
-        frame = self.frames[source["id"]]
+                raise EvidenceMissing(f"{symbol}的价格文件内容校验失败。")
+            if not {"symbol", field, amount}.issubset(frame.columns):
+                raise EvidenceMissing(f"{symbol}的价格文件缺少必需字段。")
+        except (OSError, ValueError) as failure:
+            if isinstance(failure, EvidenceMissing):
+                raise
+            raise EvidenceMissing(f"{symbol}的价格文件无法读取或校验。") from failure
+        self.frames[source["id"]] = frame
+        self.files.append({"path": str(path), "sha256": file_hash})
+        self.sources.append(
+            {
+                key: source[key]
+                for key in ("id", "dataset", "source", "as_of_date", "sha256", "row_count")
+            }
+        )
+        return frame
+
+    def price(self, symbol, day, *, asset="stock"):
+        table, field, amount = self._price_table(asset)
+        row = self.connection.execute(
+            f"SELECT {amount},source_snapshot_id FROM {table} WHERE symbol=? AND {field}=?",
+            [symbol, day],
+        ).fetchone()
+        source, table, field, amount = self._validate_price_source(symbol, day, asset, row)
+        frame = self._source_frame(source, symbol, table, field, amount)
         points = frame.loc[
             frame["symbol"].astype(str).eq(symbol) & pd.to_datetime(frame[field]).dt.date.eq(day)
         ]
@@ -206,6 +201,40 @@ class Marks:
         if len(points) != 1 or price <= 0 or price != _amount(points.iloc[0][amount]):
             raise EvidenceMissing(f"{symbol}在{day}的价格与原始快照不一致。")
         return price, source["id"]
+
+    def prefetch_prices(self, items):
+        """Batch-warm price evidence for ``(symbol, day, asset)`` triples.
+
+        One SQL round-trip per asset table warms the snapshot-frame cache, so
+        later price() calls hit memory. Only caches are warmed: every
+        validation still runs inside price(), which keeps raising
+        EvidenceMissing for invalid points. Triples that fail validation are
+        skipped here; price() will report them when actually requested.
+        """
+        grouped = {}
+        for symbol, day, asset in dict.fromkeys(items):
+            if asset not in {"stock", "fund"}:
+                continue
+            grouped.setdefault(self._price_table(asset), []).append((symbol, day, asset))
+        for (table, field, _amount_col), triples in grouped.items():
+            placeholders = ",".join(["(?, ?)"] * len(triples))
+            try:
+                rows = self.connection.execute(
+                    f"SELECT symbol, {field}, source_snapshot_id FROM {table} "
+                    f"WHERE (symbol, {field}) IN ({placeholders})",
+                    [value for symbol, day, _asset in triples for value in (symbol, day)],
+                ).fetchall()
+            except Exception:
+                continue
+            asset = "fund" if table == "fund_nav" else "stock"
+            for symbol, day, snapshot_id in rows:
+                try:
+                    source, _t, _f, _a = self._validate_price_source(
+                        symbol, day, asset, (None, snapshot_id)
+                    )
+                    self._source_frame(source, symbol, table, field, _amount_col)
+                except EvidenceMissing:
+                    continue
 
     def fund_breakdown(self, holding, start):
         symbol = holding["symbol"]
@@ -329,7 +358,14 @@ def execute_attribution(_kind, payload):
                 raise ValueError("invalid_analytical_cache")
             with cache.open("rb") as stream:
                 cache_hash = hashlib.file_digest(stream, "sha256").hexdigest()
-        database, _queries, directory = build_context(payload["snapshot"])
+        # Entered inside the try so build_context input errors keep mapping to
+        # the integrity blocker; the ExitStack is closed in the finally below.
+        # (A plain `with` here would also catch main-logic ValueErrors that the
+        # old code deliberately let propagate as invalid_request.)
+        stack = ExitStack()
+        database, _queries, directory = stack.enter_context(
+            analytical_context(payload["snapshot"])
+        )
     except (OSError, ValueError):
         return {"status": "blocked", "blockers": ["账号分析资料或快照文件不能通过完整性校验。"]}
     try:
@@ -361,8 +397,6 @@ def execute_attribution(_kind, payload):
             with database.connection() as connection:
                 marks = Marks(connection, directory, tables)
                 if ledger:
-                    from ledger_attribution import calculate_periods
-
                     periods = calculate_periods(
                         tables, baseline, positions, components, start, end, marks
                     )
@@ -460,19 +494,28 @@ def execute_attribution(_kind, payload):
                         if _day(baseline["effective_date"]) <= _day(row[field]) <= end
                     ]
                     identities.update((category, str(row[identity])) for row in frozen[name])
+                # Index by id once: the old `target not in frozen[name]` list scan
+                # was O(n^2) over up to 20k events.
+                targets_by_id = {
+                    name: {str(row["id"]): row for row in tables[name]}
+                    for name in ("transactions", "dividend_events")
+                }
+                frozen_ids = {
+                    name: {str(row["id"]) for row in frozen[name]}
+                    for name in targets_by_id
+                }
                 for correction in frozen["ledger_corrections"]:
                     name = (
                         "transactions"
                         if correction["target_type"] == "transaction"
                         else "dividend_events"
                     )
-                    for target in tables[name]:
-                        if (
-                            str(target["id"]) == str(correction["target_id"])
-                            and target not in frozen[name]
-                        ):
-                            frozen[name].append(target)
-                            identities.add((correction["target_type"], str(target["id"])))
+                    wanted = str(correction["target_id"])
+                    target = targets_by_id[name].get(wanted)
+                    if target is not None and wanted not in frozen_ids[name]:
+                        frozen[name].append(target)
+                        frozen_ids[name].add(wanted)
+                        identities.add((correction["target_type"], wanted))
                 frozen["audit_log"] = [
                     row
                     for row in tables["audit_log"]
@@ -500,4 +543,4 @@ def execute_attribution(_kind, payload):
                 ],
             }
     finally:
-        database.close()
+        stack.close()

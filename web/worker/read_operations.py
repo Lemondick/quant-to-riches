@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from analysis_context import build_context
+from analysis_context import analytical_context, shanghai_now
 
 from quant_assistant.controllers import schemas
 from quant_assistant.services.benchmarks import BenchmarkService
@@ -23,8 +23,7 @@ READ_CAPABILITIES = (
 
 
 def execute_read(kind, payload):
-    database, queries, _directory = build_context(payload["snapshot"])
-    try:
+    with analytical_context(payload["snapshot"]) as (database, queries, _directory):
         if kind == "analysis.price_dates":
             result = {}
             with database.connection() as connection:
@@ -92,5 +91,3 @@ def execute_read(kind, payload):
             if result is None
             else schema.model_validate(result).model_dump(mode="json", by_alias=True)
         )
-    finally:
-        database.close()

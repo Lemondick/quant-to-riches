@@ -561,6 +561,22 @@ class PublicFundDetailProvider:
             while len(self._nav_clocks) > 4:
                 self._nav_clocks.popitem(last=False)
         return packed[0]
+    def nav_histories(self, symbols) -> dict:
+        """Fetch published unit NAVs for several symbols with per-symbol isolation.
+
+        Eastmoney exposes one JS document per fund, so this still performs one
+        HTTP request per symbol; the batching value is a single entry point with
+        uniform error isolation -- a failed symbol is omitted from the result
+        instead of aborting the others. Callers report the omission as their
+        usual per-symbol blocker.
+        """
+        histories = {}
+        for symbol in dict.fromkeys(symbols):
+            try:
+                histories[symbol] = self.nav_history(symbol)
+            except Exception:
+                continue
+        return histories
 
     def _nav_history(self, code: str) -> tuple[FundNavPoint, ...]:
         try:

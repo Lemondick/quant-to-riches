@@ -192,13 +192,13 @@ class PublicWorkerTests(unittest.TestCase):
             self.assertEqual(self.posts[-1][1]["error_code"], "worker_output_too_large")
 
     def test_forced_market_refresh_expires_cache_but_retains_dated_fallbacks(self):
-        for factory in (
-            public_operations._detail_provider,
-            public_operations._market_provider,
-            public_operations._valuation_provider,
+        for factory, namespace in (
+            (public_operations._detail_provider, "provider.fund_detail"),
+            (public_operations._market_provider, "provider.market_feed"),
+            (public_operations._valuation_provider, "provider.fund_valuation"),
         ):
-            factory.cache_clear()
-            self.addCleanup(factory.cache_clear)
+            public_operations.cache_invalidate(namespace)
+            self.addCleanup(public_operations.cache_invalidate, namespace)
             self.assertIs(factory(), factory())
         previous = public_operations._market_provider()
         with (

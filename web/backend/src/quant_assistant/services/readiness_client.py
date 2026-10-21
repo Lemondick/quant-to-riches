@@ -9,8 +9,6 @@ from contextlib import suppress
 from pathlib import Path
 from urllib.parse import urlsplit
 
-import httpx
-
 from quant_assistant.config import Settings
 
 
@@ -27,6 +25,8 @@ def live_readiness(
     minimum_backups: int,
     username: str | None = None,
 ) -> dict[str, object]:
+    import httpx  # Lazy: only the live-HTTP path needs it.
+
     base = (api_url or f"http://127.0.0.1:{settings.deployment.port}").rstrip("/")
     address = urlsplit(base)
     if (

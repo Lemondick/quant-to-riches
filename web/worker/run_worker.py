@@ -28,6 +28,7 @@ from uuid import uuid4
 import requests
 from operations import CAPABILITIES, execute
 from public_operations import IN_PROCESS_CAPABILITIES, child_public_operation
+from worker_result import child_envelope
 
 from quant_assistant.common.performance import Trace, log_slow, measure, trace_scope
 from quant_assistant.integrations.tradingagents_worker.process import ProcessTree
@@ -40,19 +41,14 @@ RESIDENT_MAX_CONCURRENCY = 8
 
 
 def child_operation(kind, payload):
-    try:
-        result = execute(kind, payload)
-        json.dumps(result, allow_nan=False)
-        return {"result": result, "error_code": None}
-    except AdvisorModelError as error:
-        return {"result": None, "error_code": str(error)}
-    except CostLimitError:
-        return {"result": None, "error_code": "model_budget_exceeded"}
-    except (ValueError, TypeError):
-        return {"result": None, "error_code": "invalid_request"}
-    except Exception:
-        # Remote provider details may contain account data or credentials.
-        return {"result": None, "error_code": "worker_computation_failed"}
+    # Operation-specific codes precede the shared contract mapping.
+    return child_envelope(
+        lambda: execute(kind, payload),
+        pre_handlers=[
+            (AdvisorModelError, lambda error: {"result": None, "error_code": str(error)}),
+            (CostLimitError, lambda _error: {"result": None, "error_code": "model_budget_exceeded"}),
+        ],
+    )
 
 
 class Worker:
@@ -263,12 +259,38 @@ class Worker:
             self.resident.shutdown(wait=True, cancel_futures=True)
 
 
+def _init_public_source_failure_tracker():
+    """Install the persistent public-source failure tracker (F3).
+
+    Counts consecutive per-host public fetch failures across restarts;
+    stream A consumes the state file for the critical alert at
+    QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS (default 3).
+    """
+    from pathlib import Path
+
+    from public_source_failures import (
+        PublicSourceFailureTracker,
+        alert_rounds_from_env,
+    )
+    from quant_assistant.providers.public_http import PublicHttp
+
+    site_root = os.environ.get("QUANT_SITE_ROOT")
+    if not site_root:
+        return
+    tracker = PublicSourceFailureTracker(
+        Path(site_root) / ".public-source-failures.json",
+        alert_rounds=alert_rounds_from_env(),
+    )
+    PublicHttp.set_default_failure_tracker(tracker)
+
+
 def main():
     from worker_environment import worker_environment
 
     filtered = worker_environment(os.environ)
     os.environ.clear()
     os.environ.update(filtered)
+    _init_public_source_failure_tracker()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--api",

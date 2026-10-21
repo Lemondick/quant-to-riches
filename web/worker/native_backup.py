@@ -7,6 +7,7 @@ from the API connection string. State files contain only bounded diagnostic code
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -19,6 +20,8 @@ import psycopg2
 from quant_assistant.integrations.tradingagents_worker.process import ProcessTree
 
 SHANGHAI = timezone(timedelta(hours=8))
+
+_logger = logging.getLogger(__name__)
 
 
 def configured(release, environment):
@@ -146,7 +149,19 @@ class NativeBackup:
                     "(SELECT count(*) FROM model_call_costs WHERE status='reserved')"
                 )
                 return cursor.fetchone()[0] == 0
-        except Exception:
+        except Exception as error:
+            # E23: never swallow the probe failure silently. A False return
+            # defers the backup as 'active_tasks_or_database_unavailable';
+            # without this log a database outage is indistinguishable from a
+            # busy site during long deferrals.
+            _logger.warning(
+                "backup idleness probe failed",
+                extra={
+                    "probe": "native_backup.idle",
+                    "error_type": type(error).__name__,
+                    "error": str(error)[:300],
+                },
+            )
             return False
 
     def defer(self, now):

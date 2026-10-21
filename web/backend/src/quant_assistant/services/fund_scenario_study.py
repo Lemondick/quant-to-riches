@@ -192,7 +192,9 @@ class FundScenarioStudy:
                 fund["symbol"] for fund in previous["funds"]
             }:
                 raise ValueError("updated study scope changed")
-            if any(fund["rules"] != previous["funds"][0]["rules"] for fund in report["funds"]):
+            # Rules are study-wide, but compare per fund by symbol (see worker E20).
+            previous_rules = {fund["symbol"]: fund["rules"] for fund in previous["funds"]}
+            if any(fund["rules"] != previous_rules[fund["symbol"]] for fund in report["funds"]):
                 raise ValueError("updated study rules changed")
             # Validate all 27 comparisons per fund before atomically publishing.
             for fund in report["funds"]:

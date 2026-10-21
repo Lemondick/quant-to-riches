@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 
-from analysis_context import build_context
+from analysis_context import analytical_context, shanghai_now
 
 from quant_assistant.models.entities import AssetType
 from quant_assistant.services.photo_import import PhotoAccountImportService
@@ -17,8 +17,7 @@ PHOTO_CAPABILITIES = ("photo.recognize", "photo.identify")
 
 
 def execute_photo(kind, payload):
-    database, _queries, _directory = build_context(payload["snapshot"])
-    try:
+    with analytical_context(payload["snapshot"]) as (database, _queries, _directory):
         recognizer = PhotoAccountImportService.from_env(database)
         day = date.fromisoformat(payload["as_of_date"]) if payload.get("as_of_date") else None
         if kind == "photo.recognize":
@@ -44,5 +43,3 @@ def execute_photo(kind, payload):
         )
         result = recognizer.resolve_review_instruments(rows, day)
         return json.loads(json.dumps([asdict(row) for row in result], default=str))
-    finally:
-        database.close()

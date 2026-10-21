@@ -3,11 +3,10 @@
 import hashlib
 from datetime import date, datetime
 
-from analysis_context import build_context
+from analysis_context import analytical_context, shanghai_now
 
 from quant_assistant.analysis.deterministic import DeterministicAnalyzer
 from quant_assistant.analysis.service import AnalysisService
-from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.controllers.schemas import AnalysisResponseModel
 from quant_assistant.providers.fund_detail import PublicFundDetailProvider
 from quant_assistant.services.advisor_tracking import AdvisorTrackingService
@@ -37,18 +36,13 @@ RESEARCH_CAPABILITIES = (
 
 
 def execute_research(kind, payload):
-    database, queries, directory = build_context(payload["snapshot"])
-
-    def now():
-        return datetime.now(SHANGHAI_TZ)
-
-    try:
+    with analytical_context(payload["snapshot"]) as (database, queries, directory):
         if kind == "analysis.explain":
             request = queries.analysis_request(
                 payload.get("decision_run_id"), payload.get("user_text", "")
             )
             return AnalysisResponseModel.model_validate(
-                AnalysisService(DeterministicAnalyzer(now)).explain(request)
+                AnalysisService(DeterministicAnalyzer(shanghai_now)).explain(request)
             ).model_dump(mode="json")
         if kind == "analysis.readiness":
             account = _account_check(database)
@@ -58,7 +52,7 @@ def execute_research(kind, payload):
             if isinstance(point_in_time.get("as_of"), date):
                 point_in_time["as_of"] = point_in_time["as_of"].isoformat()
             return {
-                "generated_at": now().isoformat(),
+                "generated_at": shanghai_now().isoformat(),
                 "checks": {
                     "account_baseline": account,
                     "broker_fee_evidence": _fee_evidence_check(database),
@@ -69,13 +63,13 @@ def execute_research(kind, payload):
                 },
             }
         if kind in {"fund.tracking", "fund.risk", "fund.public_observations"}:
-            store = FundResearchStore(database, PublicFundDetailProvider(), now)
+            store = FundResearchStore(database, PublicFundDetailProvider(), shanghai_now)
             if kind == "fund.tracking":
                 return AdvisorTrackingService(database, store).read(
                     payload["limit"], payload["page"]
                 )
             if kind == "fund.risk":
-                return FundPortfolioRisk(database, store, now).read()
+                return FundPortfolioRisk(database, store, shanghai_now).read()
             result = store.refresh(payload["symbols"])
             with database.connection() as connection:
                 result["_snapshots"] = [
@@ -102,7 +96,7 @@ def execute_research(kind, payload):
                 != pointer["manifest_sha256"]
             ):
                 raise ValueError("study_integrity_failed")
-        service = FundScenarioStudy(source, now=now)
+        service = FundScenarioStudy(source, now=shanghai_now)
         if kind == "fund.study":
             return service.read()
         if kind == "fund.curves":
@@ -122,15 +116,20 @@ def execute_research(kind, payload):
         job = payload["study_id"]
         candidate_root = root / "versions" / job
         candidate_root.mkdir(parents=True, exist_ok=False)
-        run_refresh(candidate_root, previous, now(), lambda *_: None)
-        candidate = FundScenarioStudy(candidate_root / "study", now=now)
+        run_refresh(candidate_root, previous, shanghai_now(), lambda *_: None)
+        candidate = FundScenarioStudy(candidate_root / "study", now=shanghai_now)
         updated = candidate.read()
         if not updated.get("available") or {f["symbol"] for f in updated["funds"]} != {
             f["symbol"] for f in previous["funds"]
         }:
             raise ValueError("study_scope_changed")
+        # Rules are study-wide (run_refresh requires every fund to carry the
+        # default ScenarioRules), but compare per fund by symbol rather than
+        # against previous["funds"][0]: the old comparison was only correct
+        # while all funds happened to share identical rules.
+        previous_rules = {fund["symbol"]: fund["rules"] for fund in previous["funds"]}
         for fund in updated["funds"]:
-            if fund["rules"] != previous["funds"][0]["rules"]:
+            if fund["rules"] != previous_rules[fund["symbol"]]:
                 raise ValueError("study_rules_changed")
             for period in ("full", "early", "late"):
                 for rate in ("0", "0.0012", "0.012"):
@@ -149,5 +148,3 @@ def execute_research(kind, payload):
                 ).hexdigest(),
             },
         }
-    finally:
-        database.close()

@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -287,18 +288,21 @@ class AutomaticAttributionTests(unittest.TestCase):
         self.assertTrue(any("目录" in text for text in result["blockers"]))
 
     def test_industry_cache_changes_during_read_blocks(self):
-        from attribution_operations import build_context
+        from analysis_context import analytical_context as real_context
 
+        # analytical_context is a context manager since the E17 try/finally
+        # consolidation; the fake enters the real one, mutates, then yields.
+        @contextmanager
         def copy_then_change(snapshot):
-            result = build_context(snapshot)
-            with self.database.connection() as connection:
-                connection.execute(
-                    "UPDATE instrument_history SET industry='changed' WHERE symbol='600000.SH'"
-                )
-            self.database.close()
-            return result
+            with real_context(snapshot) as built:
+                with self.database.connection() as connection:
+                    connection.execute(
+                        "UPDATE instrument_history SET industry='changed' WHERE symbol='600000.SH'"
+                    )
+                self.database.close()
+                yield built
 
-        with patch("attribution_operations.build_context", side_effect=copy_then_change):
+        with patch("attribution_operations.analytical_context", side_effect=copy_then_change):
             result = self.run_operation()
         self.assertEqual(result["status"], "blocked")
         self.assertTrue(any("缓存发生变化" in text for text in result["blockers"]))
