@@ -88,39 +88,92 @@ CREATE TRIGGER compute_job_terminal
     EXECUTE FUNCTION quant_compute_events();
 
 -- ============ ③ 0021 行级触发器改为语句级批量合并 ============
+-- PG 不允许 AFTER INSERT OR UPDATE OR DELETE 多事件触发器带 transition table
+-- （Npgsql 0A000），故按单事件拆分为 9 个触发器；函数内按 TG_OP 分支读写。
 DROP TRIGGER IF EXISTS position_display_revision ON positions;
 DROP TRIGGER IF EXISTS instrument_display_revision ON instruments;
 DROP TRIGGER IF EXISTS document_display_revision ON user_documents;
+DROP TRIGGER IF EXISTS position_display_revision_ins ON positions;
+DROP TRIGGER IF EXISTS position_display_revision_upd ON positions;
+DROP TRIGGER IF EXISTS position_display_revision_del ON positions;
+DROP TRIGGER IF EXISTS instrument_display_revision_ins ON instruments;
+DROP TRIGGER IF EXISTS instrument_display_revision_upd ON instruments;
+DROP TRIGGER IF EXISTS instrument_display_revision_del ON instruments;
+DROP TRIGGER IF EXISTS document_display_revision_ins ON user_documents;
+DROP TRIGGER IF EXISTS document_display_revision_upd ON user_documents;
+DROP TRIGGER IF EXISTS document_display_revision_del ON user_documents;
 DROP FUNCTION IF EXISTS quant_account_display_changed();
 
 CREATE OR REPLACE FUNCTION quant_account_display_changed_stmt() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-    UPDATE users AS u
-    SET data_revision = data_revision + 1
-    FROM (
-        SELECT DISTINCT user_id FROM old_rows
-        UNION
-        SELECT DISTINCT user_id FROM new_rows
-    ) AS v(user_id)
-    WHERE u.id = v.user_id;
+    IF TG_OP = 'INSERT' THEN
+        UPDATE users AS u
+        SET data_revision = data_revision + 1
+        FROM (SELECT DISTINCT user_id FROM new_rows) AS v(user_id)
+        WHERE u.id = v.user_id;
+    ELSIF TG_OP = 'DELETE' THEN
+        UPDATE users AS u
+        SET data_revision = data_revision + 1
+        FROM (SELECT DISTINCT user_id FROM old_rows) AS v(user_id)
+        WHERE u.id = v.user_id;
+    ELSE -- UPDATE
+        UPDATE users AS u
+        SET data_revision = data_revision + 1
+        FROM (
+            SELECT DISTINCT user_id FROM old_rows
+            UNION
+            SELECT DISTINCT user_id FROM new_rows
+        ) AS v(user_id)
+        WHERE u.id = v.user_id;
+    END IF;
     RETURN NULL;
 END;
 $$;
 
-CREATE TRIGGER position_display_revision
-    AFTER INSERT OR UPDATE OR DELETE ON positions
+CREATE TRIGGER position_display_revision_ins
+    AFTER INSERT ON positions
+    REFERENCING NEW TABLE AS new_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION quant_account_display_changed_stmt();
+CREATE TRIGGER position_display_revision_upd
+    AFTER UPDATE ON positions
     REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION quant_account_display_changed_stmt();
-
-CREATE TRIGGER instrument_display_revision
-    AFTER INSERT OR UPDATE OR DELETE ON instruments
-    REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+CREATE TRIGGER position_display_revision_del
+    AFTER DELETE ON positions
+    REFERENCING OLD TABLE AS old_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION quant_account_display_changed_stmt();
 
-CREATE TRIGGER document_display_revision
-    AFTER INSERT OR UPDATE OR DELETE ON user_documents
+CREATE TRIGGER instrument_display_revision_ins
+    AFTER INSERT ON instruments
+    REFERENCING NEW TABLE AS new_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION quant_account_display_changed_stmt();
+CREATE TRIGGER instrument_display_revision_upd
+    AFTER UPDATE ON instruments
     REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION quant_account_display_changed_stmt();
+CREATE TRIGGER instrument_display_revision_del
+    AFTER DELETE ON instruments
+    REFERENCING OLD TABLE AS old_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION quant_account_display_changed_stmt();
+
+CREATE TRIGGER document_display_revision_ins
+    AFTER INSERT ON user_documents
+    REFERENCING NEW TABLE AS new_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION quant_account_display_changed_stmt();
+CREATE TRIGGER document_display_revision_upd
+    AFTER UPDATE ON user_documents
+    REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION quant_account_display_changed_stmt();
+CREATE TRIGGER document_display_revision_del
+    AFTER DELETE ON user_documents
+    REFERENCING OLD TABLE AS old_rows
     FOR EACH STATEMENT
     EXECUTE FUNCTION quant_account_display_changed_stmt();
