@@ -111,15 +111,31 @@ def execute_paid(kind, payload):
             raise AdvisorModelError("preview_changed")
         upstream = execute_full_tradingagents(payload)
         facts = payload["request"].get("facts", [])
+        frozen_sources = [
+            {
+                "id": fact["fact_id"],
+                "content": fact,
+                "source_time_status": fact.get("source_time_status", "unknown"),
+            }
+            for fact in facts
+            if isinstance(fact, dict) and isinstance(fact.get("fact_id"), str)
+        ]
+        upstream_sources = [
+            {
+                "id": item["source_id"],
+                "content": item.get("content", ""),
+                "tool_name": item.get("tool_name", "unknown"),
+                "source_time_status": item.get("source_time_status", "unknown"),
+                "observed_at": item.get("observed_at"),
+            }
+            for item in upstream.get("tool_evidence", [])
+            if isinstance(item, dict) and isinstance(item.get("source_id"), str)
+        ]
         compact_state = {
             "input": {
                 "kind": "morning",
                 "symbols": [payload["request"]["symbol"]],
-                "sources": [
-                    {"id": fact["fact_id"], "content": fact}
-                    for fact in facts
-                    if isinstance(fact, dict) and isinstance(fact.get("fact_id"), str)
-                ],
+                "sources": [*frozen_sources, *upstream_sources],
                 "blockers": list(payload["request"].get("warnings", [])),
                 "symbol_gates": {},
                 "observed_at": payload["request"].get("data_date"),
