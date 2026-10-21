@@ -37,5 +37,8 @@ public static class ErrorCodes
     public const string SmartDcaPlanNotFound = "smart_dca_plan_not_found";
     public const string TwoFactorRequired = "two_factor_required";
     public const string InvalidTotpCode = "invalid_totp_code";
+    // batch5 新增错误码（任务1/4）。沿用既有模式：Core 注册，用户侧写操作走 user_operation_audit 审计。
+    public const string GoalTargetNotFound = "goal_target_not_found";
+    public const string DcaExecutionNotFound = "dca_execution_not_found";
     public const string AuditChainNotEnabled = "audit_chain_not_enabled";
 }

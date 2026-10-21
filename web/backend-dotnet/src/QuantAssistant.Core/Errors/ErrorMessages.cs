@@ -42,6 +42,9 @@ public static class ErrorMessages
             [ErrorCodes.SmartDcaPlanNotFound] = "未找到该智能定投计划。",
             [ErrorCodes.TwoFactorRequired] = "账号已启用双重验证，请输入 6 位动态口令完成登录。",
             [ErrorCodes.InvalidTotpCode] = "动态口令不正确或已过期，请重新输入。",
+            // batch5 新增错误码文案（任务1/4）。
+            [ErrorCodes.GoalTargetNotFound] = "未找到该目标规划。",
+            [ErrorCodes.DcaExecutionNotFound] = "未找到该定投执行记录。",
             [ErrorCodes.AuditChainNotEnabled] = "审计哈希链尚未启用（admin_audit 缺少 prev_hash/hash 列），请先应用迁移 0036。",
         };
 

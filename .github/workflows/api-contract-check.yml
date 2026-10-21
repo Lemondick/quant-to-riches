@@ -1,0 +1,71 @@
+# 归属: A 流 batch5 任务6 —— api.md 与 openapi.json 一致性检查。
+# web/docs/api.md 末尾的机器可读路由清单区（<!-- routes-start --> … <!-- routes-end -->）
+# 必须与构建期导出的 openapi.json 路由一致；新增/删除/改动路由后必须同步更新该区，
+# 否则本 job 失败并输出 diff。
+name: api-contract-check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet build QuantAssistant.slnx -c Release
+        working-directory: web/backend-dotnet
+      - name: Export OpenAPI and compare route list with api.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          dll=web/backend-dotnet/src/QuantAssistant.Api/bin/Release/net10.0/QuantAssistant.Api.dll
+          # --export-openapi 只生成路由表，不需要数据库（QuantOptions 的 fail-fast 会跳过）。
+          dotnet "$dll" --export-openapi /tmp/openapi.json
+          python3 - <<'PYEOF'
+          import json, sys
+
+          with open('/tmp/openapi.json', encoding='utf-8') as f:
+              spec = json.load(f)
+
+          methods = {'get', 'post', 'put', 'delete', 'patch', 'head', 'options'}
+          from_spec = set()
+          for path, ops in spec['paths'].items():
+              for method in ops:
+                  if method in methods:
+                      from_spec.add(f"{method.upper()} {path}")
+
+          with open('web/docs/api.md', encoding='utf-8') as f:
+              doc = f.read()
+          start_marker = '<!-- routes-start -->'
+          end_marker = '<!-- routes-end -->'
+          if start_marker not in doc or end_marker not in doc:
+              print('api.md 缺少机器可读路由清单区（<!-- routes-start --> … <!-- routes-end -->）', file=sys.stderr)
+              sys.exit(1)
+          region = doc.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          from_doc = {line.strip() for line in region.splitlines()
+                      if line.strip() and not line.strip().startswith('#')}
+
+          missing = sorted(from_spec - from_doc)   # openapi 有、api.md 缺（新增路由未同步文档）
+          extra = sorted(from_doc - from_spec)      # api.md 有、openapi 无（路由已删除/改名，文档未同步）
+          print(f"openapi.json 路由数: {len(from_spec)}；api.md 清单区路由数: {len(from_doc)}")
+          if not missing and not extra:
+              print('路由清单一致：OK')
+              sys.exit(0)
+          if missing:
+              print('\n--- 以下路由在 openapi.json 中存在、但 api.md 清单区缺失（请同步更新清单区）：', file=sys.stderr)
+              for route in missing:
+                  print('  + ' + route, file=sys.stderr)
+          if extra:
+              print('\n--- 以下路由在 api.md 清单区存在、但 openapi.json 中没有（路由已删除/改名？请同步更新清单区）：', file=sys.stderr)
+              for route in extra:
+                  print('  - ' + route, file=sys.stderr)
+          sys.exit(1)
+          PYEOF
