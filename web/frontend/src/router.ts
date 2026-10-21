@@ -21,6 +21,7 @@ const FundHealth = import.meta.env.VITE_API_BASE_URL ? () => import('./component
 const PortfolioBacktest = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LivePortfolioBacktest.vue') : () => import('./views/PortfolioBacktest.vue')
 const Announcements = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveAnnouncements.vue') : () => import('./views/Announcements.vue')
 const Risk = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveRisk.vue') : () => import('./views/Risk.vue')
+const Cost = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveCost.vue') : () => import('./views/Cost.vue')
 const VirtualScrollLab = () => import('./views/VirtualScrollLab.vue')
 
 const routePreloader = createRoutePreloader({
@@ -37,6 +38,7 @@ const routePreloader = createRoutePreloader({
   '/portfolio-backtest': PortfolioBacktest,
   '/announcements': Announcements,
   '/risk': Risk,
+  '/cost': Cost,
   '/lab/virtual-scroll': VirtualScrollLab,
 })
 export const preloadRoute = routePreloader.preload
@@ -58,6 +60,7 @@ export const navItems = [
   { path: '/portfolio-backtest', label: '组合回测', group: '投资研究', icon: 'History' },
   { path: '/announcements', label: '公告流', group: '投资研究', icon: 'Megaphone' },
   { path: '/risk', label: '风险看板', group: '投资研究', icon: 'ShieldAlert' },
+  { path: '/cost', label: '持有成本', group: '资产管理', icon: 'Receipt' },
   { path: '/admin', label: '管理者后台', group: '系统', icon: 'UsersRound' },
   { path: '/settings', label: '账号与设置', group: '系统', icon: 'Settings2' },
   { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' },
@@ -88,6 +91,7 @@ export default createRouter({
     { path: '/portfolio-backtest', component: PortfolioBacktest },
     { path: '/announcements', component: Announcements },
     { path: '/risk', component: Risk },
+    { path: '/cost', component: Cost },
     { path: '/lab/virtual-scroll', component: VirtualScrollLab }
   ]
 })
