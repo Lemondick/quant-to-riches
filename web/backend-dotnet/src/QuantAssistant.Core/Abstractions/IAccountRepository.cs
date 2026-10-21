@@ -34,6 +34,17 @@ public interface IAccountRepository
     bool SetUserRole(string actorId, string userId, AccountRole role, DateTime now);
     void AdminRevokeSessions(string actorId, string userId, DateTime now);
     (IReadOnlyList<AuditEntry> Items, int Total) ListAudit(int page, int limit);
+
+    // åééªè¯（batch2-11）。
+    (string? Secret, bool Enabled) GetTotp(string userId);
+    void SetTotpSecret(string userId, string secret);
+    void SetTotpEnabled(string userId, bool enabled);
+    void ClearTotp(string userId);
+    void ReplaceRecoveryCodes(string userId, IReadOnlyList<string> codeHashes, DateTime now);
+    IReadOnlyList<(long Id, string CodeHash)> ListUnusedRecoveryCodes(string userId);
+    void MarkRecoveryCodeUsed(long id);
+    void CreateTotpChallenge(string tokenHash, string userId, DateTime now, DateTime expires);
+    string? ConsumeTotpChallenge(string tokenHash, DateTime now);
 }
 
 public sealed record AuditEntry(string ActorId, string Action, string? TargetId, string Detail, DateTime CreatedAt);

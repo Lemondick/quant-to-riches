@@ -546,6 +546,123 @@ public sealed class AccountRepository(string connectionString) : IAccountReposit
         return (items, total);
     }
 
+    // ===== batch2-11：双重验证（TOTP + 恢复码 + 登录挑战）=====
+
+    public (string? Secret, bool Enabled) GetTotp(string userId)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT totp_secret, totp_enabled FROM users WHERE id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? (reader.IsDBNull(0) ? null : reader.GetString(0), reader.GetBoolean(1)) : (null, false);
+    }
+
+    public void SetTotpSecret(string userId, string secret)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE users SET totp_secret=$2 WHERE id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(secret);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void SetTotpEnabled(string userId, bool enabled)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE users SET totp_enabled=$2 WHERE id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(enabled);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void ClearTotp(string userId)
+    {
+        using var conn = Open();
+        using var tx = conn.BeginTransaction();
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "UPDATE users SET totp_secret=NULL, totp_enabled=FALSE WHERE id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        cmd.ExecuteNonQuery();
+        cmd.Parameters.Clear();
+        cmd.CommandText = "DELETE FROM user_totp_recovery WHERE user_id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        cmd.ExecuteNonQuery();
+        cmd.Parameters.Clear();
+        cmd.CommandText = "DELETE FROM totp_login_challenges WHERE user_id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        cmd.ExecuteNonQuery();
+        tx.Commit();
+    }
+
+    public void ReplaceRecoveryCodes(string userId, IReadOnlyList<string> codeHashes, DateTime now)
+    {
+        using var conn = Open();
+        using var tx = conn.BeginTransaction();
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "DELETE FROM user_totp_recovery WHERE user_id=$1";
+        cmd.Parameters.AddWithValue(userId);
+        cmd.ExecuteNonQuery();
+        cmd.Parameters.Clear();
+        cmd.CommandText = "INSERT INTO user_totp_recovery(user_id,code_hash,created_at) VALUES($1,$2,$3)";
+        foreach (var hash in codeHashes)
+        {
+            cmd.Parameters.AddWithValue(userId);
+            cmd.Parameters.AddWithValue(hash);
+            cmd.Parameters.AddWithValue(now);
+            cmd.ExecuteNonQuery();
+            cmd.Parameters.Clear();
+        }
+        tx.Commit();
+    }
+
+    public IReadOnlyList<(long Id, string CodeHash)> ListUnusedRecoveryCodes(string userId)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id,code_hash FROM user_totp_recovery WHERE user_id=$1 AND used_at IS NULL ORDER BY id";
+        cmd.Parameters.AddWithValue(userId);
+        using var reader = cmd.ExecuteReader();
+        var list = new List<(long, string)>();
+        while (reader.Read()) list.Add((reader.GetInt64(0), reader.GetString(1)));
+        return list;
+    }
+
+    public void MarkRecoveryCodeUsed(long id)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE user_totp_recovery SET used_at=now() WHERE id=$1 AND used_at IS NULL";
+        cmd.Parameters.AddWithValue(id);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void CreateTotpChallenge(string tokenHash, string userId, DateTime now, DateTime expires)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM totp_login_challenges WHERE expires_at<=$2; INSERT INTO totp_login_challenges(token_hash,user_id,created_at,expires_at) VALUES($1,$3,$2,$4)";
+        cmd.Parameters.AddWithValue(tokenHash);
+        cmd.Parameters.AddWithValue(now);
+        cmd.Parameters.AddWithValue(userId);
+        cmd.Parameters.AddWithValue(expires);
+        cmd.ExecuteNonQuery();
+    }
+
+    public string? ConsumeTotpChallenge(string tokenHash, DateTime now)
+    {
+        using var conn = Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM totp_login_challenges WHERE token_hash=$1 AND expires_at>$2 RETURNING user_id";
+        cmd.Parameters.AddWithValue(tokenHash);
+        cmd.Parameters.AddWithValue(now);
+        return cmd.ExecuteScalar() as string;
+    }
+
     private NpgsqlConnection Open()
     {
         var conn = new NpgsqlConnection(connectionString);

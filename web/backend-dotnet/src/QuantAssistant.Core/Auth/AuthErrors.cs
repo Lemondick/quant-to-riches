@@ -32,6 +32,9 @@ public static class AuthErrors
             ["admin_protected"] = (409, "管理者账号不能在后台停用或强制退出，请在账号设置管理自己的会话。"),
             ["session_not_found"] = (404, "未找到当前账号的有效会话。"),
             ["invalid_recovery_token"] = (400, "恢复凭证无效、已过期或已使用，请联系管理者重新申请。"),
+            // batch2-11：双重验证。
+            ["two_factor_required"] = (401, "账号已启用双重验证，请输入 6 位动态口令完成登录。"),
+            ["invalid_totp_code"] = (401, "动态口令不正确或已过期，请重新输入。"),
         };
 
     public static int Status(string code) => Map.TryGetValue(code, out var v) ? v.Status : 500;
