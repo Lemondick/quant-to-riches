@@ -126,7 +126,7 @@ def execute_paid(kind, payload):
                 "tradingagents": {
                     "data_quality_summary": str(upstream.get("data_quality_summary", ""))[:5000],
                     "missing_data_tasks": upstream.get("missing_data_tasks", []),
-                    "analysts": {key: str(value)[:1800] for key, value in upstream.get("analysts", {}).items()},
+                    "analysts": {\n                        key: str(value)[:1800]\n                        for key, value in upstream.get("analysts", {}).items()\n                    },
                     "research_plan": str(upstream.get("research_plan", ""))[:5000],
                     "trader_proposal": str(upstream.get("trader_proposal", ""))[:3000],
                     "risk_debate": str(upstream.get("risk_debate", ""))[:5000],
@@ -137,15 +137,15 @@ def execute_paid(kind, payload):
         questions = {
             "evidence": {
                 "type": "noul",
-                "instructions": "Determine whether the frozen facts and full TradingAgents report are fresh, consistent and sufficient. Missing facts or data-quality warnings mean insufficient evidence. This is not a profit probability.",
+                "instructions": (\n                    "Determine whether the frozen facts and full TradingAgents report "\n                    "are fresh, consistent and sufficient. Missing facts or data-quality "\n                    "warnings mean insufficient evidence. This is not a profit probability."\n                ),
             },
             "candidate_0": {
                 "type": "choice",
-                "instructions": "Decide whether this stock should enter further research. Never issue an order and never override local hard blockers.",
+                "instructions": (\n                    "Decide whether this stock should enter further research. Never issue "\n                    "an order and never override local hard blockers."\n                ),
                 "criteria": {
                     "research_candidate": "Enter further research only.",
                     "watch": "Evidence is incomplete, stale, conflicting or requires human review.",
-                    "exclude": "Current evidence supports excluding this candidate from further research.",
+                    "exclude": (\n                        "Current evidence supports excluding this candidate "\n                        "from further research."\n                    ),
                 },
             },
         }
