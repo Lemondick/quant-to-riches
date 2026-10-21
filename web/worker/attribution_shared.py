@@ -18,14 +18,26 @@ def _day(value):
     return date.fromisoformat(str(value)[:10])
 
 
-def _amount(value):
+def _finite_decimal(value):
+    """Decimal(str(value)) that must be finite; raises ValueError otherwise.
+
+    Shared by _amount and public_charts._number so the parse+finite check
+    lives in one place. Callers map ValueError to their domain error.
+    """
     try:
         result = Decimal(str(value))
     except (InvalidOperation, ValueError) as failure:
-        raise EvidenceMissing("标的金额或价格证据不是有效十进制数。") from failure
+        raise ValueError(f"invalid decimal: {value!r}") from failure
     if not result.is_finite():
-        raise EvidenceMissing("标的金额或价格证据不是有限数。")
+        raise ValueError(f"non-finite decimal: {value!r}")
     return result
+
+
+def _amount(value):
+    try:
+        return _finite_decimal(value)
+    except ValueError as failure:
+        raise EvidenceMissing("标的金额或价格证据不是有效十进制数。") from failure
 
 
 def _text(value):

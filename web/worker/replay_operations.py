@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 
-from analysis_context import build_context
+from analysis_context import analytical_context, shanghai_now
 
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.models.entities import Action, AssetType
@@ -19,8 +19,7 @@ REPLAY_CAPABILITIES = ("ledger.replay",)
 
 
 def execute_replay(_kind, payload):
-    database, _queries, _directory = build_context(payload["snapshot"])
-    try:
+    with analytical_context(payload["snapshot"]) as (database, _queries, _directory):
         rows = payload.get("transactions", [payload.get("transaction")])
         if (
             not isinstance(rows, list)
@@ -59,5 +58,3 @@ def execute_replay(_kind, payload):
                 "blockers": ["历史事件顺序或原始估值审计证据不完整，不能重建历史。"],
             }
         return {"status": "ready", "blockers": [], **public(result)}
-    finally:
-        database.close()

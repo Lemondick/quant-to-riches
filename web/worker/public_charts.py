@@ -1,12 +1,12 @@
 """Bounded daily OHLC for verified cash indices, without invented volume or dates."""
 
 from datetime import UTC, date, datetime, timedelta
-from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import requests
 
+from attribution_shared import _finite_decimal
 from worker_cache import cache_get, cache_key, cache_set
 
 from quant_assistant.providers.data_quality import metadata
@@ -56,12 +56,9 @@ def _number(value):
     try:
         if value is None or isinstance(value, bool):
             raise ValueError("invalid history number")
-        result = Decimal(str(value))
-        if not result.is_finite():
-            raise ValueError("invalid history number")
-        return result
-    except InvalidOperation:
-        raise ValueError("invalid history number") from None
+        return _finite_decimal(value)
+    except ValueError as failure:
+        raise ValueError("invalid history number") from failure
 
 
 def _tencent(payload, row):

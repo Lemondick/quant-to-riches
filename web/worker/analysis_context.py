@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import os
 import re
+from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
 from quant_assistant.models.repositories.database import Database
@@ -170,3 +172,24 @@ def build_context(snapshot):
                 )
     queries = LocalApiQueries(DecisionQueries(database), version="1.0")
     return database, queries, directory
+
+
+@contextmanager
+def analytical_context(snapshot):
+    """build_context() as a context manager; the database is closed on exit.
+
+    Replaces the repeated ``database, queries, directory = build_context(...)''
+    + ``try: ... finally: database.close()`` pattern across worker operations.
+    """
+    database, queries, directory = build_context(snapshot)
+    try:
+        yield database, queries, directory
+    finally:
+        database.close()
+
+
+def shanghai_now():
+    """Shared Asia/Shanghai clock for worker operations (replaces 4 local now())."""
+    from quant_assistant.common.time import SHANGHAI_TZ
+
+    return datetime.now(SHANGHAI_TZ)

@@ -1,14 +1,12 @@
 """Report evidence checks without model credentials, billing or report publication."""
 
 import os
-from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-from analysis_context import build_context
+from analysis_context import analytical_context, shanghai_now
 
 from quant_assistant.analysis.research_evidence import ResearchEvidence
-from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.services.advisor_evidence import AdvisorEvidence
 from quant_assistant.services.preferences import PreferenceSnapshot
 from quant_assistant.services.strategy_settings import StrategySettingsService
@@ -63,14 +61,9 @@ def execute_preflight(payload):
     kind = payload["report_kind"]
     if kind not in ("morning", "afternoon"):
         raise ValueError("invalid report kind")
-    database, queries, directory = build_context(payload["snapshot"])
-    try:
-
-        def now():
-            return datetime.now(SHANGHAI_TZ)
-
-        facts = evidence_context(database, queries, directory, payload, now, persist=False).build(
-            kind, now()
+    with analytical_context(payload["snapshot"]) as (database, queries, directory):
+        facts = evidence_context(database, queries, directory, payload, shanghai_now, persist=False).build(
+            kind, shanghai_now()
         )
         issues = [issue(message) for message in dict.fromkeys(facts["blockers"])]
         global_messages = {i["message"] for i in issues}
@@ -89,5 +82,3 @@ def execute_preflight(payload):
             "research_only": True,
             "model_calls": 0,
         }
-    finally:
-        database.close()

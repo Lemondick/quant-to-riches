@@ -2,12 +2,13 @@
 
 import hashlib
 import json
+from contextlib import ExitStack
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import pandas as pd
-from analysis_context import build_context, site_directory
+from analysis_context import analytical_context, site_directory
 from attribution_shared import EvidenceMissing, _amount, _day, _text
 from ledger_attribution import calculate_periods
 
@@ -357,7 +358,14 @@ def execute_attribution(_kind, payload):
                 raise ValueError("invalid_analytical_cache")
             with cache.open("rb") as stream:
                 cache_hash = hashlib.file_digest(stream, "sha256").hexdigest()
-        database, _queries, directory = build_context(payload["snapshot"])
+        # Entered inside the try so build_context input errors keep mapping to
+        # the integrity blocker; the ExitStack is closed in the finally below.
+        # (A plain `with` here would also catch main-logic ValueErrors that the
+        # old code deliberately let propagate as invalid_request.)
+        stack = ExitStack()
+        database, _queries, directory = stack.enter_context(
+            analytical_context(payload["snapshot"])
+        )
     except (OSError, ValueError):
         return {"status": "blocked", "blockers": ["账号分析资料或快照文件不能通过完整性校验。"]}
     try:
@@ -535,4 +543,4 @@ def execute_attribution(_kind, payload):
                 ],
             }
     finally:
-        database.close()
+        stack.close()

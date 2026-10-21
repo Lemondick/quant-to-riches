@@ -5,7 +5,7 @@ from datetime import datetime
 
 import requests
 from advisor_preflight import evidence_context
-from analysis_context import build_context
+from analysis_context import analytical_context, shanghai_now
 from public_model_http import post as public_post
 from strategy_operations import execute_strategy
 
@@ -119,12 +119,7 @@ def execute_paid(kind, payload):
             )
             previous[role] = validate_role(raw, role, request)
         return {"report": validate_report(previous, request), "usage": None}
-    database, queries, directory = build_context(payload["snapshot"])
-    try:
-
-        def now():
-            return datetime.now(SHANGHAI_TZ)
-
+    with analytical_context(payload["snapshot"]) as (database, queries, directory):
         service = MarketAdvisorService.__new__(MarketAdvisorService)
         (
             service.database,
@@ -134,10 +129,10 @@ def execute_paid(kind, payload):
             service.now,
         ) = (
             database,
-            evidence_context(database, queries, directory, payload, now),
+            evidence_context(database, queries, directory, payload, shanghai_now),
             models,
             settings,
-            now,
+            shanghai_now,
         )
         service.public_config = lambda: {"configured": True}
         service.model_settings = lambda: {"models": models_config}
@@ -151,10 +146,10 @@ def execute_paid(kind, payload):
                 ),
                 [
                     payload["public_id"],
-                    now().date(),
+                    shanghai_now().date(),
                     payload["report_kind"],
-                    now(),
-                    now(),
+                    shanghai_now(),
+                    shanghai_now(),
                     json.dumps(models_config),
                 ],
             )
@@ -182,5 +177,3 @@ def execute_paid(kind, payload):
                     "fingerprint": sealed[1],
                 }
         return result
-    finally:
-        database.close()

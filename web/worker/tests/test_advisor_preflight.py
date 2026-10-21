@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -31,10 +32,14 @@ class AdvisorPreflightTests(unittest.TestCase):
             queries.market_quotes = lambda **_: SimpleNamespace(
                 items=[], stale=True, unavailable=True
             )
+            # analytical_context is a context manager since the E17
+            # try/finally consolidation; the fake yields the real triple.
+            @contextmanager
+            def fake_context(_snapshot):
+                yield (database, queries, root)
+
             with (
-                patch.object(
-                    advisor_preflight, "build_context", return_value=(database, queries, root)
-                ),
+                patch.object(advisor_preflight, "analytical_context", side_effect=fake_context),
                 patch("paid_operations.public_post") as paid,
             ):
                 result = advisor_preflight.execute_preflight(
@@ -55,7 +60,7 @@ class AdvisorPreflightTests(unittest.TestCase):
 
     def test_unknown_kind_cannot_build_an_account_context(self):
         with (
-            patch.object(advisor_preflight, "build_context") as build,
+            patch.object(advisor_preflight, "analytical_context") as build,
             self.assertRaises(ValueError),
         ):
             advisor_preflight.execute_preflight({"report_kind": "unknown"})

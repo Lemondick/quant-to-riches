@@ -4,9 +4,8 @@ import json
 import logging
 import os
 
-from pydantic import ValidationError
-
 from worker_cache import cache_get, cache_invalidate, cache_key, cache_set
+from worker_result import child_envelope
 
 _public_logger = logging.getLogger("quant_assistant.providers")
 if not _public_logger.handlers:
@@ -196,12 +195,6 @@ def execute_public(kind: str, payload: dict) -> dict:
 
 
 def child_public_operation(kind: str, payload: dict) -> dict:
-    try:
-        result = execute_public(kind, payload)
-        json.dumps(result, allow_nan=False)
-        return {"result": result, "error_code": None}
-    except (ValueError, TypeError, KeyError, ValidationError):
-        # Contract section 4: KeyError / ValidationError are invalid requests.
-        return {"result": None, "error_code": "invalid_request"}
-    except Exception:  # noqa: BLE001 - provider details must stay redacted at this boundary
-        return {"result": None, "error_code": "worker_computation_failed"}
+    # Shared envelope (contract section 4); provider details stay redacted
+    # at this boundary.
+    return child_envelope(lambda: execute_public(kind, payload))

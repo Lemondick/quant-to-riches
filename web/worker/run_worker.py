@@ -28,7 +28,7 @@ from uuid import uuid4
 import requests
 from operations import CAPABILITIES, execute
 from public_operations import IN_PROCESS_CAPABILITIES, child_public_operation
-from pydantic import ValidationError
+from worker_result import child_envelope
 
 from quant_assistant.common.performance import Trace, log_slow, measure, trace_scope
 from quant_assistant.integrations.tradingagents_worker.process import ProcessTree
@@ -41,23 +41,14 @@ RESIDENT_MAX_CONCURRENCY = 8
 
 
 def child_operation(kind, payload):
-    try:
-        result = execute(kind, payload)
-        json.dumps(result, allow_nan=False)
-        return {"result": result, "error_code": None}
-    except AdvisorModelError as error:
-        return {"result": None, "error_code": str(error)}
-    except CostLimitError:
-        return {"result": None, "error_code": "model_budget_exceeded"}
-    except (ValueError, TypeError, KeyError, ValidationError):
-        # Contract section 4: missing payload keys (KeyError) and schema
-        # violations (pydantic ValidationError) are invalid requests, not
-        # computation failures. ValidationError already subclasses ValueError
-        # in pydantic v2; it is named explicitly to pin the contract.
-        return {"result": None, "error_code": "invalid_request"}
-    except Exception:
-        # Remote provider details may contain account data or credentials.
-        return {"result": None, "error_code": "worker_computation_failed"}
+    # Operation-specific codes precede the shared contract mapping.
+    return child_envelope(
+        lambda: execute(kind, payload),
+        pre_handlers=[
+            (AdvisorModelError, lambda error: {"result": None, "error_code": str(error)}),
+            (CostLimitError, lambda _error: {"result": None, "error_code": "model_budget_exceeded"}),
+        ],
+    )
 
 
 class Worker:
