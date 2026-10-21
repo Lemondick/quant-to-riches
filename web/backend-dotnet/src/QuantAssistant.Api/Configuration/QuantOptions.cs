@@ -54,6 +54,10 @@ public sealed class QuantOptions
     /// <summary>batch2-12：审计哈希链算法（QUANT_AUDIT_HASH_ALGO），默认 SHA256。</summary>
     public string AuditHashAlgo { get; init; } = "SHA256";
 
+    /// <summary>任务9：分钟/tick 级快照分区保留天数（QUANT_SNAPSHOT_RETENTION_TICK_DAYS），默认 90。
+    /// 由 quant-snapshot-cleanup timer 经 GUC 传入 quant_snapshot_maintenance()；日线及以上快照永久保留。</summary>
+    public int SnapshotRetentionTickDays { get; init; } = 90;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -86,6 +90,7 @@ public sealed class QuantOptions
             HealthCheckCron = configuration["QUANT_HEALTH_CHECK_CRON"] ?? "0 6 * * 1",
             TotpIssuer = configuration["QUANT_TOTP_ISSUER"] ?? "观澜",
             AuditHashAlgo = configuration["QUANT_AUDIT_HASH_ALGO"] ?? "SHA256",
+            SnapshotRetentionTickDays = Int(configuration["QUANT_SNAPSHOT_RETENTION_TICK_DAYS"], 90, 1, 3650),
         };
     }
 
