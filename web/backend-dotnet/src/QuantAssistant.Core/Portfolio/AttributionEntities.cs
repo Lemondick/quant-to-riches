@@ -46,6 +46,9 @@ public interface IAttributionRepository
     AttributionReport? GetReport(string userId, string reportId);
     AttributionReportView? GetReportView(string userId, string reportId);
     List<AttributionDetail> GetDetails(string reportId);
+    /// <summary>E5：归因报告列表查询（原 AttributionController 内嵌 SQL）。</summary>
+    Task<System.Text.Json.Nodes.JsonObject> ListReportsAsync(string userId, string query, string source,
+        DateOnly? first, DateOnly? last, int limit, int offset, CancellationToken cancellation = default);
 }
 
 public sealed record AttributionReportView(AttributionReport Report, List<AttributionDetail> Details);

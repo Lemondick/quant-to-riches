@@ -1,11 +1,12 @@
 using Npgsql;
+using QuantAssistant.Core.Abstractions;
 using QuantAssistant.Core.Portfolio;
 using QuantAssistant.Infrastructure.Db;
 using System.Text.Json.Nodes;
 
 namespace QuantAssistant.Infrastructure.Portfolio;
 
-public class AttributionRepository(string connectionString) : IAttributionRepository
+public class AttributionRepository(string connectionString, IAccountDatabase? database = null) : IAttributionRepository
 {
     public void CreateReport(AttributionReport report, IReadOnlyCollection<AttributionDetail>? details = null)
     {
@@ -211,4 +212,24 @@ public class AttributionRepository(string connectionString) : IAttributionReposi
         }
         return list;
     }
+
+    /// <summary>E5：归因报告列表查询（原 AttributionController 内嵌 SQL，语义一致）。</summary>
+    public async Task<JsonObject> ListReportsAsync(string userId, string query, string source,
+        DateOnly? first, DateOnly? last, int limit, int offset, CancellationToken cancellation = default) =>
+        await (database ?? throw new InvalidOperationException("AttributionRepository 需要 IAccountDatabase 才能执行列表查询。")).ReadAsync(async sql =>
+        {
+            const string filter = "user_id=$1 AND ($2='' OR strpos(lower(portfolio_symbol||' '||benchmark_symbol||' '||id),lower($2))>0) AND ($3='' OR data_source=$3) AND ($4::date IS NULL OR start_date>=$4) AND ($5::date IS NULL OR end_date<=$5)";
+            var total = Convert.ToInt64(await sql.ScalarAsync("SELECT count(*) FROM attribution_reports WHERE " + filter, userId, query, source, first, last));
+            var rows = await sql.QueryAsync("""
+                SELECT id,portfolio_symbol,benchmark_symbol,start_date,end_date,status,data_source,
+                    total_active_return,created_at,updated_at
+                FROM attribution_reports WHERE
+                """ + " " + filter + " ORDER BY created_at DESC,id DESC LIMIT $6 OFFSET $7", userId, query, source, first, last, limit, offset);
+            return new JsonObject
+            {
+                ["total"] = total,
+                ["items"] = rows,
+                ["has_more"] = (long)offset + rows.Count < total,
+            };
+        }, cancellation);
 }

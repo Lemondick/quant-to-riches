@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -28,19 +29,19 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
     public static bool ValidModel(string value) => ModelPattern().IsMatch(value) && !value.Contains("://", StringComparison.Ordinal)
         && !value.StartsWith("sk-", StringComparison.OrdinalIgnoreCase) && !value.StartsWith("apikey_", StringComparison.OrdinalIgnoreCase);
 
-    private static CostSettings Settings(AccountSql sql, string userId) => sql.Scalar("SELECT payload::text FROM model_cost_settings WHERE user_id=$1 AND id=1", userId) is string json
+    private static CostSettings Settings(IAccountSql sql, string userId) => sql.Scalar("SELECT payload::text FROM model_cost_settings WHERE user_id=$1 AND id=1", userId) is string json
         ? JsonSerializer.Deserialize<CostSettings>(json, Options)! : new(0, Prices: []);
 
     public JsonObject Read(string userId) => database.Read(sql => View(sql, userId, Settings(sql, userId)));
-    public static JsonObject SummaryFor(AccountSql sql,string userId)=>Summary(sql,userId,Settings(sql,userId));
-    public static JsonObject EvidenceReadinessFor(AccountSql sql,string userId)
+    public static JsonObject SummaryFor(IAccountSql sql,string userId)=>Summary(sql,userId,Settings(sql,userId));
+    public static JsonObject EvidenceReadinessFor(IAccountSql sql,string userId)
     {
         var unknown=Convert.ToInt64(sql.Scalar("SELECT count(*) FROM model_call_costs WHERE user_id=$1 AND cost IS NULL AND status<>'reserved'",userId));
         var pending=Convert.ToInt64(sql.Scalar("SELECT count(*) FROM model_call_costs WHERE user_id=$1 AND status='reserved'",userId));
         return new(){["passed"]=unknown==0&&pending==0,["status"]=unknown==0&&pending==0?"passed":"blocked",["unknown_calls"]=unknown,["pending_calls"]=pending,
             ["blockers"]=unknown>0?new JsonArray("model_bill_or_price_evidence_missing"):pending>0?new JsonArray("model_calls_in_progress"):new JsonArray()};
     }
-    public static bool UnboundedBudgetEnabled(AccountSql sql, string userId) => Settings(sql, userId).DailyBudget is not null;
+    public static bool UnboundedBudgetEnabled(IAccountSql sql, string userId) => Settings(sql, userId).DailyBudget is not null;
 
     public JsonObject Save(string userId, CostSettings settings)
     {
@@ -61,7 +62,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         });
     }
 
-    private static JsonObject View(AccountSql sql, string userId, CostSettings settings) => new()
+    private static JsonObject View(IAccountSql sql, string userId, CostSettings settings) => new()
     {
         ["settings"] = JsonSerializer.SerializeToNode(settings, Options), ["today"] = Summary(sql, userId, settings),
         ["items"] = sql.Query("SELECT id,called_at,model,status,input_tokens,output_tokens,cost,currency,role,provider,stage,unknown_reason,bill_evidence_json FROM model_call_costs WHERE user_id=$1 ORDER BY called_at DESC,id DESC LIMIT 50", userId),
@@ -91,7 +92,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         });
     }
 
-    private static JsonObject Summary(AccountSql sql, string userId, CostSettings settings)
+    private static JsonObject Summary(IAccountSql sql, string userId, CostSettings settings)
     {
         var rows = sql.Query("SELECT status,cost,reserved_cost FROM model_call_costs WHERE user_id=$1 AND (called_at AT TIME ZONE 'Asia/Shanghai')::date=$2", userId, Today());
         var known = 0m; var reserved = 0m; var unknown = 0; var pending = 0;
@@ -112,7 +113,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
 
     public string Reserve(string userId, string model, int? maxInputTokens, int? maxOutputTokens) => database.WriteNonLedger(userId, sql => Reserve(sql,userId,model,maxInputTokens,maxOutputTokens));
 
-    private static string Reserve(AccountSql sql, string userId, string model, int? maxInputTokens, int? maxOutputTokens)
+    private static string Reserve(IAccountSql sql, string userId, string model, int? maxInputTokens, int? maxOutputTokens)
     {
         if (!ValidModel(model) || maxInputTokens < 0 || maxOutputTokens < 0) throw new ArgumentException("模型预算参数无效");
         var settings = Settings(sql, userId); var summary = Summary(sql, userId, settings);
@@ -142,7 +143,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         return id;
     });
 
-    private static void RequireLease(AccountSql sql, string userId, string jobId, int attempt, string owner)
+    private static void RequireLease(IAccountSql sql, string userId, string jobId, int attempt, string owner)
     {
         if (sql.Scalar("SELECT 1 FROM compute_jobs j JOIN users u ON u.id=j.user_id WHERE j.user_id=$1 AND j.job_id=$2 AND j.attempt=$3 AND j.owner_token=$4 AND j.kind IN('advisor.report','agent.research') AND j.status='running' AND j.deadline>now() AND j.lease_expires_at>now() AND u.status='active' FOR UPDATE OF j",userId,jobId,attempt,owner) is null)
             throw new ApplicationFailure("worker_lease_expired",409,"任务已停止，不能继续模型调用。");
@@ -157,7 +158,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
     });
 
     public void Finish(string userId, string callId, long? inputTokens, long? outputTokens) => database.WriteNonLedger(userId, sql => Finish(sql,userId,callId,inputTokens,outputTokens));
-    private static int Finish(AccountSql sql, string userId, string callId, long? inputTokens, long? outputTokens, string stage="response",string? unknownReason=null)
+    private static int Finish(IAccountSql sql, string userId, string callId, long? inputTokens, long? outputTokens, string stage="response",string? unknownReason=null)
     {
         if (stage is not ("response" or "connect_timeout" or "read_timeout" or "timeout" or "http_error" or "invalid_response" or "interrupted" or "transport_error")
             || unknownReason is not (null or "no_usage" or "invalid_usage")) throw new ArgumentException("模型调用阶段无效");

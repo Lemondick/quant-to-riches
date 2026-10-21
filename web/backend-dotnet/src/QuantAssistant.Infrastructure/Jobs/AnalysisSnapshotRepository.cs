@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Text.Json.Nodes;
 using QuantAssistant.Core.Auth;
 using QuantAssistant.Core.Errors;
@@ -26,7 +27,7 @@ public sealed class AnalysisSnapshotRepository(AccountDatabase database)
         }
         return new JsonObject { ["version"] = 1, ["user_id"] = userId, ["role"] = role, ["tables"] = tables };
     }, cancellation);
-    public static JsonObject Create(AccountSql sql,string userId)
+    public static JsonObject Create(IAccountSql sql,string userId)
     {
         var role = sql.Scalar("SELECT role FROM users WHERE id=$1 AND status='active'", userId) as string ?? throw new AuthFailure("authentication_required");
         var tables = new JsonObject();

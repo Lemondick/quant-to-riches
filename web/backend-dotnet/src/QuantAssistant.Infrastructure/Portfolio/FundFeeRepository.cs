@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -30,11 +31,11 @@ public sealed partial class FundFeeRepository(AccountDatabase database)
             terms["purchase_tiers"]?.Deserialize<PurchaseTier[]>(FinanceJson.Options) ?? [], terms["channel"]!.GetValue<string>(),
             terms["evidence_reference"]!.GetValue<string>(), terms["service_refund_rule"]?.Deserialize<ServiceRefundRule>(FinanceJson.Options));
     }
-    private static FundFeeSchedule[] Schedules(AccountSql sql, string userId, string symbol) => sql.Query("SELECT symbol,effective_from,effective_to,purchase_fee_rate,service_fee_rate_annual,redemption_tiers_json,verified_on,terms_json FROM fund_fee_schedules WHERE user_id=$1 AND symbol=$2 ORDER BY effective_from DESC,id DESC", userId, symbol)
+    private static FundFeeSchedule[] Schedules(IAccountSql sql, string userId, string symbol) => sql.Query("SELECT symbol,effective_from,effective_to,purchase_fee_rate,service_fee_rate_annual,redemption_tiers_json,verified_on,terms_json FROM fund_fee_schedules WHERE user_id=$1 AND symbol=$2 ORDER BY effective_from DESC,id DESC", userId, symbol)
         .OfType<JsonObject>().Where(r => r["terms_json"]?["channel"]?.GetValue<string>() == "alipay" && !string.IsNullOrWhiteSpace(r["terms_json"]?["evidence_reference"]?.GetValue<string>())).Select(Decode).ToArray();
 
     public JsonObject List(string userId, string symbol) => database.Read(sql => View(sql, userId, Symbol(symbol)));
-    private static JsonObject View(AccountSql sql, string userId, string symbol)
+    private static JsonObject View(IAccountSql sql, string userId, string symbol)
     {
         var currentSelected = false; var items = new JsonArray();
         foreach (var schedule in Schedules(sql, userId, symbol))
@@ -69,7 +70,7 @@ public sealed partial class FundFeeRepository(AccountDatabase database)
         });
     }
 
-    public FundFeeSchedule Current(AccountSql sql, string userId, string symbol, DateOnly asOf)
+    public FundFeeSchedule Current(IAccountSql sql, string userId, string symbol, DateOnly asOf)
     {
         // Select the latest effective schedule, then verify it. Never fall back to superseded fees.
         var selected = Schedules(sql, userId, Symbol(symbol)).FirstOrDefault(s => s.EffectiveFrom <= Today()) ?? throw new UnverifiedFeeScheduleError();

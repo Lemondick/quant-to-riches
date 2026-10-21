@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -32,7 +33,7 @@ public sealed class ComputeJobRepository(string connectionString)
         "ledger.replay", "analysis.brinson",
     };
 
-    public static string EnqueueOwned(AccountSql sql, string userId, string kind, string inputJson, DateTime deadline)
+    public static string EnqueueOwned(IAccountSql sql, string userId, string kind, string inputJson, DateTime deadline)
     {
         if (!AllowedKinds.Contains(kind)) throw new ArgumentException("计算任务类型不受支持");
         var id = Guid.NewGuid().ToString("N");
@@ -240,7 +241,7 @@ public sealed class ComputeJobRepository(string connectionString)
 
     public void Recover() => RecoverAsync().GetAwaiter().GetResult();
     public Task<int> RecoverAsync(CancellationToken cancellation = default) => new AccountDatabase(connectionString).WriteAsync("compute:reaper",async sql=>{await ExpireAsync(sql);return 0;}, cancellation);
-    private static async Task ExpireAsync(AccountSql sql)
+    private static async Task ExpireAsync(IAccountSql sql)
     {
         var expired=await sql.QueryAsync("UPDATE compute_jobs j SET status='interrupted',error_code='worker_interrupted',completed_at=now() WHERE status IN('queued','running','cancel_requested') AND (deadline<=now() OR (status<>'queued' AND lease_expires_at<=now()) OR NOT EXISTS(SELECT 1 FROM users u WHERE u.id=j.user_id AND u.status='active')) RETURNING user_id,job_id,kind,input_json",Array.Empty<object?>());
         foreach(var row in expired.OfType<System.Text.Json.Nodes.JsonObject>()) await ComputePublication.FinishedAsync(sql,row["user_id"]!.GetValue<string>(),row["job_id"]!.GetValue<string>(),row["kind"]!.GetValue<string>(),row["input_json"]!.ToJsonString(),"interrupted",null,"interrupted");

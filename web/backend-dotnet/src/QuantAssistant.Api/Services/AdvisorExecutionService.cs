@@ -123,6 +123,17 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
             { database.WriteNonLedger(id,sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='failed',error_code='schedule_failed' WHERE user_id=$1 AND run_date=$2 AND kind=$3 AND status='claimed'",id,date,kind)); }
         }
     }
+
+    /// <summary>E5：顾问通知列表（原 AdvisorController 内嵌 SQL，语义一致）。</summary>
+    public async Task<JsonArray> NotificationsAsync(string userId, CancellationToken cancellation = default) =>
+        await database.ReadAsync(async sql => calendar.TradingDay(FundFeeRepository.Today()) == true
+            ? await sql.QueryAsync("SELECT id,kind,report_id,status,error_code,created_at,acknowledged FROM advisor_notifications WHERE user_id=$1 AND NOT acknowledged AND (created_at AT TIME ZONE 'Asia/Shanghai')::date=$2 ORDER BY created_at DESC LIMIT 10", userId, FundFeeRepository.Today())
+            : new JsonArray(), cancellation);
+
+    /// <summary>E5：确认顾问通知（原 AdvisorController 内嵌 SQL，语义一致）。返回是否找到。</summary>
+    public async Task<bool> AcknowledgeNotificationAsync(string userId, string noticeId, CancellationToken cancellation = default) =>
+        await database.WriteNonLedgerAsync(userId,
+            sql => sql.ExecuteAsync("UPDATE advisor_notifications SET acknowledged=true WHERE user_id=$1 AND id=$2", userId, noticeId), cancellation) > 0;
 }
 
 public sealed class NativeScheduler(AdvisorExecutionService service,IConfiguration configuration,ILogger<NativeScheduler> logger):BackgroundService

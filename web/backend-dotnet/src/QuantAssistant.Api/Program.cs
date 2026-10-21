@@ -161,16 +161,31 @@ builder.Services.AddSingleton<IRuntimeRepository>(_ => new RuntimeRepository(con
 builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IFactorRepository>(sp => new QuantAssistant.Infrastructure.Portfolio.FactorRepository(connectionString, sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
 builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IDcaRepository>(_ => new QuantAssistant.Infrastructure.Portfolio.DcaRepository(connectionString));
 builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IPeerRepository>(sp => new QuantAssistant.Infrastructure.Portfolio.PeerRepository(connectionString, sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>()));
-builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IAttributionRepository>(_ => new QuantAssistant.Infrastructure.Portfolio.AttributionRepository(connectionString));
+builder.Services.AddSingleton<QuantAssistant.Core.Portfolio.IAttributionRepository>(sp => new QuantAssistant.Infrastructure.Portfolio.AttributionRepository(connectionString, sp.GetRequiredService<IAccountDatabase>()));
 builder.Services.AddSingleton<TransactionService>();
 builder.Services.AddSingleton(_ => new QuantAssistant.Infrastructure.Documents.UserDocumentRepository(connectionString));
 builder.Services.AddSingleton(_ => new ComputeJobRepository(connectionString));
 builder.Services.AddSingleton(_ => new AccountDatabase(connectionString));
+// E5：Api 层只依赖 IAccountDatabase 抽象（依赖倒置）；具体类保留供 CLI 同步适配器使用。
+builder.Services.AddSingleton<IAccountDatabase>(sp => sp.GetRequiredService<AccountDatabase>());
 builder.Services.AddSingleton<ModelCostRepository>();
 builder.Services.AddSingleton<FundFeeRepository>();
 builder.Services.AddSingleton<FundLotRepository>();
 builder.Services.AddSingleton<ReconciliationRepository>();
 builder.Services.AddSingleton<AnalysisSnapshotRepository>();
+// E5：控制器 SQL 下沉后的仓储/服务（构造器注入 IAccountDatabase）。
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.CashFlowPlanRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AlertCenterRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchJobQueryRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.StrategyRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.FundResearchRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.FundExecutionReplayRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.DecisionRunRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Ledger.LedgerReadRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Operations.JobHeartbeatRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.RuntimeViewService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.ComputeService>();
 builder.Services.AddSingleton<PublicSnapshotRepository>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.FundCatalogService>();

@@ -9,7 +9,7 @@ using QuantAssistant.Infrastructure.Db;
 namespace QuantAssistant.Api.Controllers;
 
 [ApiController]
-public class AttributionController(IAttributionRepository attrRepo, AutomaticAttributionService automatic, LinkedAttributionService linked, AccountDatabase database) : ControllerBase
+public class AttributionController(IAttributionRepository attrRepo, AutomaticAttributionService automatic, LinkedAttributionService linked) : ControllerBase
 {
     public sealed record LinkAttributionBody(string ReportId, List<string> ReportIds);
 
@@ -61,8 +61,8 @@ public class AttributionController(IAttributionRepository attrRepo, AutomaticAtt
     }
 
     [HttpGet("~/api/v1/attribution/reports")]
-    public IActionResult ListReports([FromQuery] int limit = 20, [FromQuery] int offset = 0,
-        [FromQuery] string query = "", [FromQuery] string source = "", [FromQuery] string from = "", [FromQuery] string to = "")
+    public async Task<IActionResult> ListReports([FromQuery] int limit = 20, [FromQuery] int offset = 0,
+        [FromQuery] string query = "", [FromQuery] string source = "", [FromQuery] string from = "", [FromQuery] string to = "", CancellationToken cancellation = default)
     {
         if (limit is < 1 or > 100 || offset is < 0 or > 100000)
             return BadRequest(new { error_code = "invalid_pagination", message = "报告条数须为1至100，偏移须为0至100000。" });
@@ -73,17 +73,7 @@ public class AttributionController(IAttributionRepository attrRepo, AutomaticAtt
         if (from != "") { if (!DateOnly.TryParseExact(from, "yyyy-MM-dd", out var date)) return InvalidInput("筛选日期无效。"); first = date; }
         if (to != "") { if (!DateOnly.TryParseExact(to, "yyyy-MM-dd", out var date)) return InvalidInput("筛选日期无效。"); last = date; }
         if (first > last) return InvalidInput("筛选开始日期不能晚于结束日期。");
-        const string filter = "user_id=$1 AND ($2='' OR strpos(lower(portfolio_symbol||' '||benchmark_symbol||' '||id),lower($2))>0) AND ($3='' OR data_source=$3) AND ($4::date IS NULL OR start_date>=$4) AND ($5::date IS NULL OR end_date<=$5)";
-        return Ok(database.Read(sql =>
-        {
-            var total = Convert.ToInt64(sql.Scalar("SELECT count(*) FROM attribution_reports WHERE " + filter, user, query.Trim(), source, first, last));
-            var items = sql.Query("""
-                SELECT id,portfolio_symbol,benchmark_symbol,start_date,end_date,status,data_source,
-                    total_active_return,created_at,updated_at
-                FROM attribution_reports WHERE
-                """ + " " + filter + " ORDER BY created_at DESC,id DESC LIMIT $6 OFFSET $7", user, query.Trim(), source, first, last, limit, offset);
-            return new { total, items, has_more = offset + items.Count < total };
-        }));
+        return Ok(await attrRepo.ListReportsAsync(user, query.Trim(), source, first, last, limit, offset, cancellation));
     }
 
     [HttpGet("~/api/v1/attribution/reports/{report_id}/export")]

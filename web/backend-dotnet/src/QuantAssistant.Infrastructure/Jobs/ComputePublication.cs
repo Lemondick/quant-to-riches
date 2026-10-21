@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -22,9 +23,9 @@ public static class ComputePublication
         }
     }
 
-    public static void Finished(AccountSql sql,string user,string computeId,string kind,string input,string status,string? raw,string? error) => FinishedAsync(sql, user, computeId, kind, input, status, raw, error).GetAwaiter().GetResult();
+    public static void Finished(IAccountSql sql,string user,string computeId,string kind,string input,string status,string? raw,string? error) => FinishedAsync(sql, user, computeId, kind, input, status, raw, error).GetAwaiter().GetResult();
 
-    public static async Task FinishedAsync(AccountSql sql,string user,string computeId,string kind,string input,string status,string? raw,string? error)
+    public static async Task FinishedAsync(IAccountSql sql,string user,string computeId,string kind,string input,string status,string? raw,string? error)
     {
         var payload = JsonNode.Parse(input)!.AsObject(); var id = payload["public_id"]?.GetValue<string>();
         if(kind=="fund.study_update" && status=="completed" && raw is not null && JsonNode.Parse(raw) is JsonObject study && study["status"]?.GetValue<string>()=="completed")

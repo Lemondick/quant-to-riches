@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Text.Json.Nodes;
 using QuantAssistant.Api.Middleware;
 using QuantAssistant.Infrastructure.Db;
@@ -7,7 +8,7 @@ namespace QuantAssistant.Api.Services;
 public sealed class NativeRuntimeMaintenance(AccountDatabase database, NativeMetrics metrics,
     IConfiguration configuration, ILogger<NativeRuntimeMaintenance> logger) : BackgroundService
 {
-    public static JsonObject Queue(AccountSql sql) => sql.Query("""
+    public static JsonObject Queue(IAccountSql sql) => sql.Query("""
         SELECT count(*) FILTER(WHERE status='queued') AS queued,
           count(*) FILTER(WHERE status IN('running','cancel_requested')) AS running,
           count(*) FILTER(WHERE deadline<now()) AS overdue,
@@ -15,7 +16,7 @@ public sealed class NativeRuntimeMaintenance(AccountDatabase database, NativeMet
         FROM compute_jobs WHERE status IN('queued','running','cancel_requested')
         """)[0]!.DeepClone().AsObject();
 
-    public static JsonObject Database(AccountSql sql) => sql.Query("""
+    public static JsonObject Database(IAccountSql sql) => sql.Query("""
         SELECT numbackends AS connections, deadlocks, temp_bytes,
           (pg_has_role(current_user,'pg_read_all_stats','MEMBER') OR (SELECT usesuper FROM pg_user WHERE usename=current_user)) AS all_session_statistics,
           (SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND cardinality(pg_blocking_pids(pid))>0) AS blocked_connections,

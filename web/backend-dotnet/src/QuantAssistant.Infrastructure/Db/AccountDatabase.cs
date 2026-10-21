@@ -1,11 +1,12 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Npgsql;
+using QuantAssistant.Core.Abstractions;
 
 namespace QuantAssistant.Infrastructure.Db;
 
 /// <summary>Small SQL session for account-owned application data. SQL comes only from server code.</summary>
-public sealed class AccountDatabase(string connectionString)
+public sealed class AccountDatabase(string connectionString) : IAccountDatabase
 {
     public async Task<JsonArray> QueryAsync(string sql, object?[] values, CancellationToken cancellation = default)
     {
@@ -26,6 +27,9 @@ public sealed class AccountDatabase(string connectionString)
         return result;
     }
 
+    async Task<T> IAccountDatabase.ReadAsync<T>(Func<IAccountSql, Task<T>> read, CancellationToken cancellation) =>
+        await ReadAsync(sql => read(sql), cancellation);
+
     /// <summary>
     /// 账本写：取 pg_advisory_xact_lock("ledger:"+userId) 将同一用户的账本变更串行化。
     /// 仅用于 transactions/positions/dividend_events/corporate_action_events/ledger_corrections
@@ -44,6 +48,9 @@ public sealed class AccountDatabase(string connectionString)
         await transaction.CommitAsync(cancellation);
         return result;
     }
+
+    async Task<T> IAccountDatabase.WriteAsync<T>(string userId, Func<IAccountSql, Task<T>> write, CancellationToken cancellation) =>
+        await WriteAsync(userId, sql => write(sql), cancellation);
 
     /// <summary>
     /// 普通写：不行级串行化，仅事务 + 行级锁 + 活跃用户校验。
@@ -75,9 +82,12 @@ public sealed class AccountDatabase(string connectionString)
 
     /// <summary>同步普通写（供 CLI/低频流程）。</summary>
     public T WriteNonLedger<T>(string userId, Func<AccountSql, T> write) => WriteNonLedgerAsync(userId, sql => Task.FromResult(write(sql))).GetAwaiter().GetResult();
+
+    async Task<T> IAccountDatabase.WriteNonLedgerAsync<T>(string userId, Func<IAccountSql, Task<T>> write, CancellationToken cancellation) =>
+        await WriteNonLedgerAsync(userId, sql => write(sql), cancellation);
 }
 
-public sealed class AccountSql(NpgsqlConnection connection, NpgsqlTransaction? transaction, CancellationToken cancellation = default)
+public sealed class AccountSql(NpgsqlConnection connection, NpgsqlTransaction? transaction, CancellationToken cancellation = default) : IAccountSql
 {
     public async Task<int> ExecuteAsync(string sql, params object?[] values)
     {

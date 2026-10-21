@@ -1,3 +1,4 @@
+using QuantAssistant.Core.Abstractions;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using QuantAssistant.Api.Middleware;
@@ -11,14 +12,14 @@ public sealed class NativeOperationsMonitor(IConfiguration configuration, Tradin
 {
     private int Setting(string key, int fallback, int maximum) => int.TryParse(configuration[key], out var value) && value > 0 && value <= maximum ? value : fallback;
 
-    public JsonObject Workers(AccountSql sql)
+    public JsonObject Workers(IAccountSql sql)
     {
         var active = Convert.ToInt64(sql.Scalar("SELECT count(*) FROM worker_heartbeats WHERE last_seen_at>now()-interval '30 seconds' AND NOT stopping"));
         var expected = Setting("QUANT_EXPECTED_WORKERS", 1, 3);
         return new JsonObject { ["active"] = active, ["expected"] = expected, ["status"] = active >= expected ? "healthy" : "degraded" };
     }
 
-    public JsonObject Read(AccountSql sql, JsonArray archives)
+    public JsonObject Read(IAccountSql sql, JsonArray archives)
     {
         var now = clock.GetUtcNow();
         var alerts = new JsonArray();

@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using QuantAssistant.Api.Serialization;
 using QuantAssistant.Core.Abstractions;
 using QuantAssistant.Api.Middleware;
-using QuantAssistant.Infrastructure.Db;
 using QuantAssistant.Api.Services;
 
 namespace QuantAssistant.Api.Controllers;
@@ -13,7 +12,7 @@ namespace QuantAssistant.Api.Controllers;
 /// </summary>
 [ApiController]
 [ApiExplorerSettings(IgnoreApi = true)]
-public sealed class HealthController(IReadinessProbe probe,NativeMetrics metrics,IConfiguration configuration,AccountDatabase database,NativeOperationsMonitor monitor) : ControllerBase
+public sealed class HealthController(IReadinessProbe probe, NativeMetrics metrics, IConfiguration configuration, IAccountDatabase database, NativeOperationsMonitor monitor) : ControllerBase
 {
     private static readonly string Version = "1.0";
 
@@ -31,12 +30,12 @@ public sealed class HealthController(IReadinessProbe probe,NativeMetrics metrics
     }
 
     [HttpGet("/readyz")]
-    public IActionResult Ready()
+    public async Task<IActionResult> Ready()
     {
         var health = probe.Check();
         var available = health.Status == "ok" && health.Database == "connected";
         if (available && configuration["QUANT_WORKER_SECRET"] is { Length: >= 32 })
-            available = database.Read(sql => monitor.Workers(sql)["status"]!.GetValue<string>() == "healthy");
+            available = await database.ReadAsync(sql => Task.FromResult(monitor.Workers(sql)["status"]!.GetValue<string>() == "healthy"));
         if (available)
         {
             return Ok(new { status = "ready" });
