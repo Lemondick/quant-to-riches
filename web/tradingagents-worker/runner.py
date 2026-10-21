@@ -152,7 +152,7 @@ class BudgetCallbacks(BaseCallbackHandler):
             return None, None
         return input_tokens, output_tokens
 
-    def on_llm_start(self, serialized, prompts, run_id, **kwargs):
+    def _reserve_call(self, prompts, run_id, kwargs):
         if self.llm_calls >= MAX_LLM_CALLS:
             raise RunnerFailure("model_call_limit")
         prompt_chars = sum(len(prompt) for prompt in prompts if isinstance(prompt, str))
@@ -165,13 +165,18 @@ class BudgetCallbacks(BaseCallbackHandler):
             "model": str(model),
             "role": "tradingagents",
             "provider": "compatible_api",
-            # Conservative character-based ceiling; if it cannot be reserved the
-            # request must not be sent. Actual usage is reconciled on completion.
             "max_input_tokens": max(1, prompt_chars),
             "max_output_tokens": MAX_OUTPUT_TOKENS,
         })
         self.pending[str(run_id)] = (reserved["call_id"], str(model))
         self.llm_calls += 1
+
+    def on_llm_start(self, serialized, prompts, run_id, **kwargs):
+        self._reserve_call(prompts, run_id, kwargs)
+
+    def on_chat_model_start(self, serialized, messages, run_id, **kwargs):
+        prompt_text = [str(message) for batch in messages for message in batch]
+        self._reserve_call(prompt_text, run_id, kwargs)
 
     def on_llm_end(self, response, run_id, **kwargs):
         pending = self.pending.pop(str(run_id), None)
