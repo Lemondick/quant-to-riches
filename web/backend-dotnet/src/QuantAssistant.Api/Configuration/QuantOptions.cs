@@ -79,6 +79,9 @@ public sealed class QuantOptions
     /// <summary>batch3 流 A：告警/报告邮件收件人（QUANT_SMTP_NOTIFY_TO；site_settings 同名键可覆盖，未配回退发件人）。</summary>
     public string? SmtpNotifyTo { get; init; }
 
+    /// <summary>batch3 流 A：API 限流（QUANT_RATE_LIMIT_PER_MIN），用户+IP 双维度，默认 100 req/min。</summary>
+    public int RateLimitPerMin { get; init; } = 100;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -119,6 +122,7 @@ public sealed class QuantOptions
             SmtpPass = configuration["QUANT_SMTP_PASS"],
             SmtpFrom = configuration["QUANT_SMTP_FROM"],
             SmtpNotifyTo = configuration["QUANT_SMTP_NOTIFY_TO"],
+            RateLimitPerMin = Int(configuration["QUANT_RATE_LIMIT_PER_MIN"], 100, 1, 100000),
         };
     }
 

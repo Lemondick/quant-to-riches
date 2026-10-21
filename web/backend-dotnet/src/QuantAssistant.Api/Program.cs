@@ -272,6 +272,7 @@ app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseRouting();
 app.UseRateLimiter();
 app.UseMiddleware<SessionAuthenticationMiddleware>();
+app.UseMiddleware<RateLimitMiddleware>(); // batch3-A：API 限流（用户+IP 双维度；登录接口走既有更严策略）。
 app.UseMiddleware<AccountUsageMiddleware>();
 app.UseDefaultFiles();
 app.UseStaticFiles();
