@@ -108,12 +108,14 @@ def execute_paid(kind, payload):
             raise AdvisorModelError("preview_expired")
         current = execute_strategy(
             "strategy.preview",
-            {"snapshot": payload["snapshot"], "parameters": payload["preview_parameters"]},
+            {
+                "snapshot": payload["snapshot"],
+                "parameters": payload["preview_parameters"],
+            },
         )
-        if (
-            current.get("_evidence", {}).get("content_hash")
-            != payload["preview_content_hash"]
-        ):
+        if current.get("_evidence", {}).get("content_hash") != payload[
+            "preview_content_hash"
+        ]:
             raise AdvisorModelError("preview_changed")
         upstream = execute_full_tradingagents(payload)
         facts = payload["request"].get("facts", [])
@@ -187,10 +189,12 @@ def execute_paid(kind, payload):
                 "criteria": {
                     "research_candidate": "Enter further research only.",
                     "watch": (
-                        "Evidence is incomplete, stale, conflicting or requires human review."
+                        "Evidence is incomplete, stale, conflicting or requires human "
+                        "review."
                     ),
                     "exclude": (
-                        "Current evidence supports excluding this candidate from further research."
+                        "Current evidence supports excluding this candidate from "
+                        "further research."
                     ),
                 },
             },
