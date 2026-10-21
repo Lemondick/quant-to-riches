@@ -13,6 +13,7 @@ const News = import.meta.env.VITE_API_BASE_URL ? () => import('./components/Live
 const Admin = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveAdmin.vue') : () => import('./views/Admin.vue')
 const AccountSettings = () => import('./views/AccountSettings.vue')
 const ApiConsole = () => import('./components/LiveApiConsole.vue')
+const ReportTasks = () => import('./components/LiveReportTasks.vue')
 
 const routePreloader = createRoutePreloader({
   '/': () => import.meta.env.VITE_API_BASE_URL ? Promise.resolve(LiveAssetOverview) : import('./views/AssetOverview.vue'),
@@ -20,6 +21,7 @@ const routePreloader = createRoutePreloader({
   '/market': Market, '/ai-stock': AIStock, '/fund-review': FundReview,
   '/quant': QuantStrategy, '/news': News, '/admin': Admin, '/settings': AccountSettings,
   '/api-console': ApiConsole,
+  '/reports': ReportTasks,
 })
 export const preloadRoute = routePreloader.preload
 export const warmRouteComponents = routePreloader.warm
@@ -36,7 +38,8 @@ export const navItems = [
   { path: '/news', label: '市场资讯', group: '投资研究', icon: 'Newspaper' },
   { path: '/admin', label: '管理者后台', group: '系统', icon: 'UsersRound' },
   { path: '/settings', label: '账号与设置', group: '系统', icon: 'Settings2' },
-  { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' }
+  { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' },
+  { path: '/reports', label: '报告任务', group: '高级工具', icon: 'ClipboardList' }
 ]
 
 export default createRouter({
@@ -53,6 +56,7 @@ export default createRouter({
     { path: '/news', component: News },
     { path: '/admin', component: Admin },
     { path: '/settings', component: AccountSettings },
-    { path: '/api-console', component: ApiConsole }
+    { path: '/api-console', component: ApiConsole },
+    { path: '/reports', component: ReportTasks }
   ]
 })
