@@ -4,6 +4,7 @@
     <div class="main-shell">
       <Topbar />
       <div v-if="!localStorageAvailable" class="storage-notice" role="status">浏览器限制了本地保存，当前更改仅在本次打开期间保留。请检查站点存储权限。</div>
+      <OfflineBanner />
       <main class="page-shell">
         <RouterView />
       </main>
@@ -16,6 +17,7 @@
 import { defineAsyncComponent, onMounted, onBeforeUnmount, watch } from 'vue'
 import router, { warmRouteComponents } from './router'
 import Sidebar from './components/Sidebar.vue'
+import OfflineBanner from './components/OfflineBanner.vue'
 import Topbar from './components/Topbar.vue'
 // batch4-B#9：问答浮窗不阻塞首屏，异步加载（连带 batch2Api/mock 数据移出 entry）。
 const AskWidget = defineAsyncComponent(() => import('./components/AskWidget.vue'))
