@@ -109,6 +109,18 @@ public sealed class QuantOptions
     /// <summary>batch4 流 B #8：公开数据类 GET 接口 ETag/Last-Modified 开关（QUANT_ETAG_ENABLED），默认 true。</summary>
     public bool EtagEnabled { get; init; } = true;
 
+    /// <summary>batch5 流 A：目标规划缺省假设年化（QUANT_GOAL_DEFAULT_ANNUAL_RETURN），默认 0.06。</summary>
+    public double GoalDefaultAnnualReturn { get; init; } = 0.06;
+
+    /// <summary>batch5 流 A：目标进度偏离告警阈值（QUANT_GOAL_DEVIATION_THRESHOLD），默认 0.10（10%）。</summary>
+    public double GoalDeviationThreshold { get; init; } = 0.10;
+
+    /// <summary>batch5 流 A：情绪指标后端缓存分钟数（QUANT_SENTIMENT_CACHE_MIN），默认 60。</summary>
+    public int SentimentCacheMinutes { get; init; } = 60;
+
+    /// <summary>batch5 流 A：定投漏投提醒阈值天数（QUANT_DCA_MISSED_ALERT_DAYS），默认 3。</summary>
+    public int DcaMissedAlertDays { get; init; } = 3;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -158,6 +170,10 @@ public sealed class QuantOptions
             ModelCacheEnabled = Bool(configuration["QUANT_MODEL_CACHE_ENABLED"], true),
             TaskQueueMaxLowWaitMin = Int(configuration["QUANT_TASK_QUEUE_MAX_LOW_WAIT_MIN"], 120, 1, 1440),
             EtagEnabled = Bool(configuration["QUANT_ETAG_ENABLED"], true),
+            GoalDefaultAnnualReturn = Ratio(configuration["QUANT_GOAL_DEFAULT_ANNUAL_RETURN"], 0.06),
+            GoalDeviationThreshold = Ratio(configuration["QUANT_GOAL_DEVIATION_THRESHOLD"], 0.10),
+            SentimentCacheMinutes = Int(configuration["QUANT_SENTIMENT_CACHE_MIN"], 60, 1, 14400),
+            DcaMissedAlertDays = Int(configuration["QUANT_DCA_MISSED_ALERT_DAYS"], 3, 1, 90),
         };
     }
 
