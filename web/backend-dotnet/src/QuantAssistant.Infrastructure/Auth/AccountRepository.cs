@@ -10,7 +10,7 @@ namespace QuantAssistant.Infrastructure.Auth;
 /// PostgreSQL 账号仓储：账号、会话、恢复码、审计。所有 SQL 参数化，防注入；
 /// 写操作用事务保证原子性（对应计划书 D1「行锁/唯一约束/冲突处理」）。
 /// </summary>
-public sealed class AccountRepository(string connectionString) : IAccountRepository
+public sealed class AccountRepository(string connectionString, string auditHashAlgo = "SHA256") : IAccountRepository
 {
     public async Task RecordUsageBatchAsync(IReadOnlyList<UsageDelta> records, CancellationToken cancellation = default)
     {
@@ -679,16 +679,10 @@ public sealed class AccountRepository(string connectionString) : IAccountReposit
         gate.ExecuteNonQuery();
     }
 
-    private static void InsertAudit(NpgsqlConnection conn, NpgsqlTransaction tx, string actorId, string action, string? targetId, string detail, DateTime now)
+    /// <summary>batch2-12：admin_audit 统一走哈希链写入（WriteRaw 按列存在自适应；detail 保持原有 {value} 包裹形状）。</summary>
+    private void InsertAudit(NpgsqlConnection conn, NpgsqlTransaction tx, string actorId, string action, string? targetId, string detail, DateTime now)
     {
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        cmd.CommandText = "INSERT INTO admin_audit (actor_id, action, target_id, detail, created_at) VALUES ($1, $2, $3, $4, $5)";
-        cmd.Parameters.AddWithValue(actorId);
-        cmd.Parameters.AddWithValue(action);
-        cmd.Parameters.AddWithValue((object?)targetId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue(System.Text.Json.JsonSerializer.Serialize(new { value = detail }));
-        cmd.Parameters.AddWithValue(now);
-        cmd.ExecuteNonQuery();
+        AdminAuditRepository.WriteRaw(conn, tx, auditHashAlgo, actorId, action, targetId,
+            System.Text.Json.JsonSerializer.Serialize(new { value = detail }), now);
     }
 }

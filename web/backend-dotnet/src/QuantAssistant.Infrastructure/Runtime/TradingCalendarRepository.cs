@@ -8,12 +8,20 @@ using QuantAssistant.Infrastructure.Db;
 
 namespace QuantAssistant.Infrastructure.Runtime;
 
-public sealed class TradingCalendarRepository(AccountDatabase database, TimeProvider? clock = null, bool autoAccept = false)
+public sealed class TradingCalendarRepository(AccountDatabase database, TimeProvider? clock = null, bool autoAccept = false, QuantAssistant.Infrastructure.Auth.AdminAuditRepository? auditChain = null)
 {
     private readonly SemaphoreSlim snapshotGate = new(1);
     private sealed record CachedCalendar(int Year, MarketCalendars Data, DateTimeOffset Expires);
     private CachedCalendar? cached;
     private DateTimeOffset Now => (clock ?? TimeProvider.System).GetUtcNow();
+    /// <summary>batch2-12：admin_audit 统一走哈希链写入；auditChain 为 null（测试构造）时退化为旧写法。</summary>
+    private void WriteAudit(QuantAssistant.Core.Abstractions.IAccountSql sql, string actor, string action, string? targetId, string detail)
+    {
+        if (auditChain is null)
+            sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,$2,$3,$4,now())", actor, action, targetId, detail);
+        else
+            auditChain.Write(sql, actor, action, targetId, detail, DateTime.UtcNow);
+    }
     public MarketCalendars CurrentSnapshot => Volatile.Read(ref cached) is { } saved && saved.Expires > Now ? saved.Data : MarketCalendars.Empty;
     /// <summary>
     /// F1：日历存储形状。Origin: imported（人工导入）/ auto（worker 自动生成）；
@@ -52,7 +60,7 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
             if (expectedRevision is not null && expectedRevision != existing["revision"]!.GetValue<string>())
                 throw new ApplicationFailure("calendar_changed", 409, "此年份日历已被修改，请重新读取后保存");
             sql.Execute("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value", Key(body.Market, body.Year), JsonSerializer.Serialize(body, FinanceJson.Options));
-            sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,'calendar',NULL,$2,now())", actor,
+            WriteAudit(sql, actor, "calendar", null,
                 new JsonObject { ["value"] = new JsonObject { ["market"] = body.Market, ["year"] = body.Year, ["source"] = body.Source, ["holiday_count"] = body.Holidays.Length } }.ToJsonString());
             return View(sql, body.Year, body.Market);
         });
@@ -86,7 +94,7 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
             if (existing["configured"]!.GetValue<bool>() && existing["confirmed"]!.GetValue<bool>())
                 throw new ApplicationFailure("calendar_exists", 409, "该年份日历已存在且已确认，自动生成不会覆盖。");
             sql.Execute("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value", Key(market, year), JsonSerializer.Serialize(body, FinanceJson.Options));
-            sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,'calendar.auto',NULL,$2,now())", actor,
+            WriteAudit(sql, actor, "calendar.auto", null,
                 new JsonObject { ["value"] = new JsonObject { ["market"] = market, ["year"] = year, ["source"] = body.Source, ["holiday_count"] = body.Holidays.Length, ["confidence"] = confidence } }.ToJsonString());
             return View(sql, year, market);
         });
@@ -111,7 +119,7 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
             {
                 sql.Execute("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",
                     Key(market, year), JsonSerializer.Serialize(calendar with { Confirmed = true }, FinanceJson.Options));
-                sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,'calendar.confirm',NULL,$2,now())", actor,
+                WriteAudit(sql, actor, "calendar.confirm", null,
                     new JsonObject { ["value"] = new JsonObject { ["market"] = market, ["year"] = year } }.ToJsonString());
             }
             return View(sql, year, market);

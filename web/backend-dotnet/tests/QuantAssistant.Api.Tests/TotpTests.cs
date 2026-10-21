@@ -80,6 +80,27 @@ public class TotpTests
     }
 
     [Fact]
+    public void AuditChain_TimestampFormat_MatchesSpecExample()
+    {
+        // 0036 文件头示例：2026-10-21 12:00:00+00 -> "2026-10-21T12:00:00.000000Z"（微秒恒 6 位）。
+        var t = new DateTime(2026, 10, 21, 12, 0, 0, DateTimeKind.Utc);
+        Assert.Equal("2026-10-21T12:00:00.000000Z", AdminAuditChain.FormatTimestamp(t));
+        // 亚微秒精度截断到 6 位（与 PG to_char US 一致）。
+        var t2 = new DateTime(2026, 10, 21, 12, 0, 0, 123, DateTimeKind.Utc).AddTicks(4567);
+        Assert.Equal("2026-10-21T12:00:00.123456Z", AdminAuditChain.FormatTimestamp(t2));
+    }
+
+    [Fact]
+    public void AuditChain_ComputeHash_MatchesIndependentVector()
+    {
+        // 独立验算（python hashlib.sha256）：preimage =
+        // '' || 'admin1' || 'status' || 'u1' || '{"value":"x"}' || '2026-10-21T12:00:00.000000Z'
+        var t = new DateTime(2026, 10, 21, 12, 0, 0, DateTimeKind.Utc);
+        Assert.Equal("73432011523dabf538000e3c02c525596523a5d50ea2e63cb9e9787c5f482fd3",
+            AdminAuditChain.ComputeHash("SHA256", "", "admin1", "status", "u1", "{\"value\":\"x\"}", t));
+    }
+
+    [Fact]
     public void AuditChain_UnsupportedAlgo_Throws()
     {
         var t = DateTime.UtcNow;
