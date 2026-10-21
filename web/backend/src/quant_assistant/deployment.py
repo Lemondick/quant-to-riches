@@ -5,10 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-import uvicorn
-
 from quant_assistant.config import DeploymentSettings, Settings
-from quant_assistant.controllers.auth_app import create_authenticated_app
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
@@ -63,11 +60,16 @@ def create_production_app(config: DeploymentConfig | None = None):
             allowed_origins=selected.allowed_origins,
         ),
     )
+    from quant_assistant.controllers.auth_app import (  # Lazy: FastAPI only for serving.
+        create_authenticated_app,
+    )
     return create_authenticated_app(settings)
 
 
 def serve_production(config: DeploymentConfig | None = None) -> None:
     """Run the production API with the validated bind and authentication policy."""
+
+    import uvicorn  # Lazy: the worker imports DeploymentConfig without a web stack.
 
     selected = config or DeploymentConfig.from_env()
     uvicorn.run(
