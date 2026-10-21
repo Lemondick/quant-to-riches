@@ -58,6 +58,14 @@ public sealed class QuantOptions
     /// 由 quant-snapshot-cleanup timer 经 GUC 传入 quant_snapshot_maintenance()；日线及以上快照永久保留。</summary>
     public int SnapshotRetentionTickDays { get; init; } = 90;
 
+    /// <summary>batch4-7：日志文件保留天数（QUANT_LOG_RETENTION_DAYS），默认 30。
+    /// Serilog 的 retainedFileCountLimit 与之对齐（按天滚动时 ≈ 保留天数）。</summary>
+    public int LogRetentionDays { get; init; } = 30;
+
+    /// <summary>batch4-7：磁盘使用率告警阈值百分比（QUANT_DISK_ALERT_THRESHOLD_PCT），默认 80。
+    /// NativeOperationsMonitor 站点级告警：任一监控盘的使用率超过该阈值即发出 warning 告警。</summary>
+    public int DiskAlertThresholdPct { get; init; } = 80;
+
     /// <summary>batch3 流 A：风险指标缓存分钟数（QUANT_RISK_METRICS_CACHE_TTL_MIN），默认 60。</summary>
     public int RiskMetricsCacheTtlMinutes { get; init; } = 60;
 
@@ -134,6 +142,8 @@ public sealed class QuantOptions
             TotpIssuer = configuration["QUANT_TOTP_ISSUER"] ?? "观澜",
             AuditHashAlgo = configuration["QUANT_AUDIT_HASH_ALGO"] ?? "SHA256",
             SnapshotRetentionTickDays = Int(configuration["QUANT_SNAPSHOT_RETENTION_TICK_DAYS"], 90, 1, 3650),
+            LogRetentionDays = Int(configuration["QUANT_LOG_RETENTION_DAYS"], 30, 1, 3650),
+            DiskAlertThresholdPct = Int(configuration["QUANT_DISK_ALERT_THRESHOLD_PCT"], 80, 1, 99),
             RiskMetricsCacheTtlMinutes = Int(configuration["QUANT_RISK_METRICS_CACHE_TTL_MIN"], 60, 1, 1440),
             SmtpHost = configuration["QUANT_SMTP_HOST"],
             SmtpPort = OptInt(configuration["QUANT_SMTP_PORT"], 1, 65535),

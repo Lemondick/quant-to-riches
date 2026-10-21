@@ -13,11 +13,15 @@ if (args[0] == "--validate-config") { Console.WriteLine("native_service_configur
 foreach (var (name, value) in settings.Environment) System.Environment.SetEnvironmentVariable(name, value);
 var logs = Path.GetFullPath(settings.Environment["QUANT_LOG_DIR"]);
 Directory.CreateDirectory(logs);
+// batch4-7：日志保留天数可配（QUANT_LOG_RETENTION_DAYS，默认 30）；非法值回退默认。
+var retentionDays = int.TryParse(settings.Environment.GetValueOrDefault("QUANT_LOG_RETENTION_DAYS"),
+    System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var days)
+    && days >= 1 && days <= 3650 ? days : 30;
 var builder = Host.CreateApplicationBuilder();
 builder.Services.AddWindowsService(options => options.ServiceName = settings.ServiceName);
 builder.Services.AddSerilog(configuration => configuration.MinimumLevel.Information()
     .WriteTo.File(Path.Combine(logs, "host-.log"), rollingInterval: RollingInterval.Day,
-        fileSizeLimitBytes: 20_000_000, rollOnFileSizeLimit: true, retainedFileCountLimit: 30));
+        fileSizeLimitBytes: 20_000_000, rollOnFileSizeLimit: true, retainedFileCountLimit: retentionDays));
 builder.Services.AddSingleton(settings);
 builder.Services.AddHostedService<NativeProcessService>();
 await builder.Build().RunAsync();

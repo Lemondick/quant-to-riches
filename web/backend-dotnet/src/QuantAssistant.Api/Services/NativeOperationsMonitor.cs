@@ -1,3 +1,4 @@
+using QuantAssistant.Api.Configuration;
 using QuantAssistant.Core.Abstractions;
 using System.Globalization;
 using System.Text.Json.Nodes;
@@ -8,7 +9,7 @@ using QuantAssistant.Infrastructure.Runtime;
 namespace QuantAssistant.Api.Services;
 
 /// <summary>Administrator operational evidence; does not start jobs or perform recovery.</summary>
-public sealed class NativeOperationsMonitor(IConfiguration configuration, TradingCalendarRepository calendars, NativeMetrics metrics, TimeProvider clock, SlowRequestAggregator? slowRequests = null)
+public sealed class NativeOperationsMonitor(IConfiguration configuration, TradingCalendarRepository calendars, NativeMetrics metrics, TimeProvider clock, QuantOptions options, SlowRequestAggregator? slowRequests = null)
 {
     private int Setting(string key, int fallback, int maximum) => int.TryParse(configuration[key], out var value) && value > 0 && value <= maximum ? value : fallback;
 
@@ -34,7 +35,10 @@ public sealed class NativeOperationsMonitor(IConfiguration configuration, Tradin
         if (queue["oldest_queued_seconds"]!.GetValue<long>() >= Setting("QUANT_QUEUE_WARNING_SECONDS", 120, 86400)) Alert("queue_waiting", "任务等待时间超过阈值，请核对执行器容量与任务状态。");
         if (queue["overdue"]!.GetValue<long>() > 0) Alert("task_overdue", "存在超过执行期限的任务，请检查回收器和执行器。", "critical");
         var disks = new JsonArray();
-        foreach (var (label, path) in new[] { ("站点存储", configuration["QUANT_SITE_ROOT"] ?? AppContext.BaseDirectory), ("备份存储", configuration["QUANT_BACKUP_DIR"]) })
+        // batch4-7：磁盘水位告警。使用率超过 QUANT_DISK_ALERT_THRESHOLD_PCT（默认 80）
+        // 即 warning 告警（早于 QUANT_DISK_MIN_FREE_PERCENT 的 critical 水位）。
+        var usageAlertPct = options.DiskAlertThresholdPct;
+        foreach (var (label, path) in new[] { ("站点存储", configuration["QUANT_SITE_ROOT"] ?? AppContext.BaseDirectory), ("备份存储", configuration["QUANT_BACKUP_DIR"]), ("日志存储", configuration["QUANT_LOG_DIR"]) })
         {
             if (string.IsNullOrWhiteSpace(path)) continue;
             var disk = new JsonObject { ["label"] = label, ["status"] = "unknown" };
@@ -43,10 +47,13 @@ public sealed class NativeOperationsMonitor(IConfiguration configuration, Tradin
                 var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!);
                 if (!drive.IsReady || drive.TotalSize <= 0) throw new IOException();
                 var percent = 100.0 * drive.AvailableFreeSpace / drive.TotalSize;
+                var usedPercent = 100.0 - percent;
                 var low = percent < Setting("QUANT_DISK_MIN_FREE_PERCENT", 10, 100);
                 disk["free_bytes"] = drive.AvailableFreeSpace; disk["total_bytes"] = drive.TotalSize; disk["free_percent"] = percent;
+                disk["used_percent"] = usedPercent; disk["usage_alert_percent"] = usageAlertPct;
                 disk["status"] = low ? "low" : "healthy";
                 if (low) Alert("disk_low", label + "可用空间低于阈值，请检查归档和日志保留。", "critical");
+                else if (usedPercent > usageAlertPct) Alert("disk_usage_high", $"{label}磁盘使用率 {usedPercent:F1}% 超过阈值 {usageAlertPct}%，请检查归档和日志保留。");
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
             { Alert("disk_unknown", label + "空间暂不可读取，请检查路径及权限。"); }
