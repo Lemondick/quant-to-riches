@@ -20,6 +20,7 @@
     <div class="insight-strip"><span>今日收益主要来源：<b>{{ hidden ? '已隐藏' : positions.length ? '查看持仓明细' : '暂无持仓' }}</b></span><RouterLink to="/portfolio" class="text-action">查看收益贡献 <ArrowUpRight :size="13" aria-hidden="true" /></RouterLink></div>
     <LiveValuationWidget />
     <LiveRiskWidget />
+    <LiveNetWorthWidget />
     <p v-if="data.unavailable.length" class="feedback" role="status">部分公开数据暂不可用，已保留账户持仓。</p>
     <p v-if="stale || refreshing && data" class="feedback" role="status">正在更新，当前显示最近一次有效数据。</p>
     <div class="panel table-panel section-space">
@@ -93,6 +94,7 @@ import FilterBar from './FilterBar.vue'
 import BackendState from './BackendState.vue'
 import LiveValuationWidget from './LiveValuationWidget.vue'
 import LiveRiskWidget from './LiveRiskWidget.vue'
+import LiveNetWorthWidget from './LiveNetWorthWidget.vue'
 import AppDialog from './AppDialog.vue'
 import { usePortfolioPresentation } from '../composables/usePortfolioPresentation'
 import { useLocalState } from '../composables/useLocalState'

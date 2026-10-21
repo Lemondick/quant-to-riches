@@ -26,6 +26,8 @@ const Cost = import.meta.env.VITE_API_BASE_URL ? () => import('./components/Live
 const ResearchFeed = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveResearchFeed.vue') : () => import('./views/ResearchFeed.vue')
 // batch5-C#1：目标规划页（Live 组件，路由懒加载沿用）。
 const Goals = () => import('./components/LiveGoals.vue')
+// batch5-C#2：净资产总览页（Live 组件，路由懒加载沿用）。
+const NetWorth = () => import('./components/LiveNetWorth.vue')
 const VirtualScrollLab = () => import('./views/VirtualScrollLab.vue')
 
 const routePreloader = createRoutePreloader({
@@ -45,6 +47,7 @@ const routePreloader = createRoutePreloader({
   '/cost': Cost,
   '/research': ResearchFeed,
   '/goals': Goals,
+  '/net-worth': NetWorth,
   '/lab/virtual-scroll': VirtualScrollLab,
 })
 export const preloadRoute = routePreloader.preload
@@ -69,6 +72,7 @@ export const navItems = [
   { path: '/cost', label: '持有成本', group: '资产管理', icon: 'Receipt' },
   { path: '/research', label: '研报资讯', group: '投资研究', icon: 'Library' },
   { path: '/goals', label: '目标规划', group: '资产管理', icon: 'Target' },
+  { path: '/net-worth', label: '净资产总览', group: '资产管理', icon: 'Wallet' },
   { path: '/admin', label: '管理者后台', group: '系统', icon: 'UsersRound' },
   { path: '/settings', label: '账号与设置', group: '系统', icon: 'Settings2' },
   { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' },
@@ -102,6 +106,7 @@ export default createRouter({
     { path: '/cost', component: Cost },
     { path: '/research', component: ResearchFeed },
     { path: '/goals', component: Goals },
+    { path: '/net-worth', component: NetWorth },
     { path: '/lab/virtual-scroll', component: VirtualScrollLab }
   ]
 })

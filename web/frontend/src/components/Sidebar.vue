@@ -45,6 +45,7 @@ import {
   Bot, Newspaper, UsersRound, Settings2, TerminalSquare, ClipboardList, CalendarDays,
   Scale, Gauge, Stethoscope, History, Megaphone, ShieldAlert, Receipt, Library,
   Target,
+  Wallet,
 } from 'lucide-vue-next'
 import { navItems, preloadRoute } from '../router'
 const icons = {
@@ -59,7 +60,8 @@ const icons = {
   ShieldAlert,
   Receipt,
   Library,
-  Target
+  Target,
+  Wallet
 }
 const groups = ['资产管理', '市场观察', '投资研究', '高级工具']
 const grouped = computed(() => Object.fromEntries(groups.map(g => [g, navItems.filter(i => i.group === g)])))
