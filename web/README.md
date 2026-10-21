@@ -17,4 +17,4 @@
 
 完整安装、冻结导入和备份恢复步骤见[原生部署及恢复手册](docs/refactor/p7-runbook.md)。代码与隔离测试交付情况见[迁移状态](docs/refactor/native-migration-progress.md)。原有部署与阶段文档保留为历史记录，当前运行方式以原生手册为准。
 
-完整迁移目前为 `0001`–`0023`；`0023` 只保护公开派生缓存。`backend/` 的 FastAPI、`deploy/cloud_up.sh` 与旧容器/exchange 进程保留兼容用途，生产不通过它们转发业务请求。后台刷新默认在每轮完成后等待 30 秒（可配置 15–300 秒），整体/任务预算默认 75/55 秒，详见[架构说明](backend-dotnet/ARCHITECTURE.md)。浏览器短暂复核快照不代表后台再次抓取上游。
+完整迁移目前为 `0001`–`0024`；`0023`/`0024` 只调整公开派生缓存。`backend/` 的 FastAPI、`deploy/cloud_up.sh` 与旧容器/exchange 进程保留兼容用途，生产不通过它们转发业务请求。后台刷新默认在每轮完成后等待 30 秒（可配置 15–300 秒），整体/任务预算默认 75/55 秒，详见[架构说明](backend-dotnet/ARCHITECTURE.md)。浏览器短暂复核快照不代表后台再次抓取上游。

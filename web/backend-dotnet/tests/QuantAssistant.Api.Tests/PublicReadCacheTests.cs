@@ -125,7 +125,15 @@ public sealed class PublicReadCacheTests(ITestOutputHelper output)
             {
                 var id = jobs.Enqueue(user.Id, kind, Input, DateTime.UtcNow.AddMinutes(2));
                 var claim = jobs.Claim("memory-" + Guid.NewGuid().ToString("N"), [kind])!;
-                Assert.True(jobs.Finish(user.Id, id, claim.Attempt, claim.OwnerToken, Result, null));
+                var completed=Result;
+                if(kind=="fund.catalog")
+                {
+                    var catalog=System.Text.Json.Nodes.JsonNode.Parse(Result)!.AsObject();
+                    catalog["schema_version"]="fund-directory.v1";catalog["source"]="eastmoney";catalog["source_time"]=null;catalog["fetched_at"]=DateTimeOffset.UtcNow.ToString("O");catalog["quality_status"]="unknown_time";
+                    catalog["items"]=new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject{["symbol"]="004243",["name"]="Explicit cache fixture",["fund_type"]=null});
+                    completed=catalog.ToJsonString();
+                }
+                Assert.True(jobs.Finish(user.Id, id, claim.Attempt, claim.OwnerToken, completed, null));
             }
             await service.Run(user.Id, kind, new { symbol = "004243" }, CancellationToken.None);
             var result = await Offline(cache).Run(user.Id, kind, new { symbol = "004243" }, CancellationToken.None);

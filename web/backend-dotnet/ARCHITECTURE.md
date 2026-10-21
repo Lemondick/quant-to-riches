@@ -70,3 +70,6 @@ Windows supervisor 可显式启用每日空闲停服备份，完成或失败后�
 线程池由独立线程每 10ms 采样，`quant_thread_pool_pending_peak_10s` 和 `quant_thread_pool_sample_count_10s` 保留最近 10 秒峰值和采样量，另保留当前待执行量。负载结束后为零与负载中每个瞬时采样都为零是不同指标，验收记录须分别报告。
 
 API 和 Worker 以 PostgreSQL `LISTEN/NOTIFY` 及进程内信号即时唤醒。Worker 无任务时服务端长等最多 5 秒；网关等待计算结果仅以 5 秒复查兜底，避免丢失通知，取消和租约检查保持有效。API、Caddy 和 Worker 贯穿 `X-Trace-Id`，`Server-Timing` 给出鉴权、数据库、网关、队列、启动和外部 I/O 耗时；并发阶段可能重叠，不能直接相加。超过 500ms 输出脱敏分段慢日志。开发环境可设置 `QUANT_TRACE_CONSOLE=0` 关闭较重的 OpenTelemetry 控制台导出；普通结构化请求日志继续保留。
+
+
+基金目录复用公共Worker和public_compute_snapshots；0024扩展fund.catalog以及合格延迟历史共享，不写财务表。目录单飞加载、60秒重读、6小时源节流，页面仅返回分页；分类唯一实现在Core/Market/FundClassification.cs，用户关注和私人费率不参与共享分类。

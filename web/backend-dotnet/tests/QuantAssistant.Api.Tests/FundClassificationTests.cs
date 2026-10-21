@@ -69,5 +69,6 @@ public sealed class FundClassificationTests
         var detail=Facts();detail["classification_facts"]!["fields"]!["benchmark"]="wrong-shape";
         var result=FundClassification.Classify(Entry("股票型"),detail);
         Assert.Equal("股票型",result["asset_class"]!.GetValue<string>());Assert.Null(result["benchmark_index_id"]);
+        var ambiguous=FundClassification.Classify(Entry("QDII-混合债"));Assert.Null(ambiguous["asset_class"]);Assert.Equal("QDII",ambiguous["regulatory_category"]!.GetValue<string>());
     }
 }

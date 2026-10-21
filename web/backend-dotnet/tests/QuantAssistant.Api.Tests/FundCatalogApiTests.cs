@@ -27,10 +27,15 @@ public sealed class FundCatalogApiTests
         var normal=Row("股票型");FundCatalogService.ApplyNav(normal,detail,now,MarketCalendars.Empty);
         Assert.Equal("1.2300",normal["unit_nav"]!.GetValue<string>());Assert.Equal("0",normal["daily_return"]!.GetValue<string>());
         Assert.Equal("2026-10-19",normal["nav_date"]!.GetValue<string>());
+        var inconsistent=detail.DeepClone().AsObject();inconsistent["points"]![0]!["validation_errors"]=new JsonArray("daily_return_inconsistent");
+        var held=Row("股票型");FundCatalogService.ApplyNav(held,inconsistent,now,MarketCalendars.Empty);Assert.Null(held["daily_return"]);Assert.Equal("1.2300",held["unit_nav"]!.GetValue<string>());
         var money=Row("货币型");FundCatalogService.ApplyNav(money,detail,now,MarketCalendars.Empty);
         Assert.Null(money["unit_nav"]);Assert.Equal("money_fund_metric_not_verified",money["nav_reason"]!.GetValue<string>());
         var conflict=Row("未知");conflict["fund_type"]="货币型-普通货币";FundCatalogService.ApplyNav(conflict,detail,now,MarketCalendars.Empty);Assert.Null(conflict["unit_nav"]);
         var missing=Row("股票型");FundCatalogService.ApplyNav(missing,null,now,MarketCalendars.Empty);Assert.Null(missing["unit_nav"]);Assert.Null(missing["daily_return"]);
+        var qdii=detail.DeepClone().AsObject();qdii["nav_freshness_policy"]="qdii_t3";qdii["points"]![0]!["nav_date"]="2026-10-15";
+        var foreign=Row("股票型");FundCatalogService.ApplyNav(foreign,qdii,now,MarketCalendars.Builtin);
+        Assert.Equal("valid",foreign["nav_quality_status"]!.GetValue<string>());Assert.Equal("qdii_t3",foreign["nav_freshness_policy"]!.GetValue<string>());
     }
     [PgFact]
     public async Task CatalogFiltersShareOnlyPublicFactsAndNeverCreatePerFundCrawlers()

@@ -89,7 +89,10 @@ public sealed class ComputeJobRepository(string connectionString)
             SELECT job_id FROM compute_jobs WHERE user_id=$1 AND kind=$2 AND input_hash=$3
               AND ((status IN ('queued','running') AND deadline>now()) OR
                 (status='completed' AND $4 AND CASE WHEN $5>0
-                  THEN completed_at>now()-make_interval(secs=>$5) ELSE deadline>now() END))
+                  THEN completed_at>now()-make_interval(secs=>$5) ELSE deadline>now() END
+                  AND (kind<>'fund.catalog' OR EXISTS(SELECT 1 FROM public_compute_snapshots p
+                    WHERE p.kind=compute_jobs.kind AND p.input_hash=compute_jobs.input_hash
+                      AND p.completed_at=compute_jobs.completed_at AND p.expires_at>now()))))
             ORDER BY created_at DESC LIMIT 1
             """;
         cmd.Parameters.AddWithValue(userId);

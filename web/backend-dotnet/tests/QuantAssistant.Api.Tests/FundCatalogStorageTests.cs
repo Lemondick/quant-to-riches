@@ -25,6 +25,24 @@ public sealed class FundCatalogStorageTests
     }
 
     [PgFact]
+    public void FailedOrFallbackCatalogDoesNotBecomeASixHourCompletedCacheHit()
+    {
+        using var user=new PgTestUser();var jobs=new ComputeJobRepository(user.Connection);
+        foreach(var mode in new[]{"empty","invalid","fallback"})
+        {
+            var input=new JsonObject{["recovery_test"]=user.Id,["mode"]=mode}.ToJsonString();
+            var bad=new JsonObject{["schema_version"]="fund-directory.v1",["source"]="eastmoney",["source_time"]=null,["fetched_at"]=DateTimeOffset.UtcNow.ToString("O"),
+                ["items"]=mode=="empty"?new JsonArray():new JsonArray(new JsonObject{["symbol"]="000001",["name"]="Explicit recovery fixture",["fund_type"]=null}),
+                ["stale"]=mode=="fallback",["quality_status"]=mode=="invalid"?"invalid":"unknown_time"};
+            Complete(user,"fund.catalog",input,bad);
+            var id=jobs.Enqueue(user.Id,"fund.catalog",input,DateTime.UtcNow.AddMinutes(1));
+            Assert.Equal("queued",jobs.Read(user.Id,id).Status);
+            Assert.Equal(id,jobs.Enqueue(user.Id,"fund.catalog",input,DateTime.UtcNow.AddMinutes(1)));
+            user.Execute("UPDATE compute_jobs SET status='cancelled',completed_at=now() WHERE user_id=$1 AND job_id=$2",user.Id,id);
+        }
+    }
+
+    [PgFact]
     public async Task QualifiedCatalogIsSharedButEmptyPrivateAndFallbackResultsAreNotPublished()
     {
         using var user = new PgTestUser();

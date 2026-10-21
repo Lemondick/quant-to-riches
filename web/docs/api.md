@@ -208,3 +208,10 @@
 详情参数：`section=holdings/ledger/watchlist/reports/tasks`（默认holdings）、`page`（从1开始）、`limit`（1至100，默认50）；响应包含用户公开信息、主账本和独立账户快照概况、`total`及当前页`items`，金额与份额保持十进制字符串。报告来源`source=advisor/research`，研究正文通过`attempt_no`选择尝试（默认1）。所有查阅操作使用指定用户可信目录，普通用户返回403，账号或报告不存在返回404，用户数据无法读取返回503。正文不包含输入快照、私有模型配置或密钥。
 
 写请求需正确Origin；已登录写请求还需X-CSRF-Token。注册人数满或用户名重复返回409，未登录401，越权403，参数错误422，请求过频429。账号初始化、统计口径及恢复见[登录与用户管理](登录与用户管理.md)。
+
+
+### 基金公共分类目录（阶段D）
+
+`GET /api/v1/funds/categories` 返回独立dimensions及真实目录内计数；`GET /api/v1/funds/catalog` 返回分页基金。均需真实账户会话，与用户关注/私人费率隔离。支持q、page、page_size(1..100)；重复维度参数fund_type、asset_class、investment_scope、strategy_tags、product_structure、benchmark_index_id、share_class、regulatory_category、classification_status。维度内OR、维度间AND；strategy_tags全部满足；__unknown筛待核验。
+
+每页带正式NAV、NAV日期/质量/抓取时间、公布日涨幅、分类逐字段证据与规则版本，以及独立目录来源/抓取时间/质量。缺失为null；source_time无供应商发布时间则为null；money_fund_metric_not_verified不当单位NAV。新fund.catalog任务和0024只写派生公共缓存，不写账户/账本。详见[来源与规则决策](refactor/fund-catalog-decisions-20261021.md)。原日涨幅榜/基金详情/估值/关注契约保留。

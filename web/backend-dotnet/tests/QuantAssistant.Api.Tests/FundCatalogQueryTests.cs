@@ -1,10 +1,12 @@
 using System.Text.Json.Nodes;
 using QuantAssistant.Api.Services;
 using Xunit;
+using Xunit.Abstractions;
+using System.Diagnostics;
 
 namespace QuantAssistant.Api.Tests;
 
-public sealed class FundCatalogQueryTests
+public sealed class FundCatalogQueryTests(ITestOutputHelper output)
 {
     private static JsonObject Row(string code,string asset,string[] tags)=>new(){["symbol"]=code,["name"]="明确测试基金"+code,["asset_class"]=asset,["strategy_tags"]=new JsonArray(tags.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray()),["investment_scope"]=new JsonArray(),["share_class"]=null};
     [Fact]
@@ -24,5 +26,19 @@ public sealed class FundCatalogQueryTests
     {
         foreach(var query in new[]{new FundCatalogFilter("",0,50,new()),new FundCatalogFilter("",1,101,new()),new FundCatalogFilter(new string('a',101),1,50,new()),new FundCatalogFilter("",1,50,new(){["name"]=["ETF"]})})
             Assert.Throws<ArgumentException>(()=>FundCatalogQuery.Apply([],query));
+    }
+    [Fact]
+    public void LargeDirectoryReturnsOnlyOnePageWithinABoundedLocalCpuBudget()
+    {
+        var rows=Enumerable.Range(0,28000).Select(i=>Row(i.ToString("D6"),"股票型",["指数策略"])).ToArray();
+        var query=new FundCatalogFilter("",1,50,new(){["asset_class"]=["股票型"],["strategy_tags"]=["指数策略"]});
+        var elapsed=Stopwatch.StartNew();
+        for(var i=0;i<5;i++)
+        {
+            var page=FundCatalogQuery.Apply(rows,query with{Page=i+1});
+            Assert.Equal(28000,page["total"]!.GetValue<int>());Assert.Equal(50,page["items"]!.AsArray().Count);
+        }
+        output.WriteLine($"Explicit 28,000-row fixture, filtering/sorting/cloning one page: {elapsed.Elapsed.TotalMilliseconds/5:F2} ms/page; excludes DB/network.");
+        Assert.True(elapsed.Elapsed.TotalMilliseconds/5<1000);
     }
 }

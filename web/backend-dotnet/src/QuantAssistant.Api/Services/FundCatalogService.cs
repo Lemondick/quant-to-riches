@@ -81,6 +81,8 @@ public sealed class FundCatalogService(PublicSnapshotRepository repository,Compu
             {
                 row["data_source"]=source.Metadata["data_source"]?.DeepClone();row["source_time"]=null;
                 row["fetched_at"]=source.Metadata["fetched_at"]?.DeepClone();row["quality_status"]=source.Metadata["quality_status"]?.DeepClone();
+                foreach(var proof in row["classification_evidence"]!.AsArray().OfType<JsonObject>().Where(proof=>FundClassification.Text(proof["source"])=="eastmoney"&&FundClassification.Text(proof["source_field"])=="fund_type"))
+                    proof["fetched_at"]=source.Metadata["fetched_at"]?.DeepClone();
             }
             if(rows.Length>0)
             {
@@ -94,16 +96,20 @@ public sealed class FundCatalogService(PublicSnapshotRepository repository,Compu
     {
         row["unit_nav"]=null;row["nav_date"]=null;row["daily_return"]=null;row["nav_source"]=null;row["nav_fetched_at"]=null;
         row["nav_quality_status"]="unavailable";row["nav_reason"]="official_nav_not_cached";
-        if(FundClassification.Text(row["asset_class"])=="货币型"||FundClassification.Text(row["fund_type"])?.StartsWith("货币型",StringComparison.Ordinal)==true) {row["nav_reason"]="money_fund_metric_not_verified";return;}
+        if(FundClassification.Text(row["asset_class"])=="货币型"||new[]{FundClassification.Text(row["fund_type"]),FundClassification.Text(detail?["fund_type"])}.Any(type=>type?.StartsWith("货币型",StringComparison.Ordinal)==true)) {row["nav_reason"]="money_fund_metric_not_verified";return;}
         var point=(detail?["points"] as JsonArray)?.OfType<JsonObject>().OrderBy(item=>FundClassification.Text(item["nav_date"]),StringComparer.Ordinal).LastOrDefault();
         if(point is null||!DateOnly.TryParseExact(FundClassification.Text(point["nav_date"]),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var day)
             ||day>DateOnly.FromDateTime(now.ToOffset(TimeSpan.FromHours(8)).DateTime)
             ||!decimal.TryParse(FundClassification.Text(point["unit_nav"]),NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out var nav)||nav<=0
             ||FundClassification.Text(point["source"]) is not ("eastmoney" or "tencent" or "danjuan"))return;
-        var kind=FundClassification.Text(row["fund_type"]);
-        var freshness=NavFreshness.Evaluate(day,now,calendars,NavFreshness.PolicyForFund(kind?.StartsWith("QDII",StringComparison.Ordinal)==true?kind:FundClassification.Text(row["asset_class"])));
+        var kind=FundClassification.Text(detail?["fund_type"])??FundClassification.Text(row["fund_type"]);
+        var policy=FundClassification.Text(detail?["nav_freshness_policy"])??NavFreshness.PolicyForFund(kind?.StartsWith("QDII",StringComparison.Ordinal)==true?kind:FundClassification.Text(row["asset_class"]));
+        int? Integer(string key)=>detail?[key] is JsonValue value&&value.TryGetValue<int>(out var number)?number:null;
+        var freshness=NavFreshness.Evaluate(day,now,calendars,policy,Integer("nav_valuation_weekday"),publicationLag:Integer("nav_publication_lag_sessions"));
+        row["nav_freshness_policy"]=policy;
         row["unit_nav"]=point["unit_nav"]!.DeepClone();row["nav_date"]=day.ToString("yyyy-MM-dd");row["nav_source"]=point["source"]!.DeepClone();
         row["nav_fetched_at"]=detail?["fetched_at"]?.DeepClone();row["nav_quality_status"]=freshness.Status=="fresh"?"valid":freshness.Status=="stale"?"stale":"unknown_time";row["nav_reason"]=freshness.Reason;
-        if(decimal.TryParse(FundClassification.Text(point["daily_return"]),NumberStyles.AllowLeadingSign|NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out _))row["daily_return"]=point["daily_return"]!.DeepClone();
+        var returnErrors=point["validation_errors"] as JsonArray;
+        if((returnErrors is null||returnErrors.Count==0)&&decimal.TryParse(FundClassification.Text(point["daily_return"]),NumberStyles.AllowLeadingSign|NumberStyles.AllowDecimalPoint,CultureInfo.InvariantCulture,out _))row["daily_return"]=point["daily_return"]!.DeepClone();
     }
 }
