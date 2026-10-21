@@ -4,6 +4,8 @@ import json
 import logging
 from functools import lru_cache
 
+from pydantic import ValidationError
+
 _public_logger = logging.getLogger("quant_assistant.providers")
 if not _public_logger.handlers:
     _public_logger.addHandler(logging.StreamHandler())
@@ -154,7 +156,8 @@ def child_public_operation(kind: str, payload: dict) -> dict:
         result = execute_public(kind, payload)
         json.dumps(result, allow_nan=False)
         return {"result": result, "error_code": None}
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, KeyError, ValidationError):
+        # Contract section 4: KeyError / ValidationError are invalid requests.
         return {"result": None, "error_code": "invalid_request"}
     except Exception:  # noqa: BLE001 - provider details must stay redacted at this boundary
         return {"result": None, "error_code": "worker_computation_failed"}

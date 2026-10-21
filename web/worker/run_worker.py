@@ -28,6 +28,7 @@ from uuid import uuid4
 import requests
 from operations import CAPABILITIES, execute
 from public_operations import IN_PROCESS_CAPABILITIES, child_public_operation
+from pydantic import ValidationError
 
 from quant_assistant.common.performance import Trace, log_slow, measure, trace_scope
 from quant_assistant.integrations.tradingagents_worker.process import ProcessTree
@@ -48,7 +49,11 @@ def child_operation(kind, payload):
         return {"result": None, "error_code": str(error)}
     except CostLimitError:
         return {"result": None, "error_code": "model_budget_exceeded"}
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, KeyError, ValidationError):
+        # Contract section 4: missing payload keys (KeyError) and schema
+        # violations (pydantic ValidationError) are invalid requests, not
+        # computation failures. ValidationError already subclasses ValueError
+        # in pydantic v2; it is named explicitly to pin the contract.
         return {"result": None, "error_code": "invalid_request"}
     except Exception:
         # Remote provider details may contain account data or credentials.
