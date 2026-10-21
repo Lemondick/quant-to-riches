@@ -178,6 +178,8 @@ builder.Services.AddSingleton<AnalysisSnapshotRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.CashFlowPlanRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AlertCenterRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.RebalanceRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.SmartDcaRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.SmartDcaService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchJobQueryRepository>();
