@@ -15,5 +15,7 @@ CREATE TABLE IF NOT EXISTS goal_targets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS goal_targets_user ON goal_targets (user_id);
+-- batch5-#7 慢接口优化：GET /goals 按 target_date 排序，复合索引消除 Sort。
+CREATE INDEX IF NOT EXISTS goal_targets_user_target_date ON goal_targets (user_id, target_date);
 
 COMMENT ON TABLE goal_targets IS 'batch5-1: 目标规划。进度偏离按线性假设口径核对（实际完成度 vs 预期完成度），超 QUANT_GOAL_DEVIATION_THRESHOLD（默认 10%）写入 user_alert_center（kind=goal_deviation）；写操作走 user_operation_audit。';

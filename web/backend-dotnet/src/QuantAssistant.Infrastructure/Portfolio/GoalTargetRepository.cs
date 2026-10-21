@@ -39,7 +39,7 @@ public sealed class GoalTargetRepository(IAccountDatabase database)
                 INSERT INTO goal_targets(id,user_id,name,target_amount,target_date,current_amount,assumed_annual_return,created_at,updated_at)
                 VALUES($1,$2,$3,$4,$5,$6,$7,now(),now()) RETURNING {Columns}
                 """, id, userId, name.Trim(), targetAmount, targetDate,
-                currentAmount, assumedAnnualReturn.ToString(CultureInfo.InvariantCulture));
+                currentAmount, assumedAnnualReturn);
             return View(rows[0]!.AsObject());
         }, cancellation);
     }
@@ -71,24 +71,34 @@ public sealed class GoalTargetRepository(IAccountDatabase database)
                     updated_at=now()
                 WHERE user_id=$1 AND id=$2 RETURNING {Columns}
                 """, userId, goalId, name?.Trim(), targetAmount, targetDate,
-                assumedAnnualReturn?.ToString(CultureInfo.InvariantCulture));
+                assumedAnnualReturn is null ? null : (object)assumedAnnualReturn.Value);
             return rows.FirstOrDefault()?.AsObject() is { } row ? View(row)
                 : throw new ApplicationFailure(ErrorCodes.GoalTargetNotFound, 404, ErrorMessages.Get(ErrorCodes.GoalTargetNotFound));
         }, cancellation);
     }
 
-    /// <summary>投影前刷新 current_amount（账本净资产取值）。</summary>
-    public async Task<decimal> RefreshCurrentAmountAsync(string userId, string goalId, decimal netWorth,
+    /// <summary>
+    /// 投影前刷新 current_amount（账本净资产取值）并返回整行：单条 UPDATE…RETURNING，
+    /// 替代"先 SELECT 再 UPDATE"的两次 round-trip（batch5-#7）。
+    /// </summary>
+    public async Task<JsonObject> RefreshAndGetAsync(string userId, string goalId, decimal netWorth,
         CancellationToken cancellation = default) =>
         await database.WriteNonLedgerAsync(userId, async sql =>
         {
-            var rows = await sql.QueryAsync(
-                "UPDATE goal_targets SET current_amount=$3,updated_at=now() WHERE user_id=$1 AND id=$2 RETURNING current_amount",
-                userId, goalId, netWorth);
-            return rows.FirstOrDefault()?.AsObject() is { } row
-                ? decimal.Parse(row["current_amount"]!.GetValue<string>(), CultureInfo.InvariantCulture)
+            var rows = await sql.QueryAsync($"""
+                UPDATE goal_targets SET current_amount=$3,updated_at=now()
+                WHERE user_id=$1 AND id=$2 RETURNING {Columns}
+                """, userId, goalId, netWorth);
+            return rows.FirstOrDefault()?.AsObject() is { } row ? View(row)
                 : throw new ApplicationFailure(ErrorCodes.GoalTargetNotFound, 404, ErrorMessages.Get(ErrorCodes.GoalTargetNotFound));
         }, cancellation);
+
+    /// <summary>投影前刷新 current_amount（账本净资产取值）。</summary>
+    public async Task<decimal> RefreshCurrentAmountAsync(string userId, string goalId, decimal netWorth,
+        CancellationToken cancellation = default) =>
+        (await RefreshAndGetAsync(userId, goalId, netWorth, cancellation))["current_amount"] is { } node
+            ? decimal.Parse(node.GetValue<string>(), CultureInfo.InvariantCulture)
+            : throw new ApplicationFailure(ErrorCodes.GoalTargetNotFound, 404, ErrorMessages.Get(ErrorCodes.GoalTargetNotFound));
 
     public async Task DeleteAsync(string userId, string goalId, CancellationToken cancellation = default)
     {

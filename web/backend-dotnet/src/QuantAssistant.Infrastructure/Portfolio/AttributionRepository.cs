@@ -213,7 +213,12 @@ public class AttributionRepository(string connectionString, IAccountDatabase? da
         return list;
     }
 
-    /// <summary>E5：归因报告列表查询（原 AttributionController 内嵌 SQL，语义一致）。</summary>
+    /// <summary>
+    /// E5：归因报告列表查询（原 AttributionController 内嵌 SQL，语义一致）。
+    /// batch5-#7：分页查询走 attribution_reports_user_created(user_id, created_at DESC, id DESC)
+    /// 索引（0049 迁移），Index Scan + LIMIT 提前止（23.9ms → 0.07ms，5 万行合成数据）。
+    /// count(*) OVER() 合并曾试过——窗口函数迫使全量物化，实测更慢，故保留两次独立查询。
+    /// </summary>
     public async Task<JsonObject> ListReportsAsync(string userId, string query, string source,
         DateOnly? first, DateOnly? last, int limit, int offset, CancellationToken cancellation = default) =>
         await (database ?? throw new InvalidOperationException("AttributionRepository 需要 IAccountDatabase 才能执行列表查询。")).ReadAsync(async sql =>

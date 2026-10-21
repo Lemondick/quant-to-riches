@@ -29,9 +29,9 @@ public sealed class GoalProjectionService(GoalTargetRepository goals, ComputeSer
     public async Task<JsonObject> ProjectAsync(string userId, string goalId, decimal? monthlyAmount,
         CancellationToken cancellation = default)
     {
-        var goal = await goals.GetAsync(userId, goalId, cancellation);
+        // batch5-#7：读取目标 + 刷新 current_amount 合并为单条 UPDATE…RETURNING（3 次 DB round-trip → 2 次）。
         var netWorth = await LedgerNetWorthAsync(userId, cancellation);
-        await goals.RefreshCurrentAmountAsync(userId, goalId, netWorth, cancellation);
+        var goal = await goals.RefreshAndGetAsync(userId, goalId, netWorth, cancellation);
         var current = netWorth;
         var target = decimal.Parse(goal["target_amount"]!.GetValue<string>(), CultureInfo.InvariantCulture);
         var targetDate = DateOnly.ParseExact(goal["target_date"]!.GetValue<string>(), "yyyy-MM-dd", CultureInfo.InvariantCulture);

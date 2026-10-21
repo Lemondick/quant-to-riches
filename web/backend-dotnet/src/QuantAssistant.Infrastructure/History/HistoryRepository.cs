@@ -94,11 +94,22 @@ public sealed class HistoryRepository(string connectionString) : IHistoryReposit
 
     public OnboardingStatus Onboarding(string userId)
     {
+        // batch5-#7：4 次 count(*) round-trip 合并为单条语句（标量子查询），4 → 1。
         using var conn = Open();
-        var positions = ScalarCount(conn, "SELECT count(*) FROM positions WHERE user_id=@uid", userId);
-        var cash = ScalarCount(conn, "SELECT count(*) FROM positions WHERE user_id=@uid AND asset_type='cash'", userId);
-        var valuation = ScalarCount(conn, "SELECT count(*) FROM portfolio_valuations WHERE user_id=@uid", userId);
-        var reports = ScalarCount(conn, "SELECT count(*) FROM market_advisor_reports WHERE user_id=@uid AND status='completed'", userId);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT (SELECT count(*) FROM positions WHERE user_id=@uid) AS positions,
+                   (SELECT count(*) FROM positions WHERE user_id=@uid AND asset_type='cash') AS cash,
+                   (SELECT count(*) FROM portfolio_valuations WHERE user_id=@uid) AS valuation,
+                   (SELECT count(*) FROM market_advisor_reports WHERE user_id=@uid AND status='completed') AS reports
+            """;
+        cmd.Parameters.AddWithValue("uid", userId);
+        using var reader = cmd.ExecuteReader();
+        reader.Read();
+        var positions = reader.GetInt32(0);
+        var cash = reader.GetInt32(1);
+        var valuation = reader.GetInt32(2);
+        var reports = reader.GetInt32(3);
 
         return new OnboardingStatus(
         [

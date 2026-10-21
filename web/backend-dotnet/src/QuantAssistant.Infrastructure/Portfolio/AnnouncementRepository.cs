@@ -55,6 +55,8 @@ public sealed class AnnouncementRepository(AccountDatabase database)
         if (page is < 1 or > 100000 || limit is < 1 or > 100) throw new ArgumentException("分页参数无效");
         if (kind is not (null or "dividend" or "manager_change" or "liquidation_risk" or "other")) throw new ArgumentException("kind 无效");
         // 仅返回用户持仓基金的公告（公告为公开信息，按用户持仓过滤展示）。
+        // batch5-#7 结论：count(*) OVER() 合并曾试过——窗口函数迫使全量 9000 行物化后再 top-N，
+        // 实测比两次独立查询更慢（9.4ms vs 7.2ms），故保留两次查询（均走 fund_announcements_code_time 索引）。
         var codes = await UserFundCodesAsync(userId, cancellation);
         return await database.ReadAsync(async sql =>
         {
