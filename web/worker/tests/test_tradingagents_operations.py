@@ -1,9 +1,8 @@
 import json
+from unittest.mock import patch
 
-import pytest
-
-from tradingagents_operations import execute_full_tradingagents
 from quant_assistant.providers.advisor_models import AdvisorModelError
+from tradingagents_operations import execute_full_tradingagents
 
 
 def payload(tmp_path):
@@ -38,8 +37,13 @@ def payload(tmp_path):
 def test_full_engine_requires_explicit_installed_runtime(monkeypatch):
     monkeypatch.delenv("QUANT_TRADINGAGENTS_PYTHON", raising=False)
     monkeypatch.delenv("QUANT_TRADINGAGENTS_RUNNER", raising=False)
-    with pytest.raises(AdvisorModelError):
-        execute_full_tradingagents({})
+    with patch("tradingagents_operations.Path.is_file", return_value=False):
+        try:
+            execute_full_tradingagents({})
+        except AdvisorModelError:
+            pass
+        else:
+            raise AssertionError("missing runtime must fail closed")
 
 
 def test_full_engine_accepts_only_research_only_result(monkeypatch, tmp_path):
@@ -93,5 +97,9 @@ def test_full_engine_rejects_non_research_result(monkeypatch, tmp_path):
         ).encode()
 
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: Completed())
-    with pytest.raises(AdvisorModelError):
+    try:
         execute_full_tradingagents(task)
+    except AdvisorModelError:
+        pass
+    else:
+        raise AssertionError("non-research output must be rejected")
