@@ -1,0 +1,12 @@
+[Unit]
+Description=Guanlan monthly backup restore drill
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/quant/current/backend/.venv/bin/python /usr/local/lib/quant/restore-drill.py
+TimeoutStartSec=1800
+TimeoutStopSec=60
+KillMode=mixed
+UMask=0077
