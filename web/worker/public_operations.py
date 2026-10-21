@@ -20,7 +20,13 @@ PUBLIC_CAPABILITIES = (
     "fund.detail",
     "fund.catalog",
 )
-IN_PROCESS_CAPABILITIES = (*PUBLIC_CAPABILITIES, "fund.valuations")
+IN_PROCESS_CAPABILITIES = (
+    *PUBLIC_CAPABILITIES,
+    "fund.valuations",
+    "valuation.percentiles",
+    "fund.health_check",
+    "announcements.fetch",
+)
 
 
 # Provider instances are cached in the unified worker cache (contract section 4).
@@ -103,6 +109,18 @@ def _calendar(snapshot):
 
 
 def execute_public(kind: str, payload: dict) -> dict:
+    if kind == "valuation.percentiles":
+        from valuation_operations import execute_valuation
+
+        return execute_valuation(kind, payload)
+    if kind == "fund.health_check":
+        from health_operations import execute_health
+
+        return execute_health(kind, payload)
+    if kind == "announcements.fetch":
+        from announcement_operations import execute_announcements
+
+        return execute_announcements(kind, payload)
     if kind == "fund.catalog":
         if any(key not in {"_refresh", "_calendars"} for key in payload):
             raise ValueError("fund catalog does not accept account or instrument inputs")
