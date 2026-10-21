@@ -7,6 +7,7 @@ from attribution_operations import ATTRIBUTION_CAPABILITIES, execute_attribution
 from calendar_generation import CALENDAR_CAPABILITIES, execute_calendar
 from smart_dca_backtest_operations import DCA_CAPABILITIES, execute_smart_dca
 from portfolio_backtest_operations import PORTFOLIO_CAPABILITIES, execute_portfolio_backtest
+from catalog_validate_operations import CATALOG_VALIDATE_CAPABILITIES, execute_catalog_validate
 from nav_operations import NAV_CAPABILITIES, execute_nav
 from paid_operations import PAID_CAPABILITIES, execute_paid
 from photo_operations import PHOTO_CAPABILITIES, execute_photo
@@ -35,6 +36,7 @@ CAPABILITIES = (
     *REDEMPTION_CAPABILITIES,
     *DCA_CAPABILITIES,
     *PORTFOLIO_CAPABILITIES,
+    *CATALOG_VALIDATE_CAPABILITIES,
 )
 
 
@@ -71,4 +73,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_smart_dca(kind, payload)
     if kind in PORTFOLIO_CAPABILITIES:
         return execute_portfolio_backtest(kind, payload)
+    if kind in CATALOG_VALIDATE_CAPABILITIES:
+        return execute_catalog_validate(kind, payload)
     raise ValueError("unsupported_operation")
