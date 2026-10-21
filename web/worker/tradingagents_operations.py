@@ -24,7 +24,12 @@ def execute_full_tradingagents(payload: dict) -> dict:
     credentials = payload.get("credentials")
     models = payload.get("models")
     execution = payload.get("_execution")
-    if not isinstance(request, dict) or not isinstance(credentials, dict) or not isinstance(models, dict) or not isinstance(execution, dict):
+    if (
+        not isinstance(request, dict)
+        or not isinstance(credentials, dict)
+        or not isinstance(models, dict)
+        or not isinstance(execution, dict)
+    ):
         raise AdvisorModelError("model_configuration")
 
     task = {
@@ -44,7 +49,10 @@ def execute_full_tradingagents(payload: dict) -> dict:
     env = {
         key: value
         for key, value in os.environ.items()
-        if key.upper() in {"PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR"}
+        if key.upper() in {
+            "PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL",
+            "SSL_CERT_FILE", "SSL_CERT_DIR",
+        }
     }
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
@@ -81,6 +89,10 @@ def execute_full_tradingagents(payload: dict) -> dict:
             raise AdvisorModelError("invalid_output")
         raise AdvisorModelError("model_unavailable")
     result = envelope.get("result")
-    if not isinstance(result, dict) or result.get("research_only") is not True or result.get("automatic_trading") is not False:
+    if (
+        not isinstance(result, dict)
+        or result.get("research_only") is not True
+        or result.get("automatic_trading") is not False
+    ):
         raise AdvisorModelError("invalid_output")
     return result
