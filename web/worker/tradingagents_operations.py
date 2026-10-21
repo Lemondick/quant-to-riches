@@ -51,8 +51,7 @@ def execute_full_tradingagents(payload: dict) -> dict:
     env = {
         key: value
         for key, value in os.environ.items()
-        if key.upper()
-        in {
+        if key.upper() in {
             "PATH",
             "SYSTEMROOT",
             "WINDIR",
