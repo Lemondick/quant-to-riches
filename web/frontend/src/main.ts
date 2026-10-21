@@ -1,7 +1,8 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
+import { virtualScroll } from './directives/virtualScroll'
 import './styles/theme.css'
 import './styles/responsive.css'
 
-createApp(App).use(router).mount('#app')
+createApp(App).directive('virtual-scroll', virtualScroll).use(router).mount('#app')
