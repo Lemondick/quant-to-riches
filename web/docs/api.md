@@ -341,6 +341,7 @@ GET /api/v1/risk/stress
 GET /api/v1/runtime/costs
 GET /api/v1/runtime/status
 GET /api/v1/runtime/workers/snapshot
+GET /api/v1/sentiment
 GET /api/v1/stocks/candidates
 GET /api/v1/valuation
 POST /api/v1/admin/advisor/schedule/rerun

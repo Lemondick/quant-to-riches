@@ -5831,6 +5831,18 @@
         }
       }
     },
+    "/api/v1/sentiment": {
+      "get": {
+        "tags": [
+          "Sentiment"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/research/strategy-settings": {
       "get": {
         "tags": [
@@ -8880,6 +8892,9 @@
     },
     {
       "name": "Runtime"
+    },
+    {
+      "name": "Sentiment"
     },
     {
       "name": "Strategy"
