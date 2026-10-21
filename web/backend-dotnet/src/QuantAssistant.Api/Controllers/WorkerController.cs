@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using QuantAssistant.Core.Auth;
 using QuantAssistant.Infrastructure.Jobs;
+using QuantAssistant.Api.Configuration;
 using QuantAssistant.Api.Services;
 using QuantAssistant.Infrastructure.Runtime;
 using QuantAssistant.Core.Errors;
@@ -13,7 +14,7 @@ namespace QuantAssistant.Api.Controllers;
 
 [ApiController]
 [Route("internal/v1/worker")]
-public sealed class WorkerController(ComputeJobRepository jobs, IConfiguration configuration, ModelConnectionService connections, ModelCostRepository costs, PublicSnapshotRepository publicData, TradingCalendarRepository calendars) : ControllerBase
+public sealed class WorkerController(ComputeJobRepository jobs, IConfiguration configuration, QuantOptions options, ModelConnectionService connections, ModelCostRepository costs, PublicSnapshotRepository publicData, TradingCalendarRepository calendars) : ControllerBase
 {
     public sealed record ClaimBody(string WorkerId, string[] Capabilities);
     public sealed record LeaseBody(string UserId, string JobId, int Attempt, string OwnerToken);
@@ -35,11 +36,12 @@ public sealed class WorkerController(ComputeJobRepository jobs, IConfiguration c
     {
         AuthenticateWorker();
         using var signal = ComputeJobNotifications.Local.SubscribeQueue();
-        var job = await jobs.ClaimAsync(body.WorkerId, body.Capabilities, cancellation);
+        // batch3 #11：传递低优任务最大等待配置（QUANT_TASK_QUEUE_MAX_LOW_WAIT_MIN）用于 starvation 提级。
+        var job = await jobs.ClaimAsync(body.WorkerId, body.Capabilities, cancellation, options.TaskQueueMaxLowWaitMin);
         if (job is null)
         {
             await signal.WaitAsync(TimeSpan.FromSeconds(5), cancellation);
-            job = await jobs.ClaimAsync(body.WorkerId, body.Capabilities, cancellation);
+            job = await jobs.ClaimAsync(body.WorkerId, body.Capabilities, cancellation, options.TaskQueueMaxLowWaitMin);
         }
         var input = job is null ? null : JsonNode.Parse(job.InputJson)!.AsObject();
         if (job is not null && ComputeJobRepository.IndependentPublicKinds.Contains(job.Kind))

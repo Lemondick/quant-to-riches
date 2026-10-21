@@ -90,7 +90,7 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
             var input=new JsonObject { ["public_id"]=reportId,["report_kind"]=kind,["models"]=models.DeepClone(),["snapshot"]=AnalysisSnapshotRepository.Create(sql,user),
                 ["strategy"]=Document(sql,user,"strategy-settings",new(){["parameters"]=new JsonObject()}),["preferences"]=Document(sql,user,"preferences",new(){["watchlist"]=new JsonArray()}) };
             sql.Execute("INSERT INTO market_advisor_reports(user_id,report_id,report_date,kind,status,created_at,updated_at,model_config_json) VALUES($1,$2,$3,$4,'queued',now(),now(),$5::json)",user,reportId,FundFeeRepository.Today(),kind,models.ToJsonString());
-            ComputeJobRepository.EnqueueOwned(sql,user,"advisor.report",input.ToJsonString(),DateTime.UtcNow.AddMinutes(10));
+            ComputeJobRepository.EnqueueOwned(sql,user,"advisor.report",input.ToJsonString(),DateTime.UtcNow.AddMinutes(10), priority: "high");
             return reportId;
         });
         return Get(user,id);

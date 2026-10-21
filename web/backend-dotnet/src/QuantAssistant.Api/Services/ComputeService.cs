@@ -25,7 +25,7 @@ public sealed class ComputeService(ComputeJobRepository jobs, AnalysisSnapshotRe
         var key = CacheKey(userId, kind, payload)! + (force ? ":refresh" : "");
         var pending = refreshes.GetOrAdd(key, requestKey => new Lazy<Task>(async () =>
         {
-            try { await jobs.EnqueueAsync(userId, kind, payload, DateTime.UtcNow.AddSeconds(60), reuseCompleted: !force); }
+            try { await jobs.EnqueueAsync(userId, kind, payload, DateTime.UtcNow.AddSeconds(60), reuseCompleted: !force, priority: "high"); }
             catch (JobQuotaExceeded) { }
             finally { refreshes.TryRemove(key, out _); }
         }));
@@ -115,7 +115,7 @@ public sealed class ComputeService(ComputeJobRepository jobs, AnalysisSnapshotRe
         if (configuration["QUANT_WORKER_SECRET"] is not { Length: >= 32 }) throw new ApplicationFailure("worker_unavailable", 503, "计算进程尚未配置。");
         if (accountSnapshot) payload["snapshot"] = await snapshots.CreateAsync(userId, cancellation);
         var deadline = DateTime.UtcNow.AddSeconds(seconds);
-        var id = await jobs.EnqueueAsync(userId, kind, payload.ToJsonString(), deadline, reuseCompleted, cancellation);
+        var id = await jobs.EnqueueAsync(userId, kind, payload.ToJsonString(), deadline, reuseCompleted, cancellation, priority: "high");
         using var signal = ComputeJobNotifications.Local.Subscribe(userId, id);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
         timeout.CancelAfter(TimeSpan.FromSeconds(seconds));

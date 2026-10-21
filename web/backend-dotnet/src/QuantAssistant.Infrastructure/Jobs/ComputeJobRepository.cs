@@ -10,7 +10,7 @@ using QuantAssistant.Infrastructure.Db;
 
 namespace QuantAssistant.Infrastructure.Jobs;
 
-public sealed record ComputeJob(string UserId, string JobId, string Kind, string InputJson, int Attempt, string OwnerToken, DateTime Deadline, string? TraceId = null);
+public sealed record ComputeJob(string UserId, string JobId, string Kind, string InputJson, int Attempt, string OwnerToken, DateTime Deadline, string? TraceId = null, string Priority = "normal");
 public sealed record ComputeResult(string Status, string? ResultJson, string? ErrorCode, DateTime? CompletedAt, double? QueueMilliseconds = null, JsonNode? Timings = null);
 public sealed record CachedPublicResult(string ResultJson, bool Fresh, DateTime CompletedAt);
 
@@ -33,12 +33,22 @@ public sealed class ComputeJobRepository(string connectionString)
         "ledger.replay", "analysis.brinson",
     };
 
-    public static string EnqueueOwned(IAccountSql sql, string userId, string kind, string inputJson, DateTime deadline)
+    /// <summary>batch3 #11：任务优先级，critical &gt; high &gt; normal。未知值归一化为 normal。</summary>
+    public static readonly string[] JobPriorities = ["critical", "high", "normal"];
+    public static string NormalizePriority(string? priority) => priority switch
+    {
+        "critical" => "critical",
+        "high" => "high",
+        _ => "normal",
+    };
+
+    public static string EnqueueOwned(IAccountSql sql, string userId, string kind, string inputJson, DateTime deadline, string priority = "normal")
     {
         if (!AllowedKinds.Contains(kind)) throw new ArgumentException("计算任务类型不受支持");
+        priority = NormalizePriority(priority);
         var id = Guid.NewGuid().ToString("N");
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(kind + ":" + inputJson))).ToLowerInvariant();
-        sql.Execute("INSERT INTO compute_jobs(user_id,job_id,kind,input_json,input_hash,status,deadline,trace_id) VALUES($1,$2,$3,$4::jsonb,$5,'queued',$6,$7)", userId,id,kind,inputJson,hash,deadline,PerformanceTrace.Current?.TraceId);
+        sql.Execute("INSERT INTO compute_jobs(user_id,job_id,kind,input_json,input_hash,status,deadline,trace_id,priority) VALUES($1,$2,$3,$4::jsonb,$5,'queued',$6,$7,$8)", userId,id,kind,inputJson,hash,deadline,PerformanceTrace.Current?.TraceId,priority);
         return id;
     }
 
@@ -70,7 +80,7 @@ public sealed class ComputeJobRepository(string connectionString)
 
     public string Enqueue(string userId, string kind, string inputJson, DateTime deadline, bool reuseCompleted = true) => EnqueueAsync(userId, kind, inputJson, deadline, reuseCompleted).GetAwaiter().GetResult();
 
-    public async Task<string> EnqueueAsync(string userId, string kind, string inputJson, DateTime deadline, bool reuseCompleted = true, CancellationToken cancellation = default, int pendingLimit=20)
+    public async Task<string> EnqueueAsync(string userId, string kind, string inputJson, DateTime deadline, bool reuseCompleted = true, CancellationToken cancellation = default, int pendingLimit=20, string priority = "normal")
     {
         using var timing = PerformanceTrace.Measure("db");
         if (!AllowedKinds.Contains(kind)) throw new ArgumentException("计算任务类型不受支持");
@@ -115,7 +125,8 @@ public sealed class ComputeJobRepository(string connectionString)
             inputJson = refreshed.ToJsonString();
         }
         cmd.Parameters.Clear();
-        cmd.CommandText = "INSERT INTO compute_jobs(user_id,job_id,kind,input_json,input_hash,status,deadline,trace_id) VALUES($1,$2,$3,$4::jsonb,$5,'queued',$6,$7)";
+        priority = NormalizePriority(priority);
+        cmd.CommandText = "INSERT INTO compute_jobs(user_id,job_id,kind,input_json,input_hash,status,deadline,trace_id,priority) VALUES($1,$2,$3,$4::jsonb,$5,'queued',$6,$7,$8)";
         cmd.Parameters.AddWithValue(userId);
         cmd.Parameters.AddWithValue(id);
         cmd.Parameters.AddWithValue(kind);
@@ -123,6 +134,7 @@ public sealed class ComputeJobRepository(string connectionString)
         cmd.Parameters.AddWithValue(hash);
         cmd.Parameters.AddWithValue(deadline);
         cmd.Parameters.AddWithValue((object?)PerformanceTrace.Current?.TraceId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue(priority);
         await cmd.ExecuteNonQueryAsync(cancellation);
         await tx.CommitAsync(cancellation);
         ComputeJobNotifications.Local.PublishQueue();
@@ -131,7 +143,7 @@ public sealed class ComputeJobRepository(string connectionString)
 
     public ComputeJob? Claim(string workerId, string[] capabilities) => ClaimAsync(workerId, capabilities).GetAwaiter().GetResult();
 
-    public async Task<ComputeJob?> ClaimAsync(string workerId, string[] capabilities, CancellationToken cancellation = default)
+    public async Task<ComputeJob?> ClaimAsync(string workerId, string[] capabilities, CancellationToken cancellation = default, int maxLowWaitMinutes = 120)
     {
         using var timing = PerformanceTrace.Measure("db");
         if (workerId.Length is < 1 or > 64 || capabilities.Length is < 1 or > 50 || capabilities.Any(kind => !AllowedKinds.Contains(kind))) throw new ArgumentException("Worker标识或能力无效");
@@ -146,19 +158,26 @@ public sealed class ComputeJobRepository(string connectionString)
         await ExpireAsync(sql);
         cmd.CommandText = "SELECT count(*) FROM compute_jobs WHERE status IN ('running','cancel_requested')";
         if ((long)(await cmd.ExecuteScalarAsync(cancellation))! >= 3) { await tx.CommitAsync(cancellation); return null; }
+        // batch3 #11 starvation 防护：normal 任务排队超 maxLowWaitMinutes 分钟自动提级为 high，每任务只提级一次。
+        cmd.CommandText = "UPDATE compute_jobs SET priority='high',priority_boosted=TRUE WHERE status='queued' AND priority='normal' AND NOT priority_boosted AND created_at<now()-make_interval(mins=>$1)";
+        cmd.Parameters.AddWithValue((double)Math.Max(1, maxLowWaitMinutes));
+        await cmd.ExecuteNonQueryAsync(cancellation);
+        cmd.Parameters.Clear();
         cmd.CommandText = """
-            SELECT j.user_id,j.job_id,j.kind,j.input_json::text,j.attempt,j.deadline,j.trace_id
+            SELECT j.user_id,j.job_id,j.kind,j.input_json::text,j.attempt,j.deadline,j.trace_id,j.priority
             FROM compute_jobs j JOIN users u ON u.id=j.user_id
             WHERE j.status='queued' AND u.status='active' AND j.kind=ANY($1)
               AND (j.kind=ANY($2) OR NOT EXISTS(SELECT 1 FROM compute_jobs active WHERE active.user_id=j.user_id
                 AND active.status IN ('running','cancel_requested')))
-            ORDER BY CASE WHEN j.kind='market.snapshot' THEN 0 ELSE 1 END,j.created_at,j.job_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
+            ORDER BY CASE j.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END,
+                     CASE WHEN j.kind='market.snapshot' THEN 0 ELSE 1 END,
+                     j.created_at,j.job_id LIMIT 1 FOR UPDATE OF j SKIP LOCKED
             """;
         cmd.Parameters.AddWithValue(capabilities);
         cmd.Parameters.AddWithValue(IndependentPublicKinds);
         ComputeJob? job = null;
         await using (var reader = await cmd.ExecuteReaderAsync(cancellation))
-            if (await reader.ReadAsync(cancellation)) job = new(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant(), reader.GetDateTime(5), reader.IsDBNull(6) ? null : reader.GetString(6));
+            if (await reader.ReadAsync(cancellation)) job = new(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetInt32(4), Convert.ToHexString(RandomNumberGenerator.GetBytes(32)).ToLowerInvariant(), reader.GetDateTime(5), reader.IsDBNull(6) ? null : reader.GetString(6), reader.GetString(7));
         if (job is not null)
         {
             cmd.Parameters.Clear();
