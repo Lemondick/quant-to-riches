@@ -1,8 +1,9 @@
 import json
 from unittest.mock import patch
 
-from quant_assistant.providers.advisor_models import AdvisorModelError
 from tradingagents_operations import execute_full_tradingagents
+
+from quant_assistant.providers.advisor_models import AdvisorModelError
 
 
 def payload(tmp_path):
