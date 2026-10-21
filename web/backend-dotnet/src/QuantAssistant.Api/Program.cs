@@ -181,6 +181,8 @@ builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.RebalanceR
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.SmartDcaRepository>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.SmartDcaService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AskService>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AnnouncementRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.AnnouncementService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchJobQueryRepository>();
