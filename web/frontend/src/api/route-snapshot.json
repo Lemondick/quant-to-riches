@@ -1,0 +1,3484 @@
+{
+  "source": "controller-scan",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/audit",
+      "controller": "Admin",
+      "action": "Audit",
+      "summary": "",
+      "params": [
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/calendar",
+      "controller": "Calendar",
+      "action": "Read",
+      "summary": "",
+      "params": [
+        {
+          "name": "year",
+          "kind": "query",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "market",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/calendar",
+      "controller": "Calendar",
+      "action": "Save",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "SaveBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Year",
+              "type": "int",
+              "required": true
+            },
+            {
+              "name": "Source",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Holidays",
+              "type": "string[]",
+              "required": true
+            },
+            {
+              "name": "ExpectedRevision",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "Market",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/calendar/status",
+      "controller": "Calendar",
+      "action": "Status",
+      "summary": "",
+      "params": [
+        {
+          "name": "market",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/registration",
+      "controller": "Admin",
+      "action": "Registration",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "RegistrationBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Enabled",
+              "type": "bool",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/runtime",
+      "controller": "Runtime",
+      "action": "Runtime",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "controller": "Admin",
+      "action": "Users",
+      "summary": "",
+      "params": [
+        {
+          "name": "search",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}/details",
+      "controller": "AdminData",
+      "action": "Details",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "section",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "start",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        },
+        {
+          "name": "end",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}/export",
+      "controller": "AdminData",
+      "action": "Export",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "section",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "start",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        },
+        {
+          "name": "end",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{userId}/recovery-token",
+      "controller": "Admin",
+      "action": "RecoveryToken",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}/reports/{source}/{reportId}",
+      "controller": "AdminData",
+      "action": "Report",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "source",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "reportId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{userId}/revoke-sessions",
+      "controller": "Admin",
+      "action": "RevokeSessions",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{userId}/status",
+      "controller": "Admin",
+      "action": "Status",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "UserStatusBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Status",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}/timeline",
+      "controller": "AdminData",
+      "action": "Timeline",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "category",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "start",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        },
+        {
+          "name": "end",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/admin/users/{userId}/usage",
+      "controller": "AdminData",
+      "action": "Usage",
+      "summary": "",
+      "params": [
+        {
+          "name": "userId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/advisor/jev-connection",
+      "controller": "ModelConnection",
+      "action": "Jev",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "ModelConnectionService.JevBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/advisor/jev-models/discover",
+      "controller": "ModelConnection",
+      "action": "DiscoverJev",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "ModelConnectionService.JevBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/advisor/model-settings",
+      "controller": "ModelConnection",
+      "action": "Read",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/advisor/model-settings",
+      "controller": "ModelConnection",
+      "action": "Save",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "ModelConnectionService.SaveModelsBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/advisor/models/discover",
+      "controller": "ModelConnection",
+      "action": "Discover",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "ModelConnectionService.ProviderBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/advisor/notifications",
+      "controller": "Advisor",
+      "action": "Notifications",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/advisor/notifications/{notice_id}/acknowledge",
+      "controller": "Advisor",
+      "action": "Acknowledge",
+      "summary": "",
+      "params": [
+        {
+          "name": "notice_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/advisor/preflight",
+      "controller": "Advisor",
+      "action": "Preflight",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CreateBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/advisor/reports",
+      "controller": "Advisor",
+      "action": "Reports",
+      "summary": "",
+      "params": [
+        {
+          "name": "kind",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/advisor/reports",
+      "controller": "Advisor",
+      "action": "Create",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CreateBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/advisor/reports/{report_id}",
+      "controller": "Advisor",
+      "action": "Report",
+      "summary": "",
+      "params": [
+        {
+          "name": "report_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/advisor/schedule",
+      "controller": "Advisor",
+      "action": "Schedule",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/alerts",
+      "controller": "Alerts",
+      "action": "Read",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/alerts/{alert_id}/acknowledge",
+      "controller": "Alerts",
+      "action": "Acknowledge",
+      "summary": "",
+      "params": [
+        {
+          "name": "alert_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/alerts/settings",
+      "controller": "Alerts",
+      "action": "ReadSettings",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/alerts/settings",
+      "controller": "Alerts",
+      "action": "SaveSettings",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "AlertSettings",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/analysis/explain",
+      "controller": "Explanation",
+      "action": "Explain",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ExplainBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/attribution/reports",
+      "controller": "Attribution",
+      "action": "ListReports",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "query",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "source",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "from",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "to",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/attribution/reports",
+      "controller": "Attribution",
+      "action": "CreateReport",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "CreateAttributionBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/attribution/reports/{report_id}",
+      "controller": "Attribution",
+      "action": "GetReport",
+      "summary": "",
+      "params": [
+        {
+          "name": "report_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/attribution/reports/{report_id}/calculate",
+      "controller": "Attribution",
+      "action": "CalculateEffects",
+      "summary": "",
+      "params": [
+        {
+          "name": "report_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "CalculateAttributionBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/attribution/reports/{report_id}/export",
+      "controller": "Attribution",
+      "action": "ExportReport",
+      "summary": "",
+      "params": [
+        {
+          "name": "report_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "format",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/attribution/reports/automatic",
+      "controller": "Attribution",
+      "action": "CreateAutomaticReport",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "AutomaticAttributionBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "PortfolioSymbol",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "BenchmarkId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "StartDate",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "EndDate",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Ledger",
+              "type": "bool",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/attribution/reports/link",
+      "controller": "Attribution",
+      "action": "LinkReports",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LinkAttributionBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "ReportId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "ReportIds",
+              "type": "List<string>",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "controller": "Auth",
+      "action": "Login",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LoginBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Username",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Password",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "controller": "Auth",
+      "action": "Logout",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/password",
+      "controller": "Auth",
+      "action": "Password",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "PasswordBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "CurrentPassword",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "NewPassword",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/recovery/redeem",
+      "controller": "Auth",
+      "action": "Redeem",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "RedeemBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Username",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Token",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "NewPassword",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "controller": "Auth",
+      "action": "Register",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "RegisterBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Username",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Password",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "controller": "Auth",
+      "action": "Session",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "controller": "Auth",
+      "action": "Sessions",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sessions/{session_id}/revoke",
+      "controller": "Auth",
+      "action": "RevokeSession",
+      "summary": "",
+      "params": [
+        {
+          "name": "session_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/sessions/revoke-others",
+      "controller": "Auth",
+      "action": "RevokeOtherSessions",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/status",
+      "controller": "Auth",
+      "action": "RegistrationStatus",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/backtests/latest",
+      "controller": "ResearchRead",
+      "action": "Backtest",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/dashboard/summary",
+      "controller": "Dashboard",
+      "action": "Read",
+      "summary": "",
+      "params": [
+        {
+          "name": "separateNav",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/data/status",
+      "controller": "ResearchRead",
+      "action": "DataStatus",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/dca/plans",
+      "controller": "Dca",
+      "action": "ListPlans",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/dca/plans",
+      "controller": "Dca",
+      "action": "CreatePlan",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "CreateDcaPlanBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/dca/plans/{plan_id}/calculate",
+      "controller": "Dca",
+      "action": "CalculateCurrentAmount",
+      "summary": "",
+      "params": [
+        {
+          "name": "plan_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "CalculateDcaBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/decisions/latest",
+      "controller": "ResearchRead",
+      "action": "Decision",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{symbol}/detail",
+      "controller": "Market",
+      "action": "Detail",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "refresh",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{symbol}/fee-evidence",
+      "controller": "FundFee",
+      "action": "Read",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/fee-evidence",
+      "controller": "FundFee",
+      "action": "Save",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "EvidenceBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "ShareClass",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "PurchaseRate",
+              "type": "decimal",
+              "required": true
+            },
+            {
+              "name": "AnnualServiceRate",
+              "type": "decimal",
+              "required": true
+            },
+            {
+              "name": "RedemptionTiers",
+              "type": "RedemptionTier[]",
+              "required": true
+            },
+            {
+              "name": "VerifiedOn",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "EffectiveFrom",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "EvidenceReference",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "PurchaseTiers",
+              "type": "PurchaseTier[]",
+              "required": false
+            },
+            {
+              "name": "EffectiveTo",
+              "type": "DateOnly",
+              "required": false
+            },
+            {
+              "name": "Channel",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "ServiceRefundRule",
+              "type": "ServiceRefundRule",
+              "required": false
+            },
+            {
+              "name": "Confirmed",
+              "type": "bool",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/fee-quote",
+      "controller": "FundFee",
+      "action": "Quote",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "QuoteBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Amount",
+              "type": "decimal",
+              "required": true
+            },
+            {
+              "name": "HoldingDays",
+              "type": "int",
+              "required": true
+            },
+            {
+              "name": "ConfirmedOn",
+              "type": "DateOnly",
+              "required": false
+            },
+            {
+              "name": "NavIncludesServiceFee",
+              "type": "bool",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/{symbol}/holding-lots",
+      "controller": "FundLot",
+      "action": "Read",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/holding-lots",
+      "controller": "FundLot",
+      "action": "Save",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LotsBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Items",
+              "type": "FundLot[]",
+              "required": true
+            },
+            {
+              "name": "VerifiedOn",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "EvidenceReference",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "PositionFingerprint",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Confirmed",
+              "type": "bool",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/holding-redemption-quote",
+      "controller": "FundLot",
+      "action": "Quote",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "QuoteBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "SnapshotId",
+              "type": "long",
+              "required": true
+            },
+            {
+              "name": "Selections",
+              "type": "FundLotSelection[]",
+              "required": true
+            },
+            {
+              "name": "ConfirmedOn",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "AssumedNav",
+              "type": "decimal",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/{symbol}/redemption-quote",
+      "controller": "FundFee",
+      "action": "Redemption",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "RedemptionBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "ConfirmedOn",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "Lots",
+              "type": "LotBody[]",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/candidates",
+      "controller": "ResearchRead",
+      "action": "Funds",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/catalog",
+      "controller": "FundCatalog",
+      "action": "Catalog",
+      "summary": "",
+      "params": [
+        {
+          "name": "q",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/categories",
+      "controller": "FundCatalog",
+      "action": "Categories",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/lifecycle/events",
+      "controller": "ResearchRead",
+      "action": "Lifecycle",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/style-drift/events",
+      "controller": "ResearchRead",
+      "action": "StyleDrift",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/valuations",
+      "controller": "Market",
+      "action": "Valuations",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbols",
+          "kind": "query",
+          "type": "string[]",
+          "required": false
+        },
+        {
+          "name": "separateNav",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/funds/valuations/alerts",
+      "controller": "ResearchRead",
+      "action": "ValuationAlerts",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "controller": "OperationsViews",
+      "action": "Health",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/history/{section}",
+      "controller": "History",
+      "action": "Records",
+      "summary": "",
+      "params": [
+        {
+          "name": "section",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "start",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        },
+        {
+          "name": "end",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        },
+        {
+          "name": "export",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/history/{section}/export",
+      "controller": "History",
+      "action": "Export",
+      "summary": "",
+      "params": [
+        {
+          "name": "section",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "start",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        },
+        {
+          "name": "end",
+          "kind": "query",
+          "type": "DateOnly",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/commit",
+      "controller": "Photo",
+      "action": "Commit",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CommitBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/confirm",
+      "controller": "Photo",
+      "action": "Confirm",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ReviewBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/holdings-commit",
+      "controller": "Photo",
+      "action": "HoldingsCommit",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CommitBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/holdings-review",
+      "controller": "Photo",
+      "action": "HoldingsReview",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "HoldingsBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/manual",
+      "controller": "Photo",
+      "action": "Manual",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ManualBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/merge",
+      "controller": "Photo",
+      "action": "Merge",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "MergeBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/preview",
+      "controller": "Photo",
+      "action": "Preview",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "PreviewBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/imports/fund-photo/review",
+      "controller": "Photo",
+      "action": "Review",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ReviewBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger",
+      "controller": "Ledger",
+      "action": "GetLedger",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/actions",
+      "controller": "LedgerRead",
+      "action": "Actions",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/actions",
+      "controller": "Ledger",
+      "action": "RecordCorporateAction",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "CorporateActionBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/attribution",
+      "controller": "ResearchRead",
+      "action": "Profit",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/corrections",
+      "controller": "LedgerRead",
+      "action": "Corrections",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/corrections",
+      "controller": "Ledger",
+      "action": "CorrectLedgerEntry",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LedgerCorrectionBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/dividends",
+      "controller": "Ledger",
+      "action": "RecordDividend",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LedgerDividendBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/dividends/{id:long}",
+      "controller": "Ledger",
+      "action": "GetDividend",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "query",
+          "type": "long",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/reconciliation/{identity}",
+      "controller": "Reconciliation",
+      "action": "Detail",
+      "summary": "",
+      "params": [
+        {
+          "name": "identity",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/reconciliation/{identity}/resolve",
+      "controller": "Reconciliation",
+      "action": "Resolve",
+      "summary": "",
+      "params": [
+        {
+          "name": "identity",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ResolveBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/reconciliation/accounts",
+      "controller": "Reconciliation",
+      "action": "Accounts",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/reconciliation/compare",
+      "controller": "Reconciliation",
+      "action": "Compare",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CompareAccounts",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/reconciliation/history",
+      "controller": "Reconciliation",
+      "action": "History",
+      "summary": "",
+      "params": [
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/replay/{previewId}/receipt",
+      "controller": "LedgerReplay",
+      "action": "Receipt",
+      "summary": "",
+      "params": [
+        {
+          "name": "previewId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/replay/batch-history",
+      "controller": "LedgerReplay",
+      "action": "BatchHistory",
+      "summary": "",
+      "params": [
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/replay/batch-preview",
+      "controller": "LedgerReplay",
+      "action": "BatchPreview",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "LedgerCsvInput.Batch",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/replay/confirm",
+      "controller": "LedgerReplay",
+      "action": "Confirm",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ConfirmBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/replay/history",
+      "controller": "LedgerReplay",
+      "action": "History",
+      "summary": "",
+      "params": [
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/replay/preview",
+      "controller": "LedgerReplay",
+      "action": "Preview",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "LedgerReplayMigrationService.HistoricalBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ledger/transactions",
+      "controller": "Ledger",
+      "action": "RecordTransaction",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LedgerTradeBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/ledger/transactions/{id:long}",
+      "controller": "Ledger",
+      "action": "GetTransaction",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "query",
+          "type": "long",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/market/history",
+      "controller": "Market",
+      "action": "History",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "refresh",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/market/news",
+      "controller": "Market",
+      "action": "News",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/market/quotes",
+      "controller": "Market",
+      "action": "Quotes",
+      "summary": "",
+      "params": [
+        {
+          "name": "stocks",
+          "kind": "query",
+          "type": "string[]",
+          "required": false
+        },
+        {
+          "name": "indices",
+          "kind": "query",
+          "type": "string[]",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/market/snapshot",
+      "controller": "Market",
+      "action": "Snapshot",
+      "summary": "",
+      "params": [
+        {
+          "name": "section",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "refresh",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        },
+        {
+          "name": "fullCatalog",
+          "kind": "query",
+          "type": "bool",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/onboarding",
+      "controller": "History",
+      "action": "Onboarding",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/operations/readiness",
+      "controller": "OperationalReadiness",
+      "action": "Readiness",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/operations/trends",
+      "controller": "OperationsViews",
+      "action": "Trends",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/operations/watchdog",
+      "controller": "OperationsViews",
+      "action": "Watchdog",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/operations/watchdog/heartbeat",
+      "controller": "OperationsViews",
+      "action": "Heartbeat",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "HeartbeatBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "JobName",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "ExpectedIntervalMinutes",
+              "type": "int",
+              "required": false
+            },
+            {
+              "name": "Status",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "StartedAt",
+              "type": "DateTimeOffset",
+              "required": false
+            },
+            {
+              "name": "CompletedAt",
+              "type": "DateTimeOffset",
+              "required": false
+            },
+            {
+              "name": "Error",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/peers/funds/{symbol}/ranking",
+      "controller": "Peer",
+      "action": "GetFundRanking",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "group_id",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "date",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/peers/groups/{group_id}/rankings",
+      "controller": "Peer",
+      "action": "GetGroupRankings",
+      "summary": "",
+      "params": [
+        {
+          "name": "group_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "date",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/planning/cash-flows",
+      "controller": "Planning",
+      "action": "List",
+      "summary": "",
+      "params": [
+        {
+          "name": "status",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/planning/cash-flows",
+      "controller": "Planning",
+      "action": "Create",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "PlanBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Name",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Direction",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Amount",
+              "type": "decimal",
+              "required": true
+            },
+            {
+              "name": "Frequency",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "StartDate",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "EndDate",
+              "type": "DateOnly",
+              "required": false
+            },
+            {
+              "name": "Note",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "PlanId",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/planning/cash-flows/{plan_id}",
+      "controller": "Planning",
+      "action": "Update",
+      "summary": "",
+      "params": [
+        {
+          "name": "plan_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "UpdateBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Name",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Direction",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Amount",
+              "type": "decimal",
+              "required": true
+            },
+            {
+              "name": "Frequency",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "StartDate",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "ExpectedUpdatedAt",
+              "type": "DateTimeOffset",
+              "required": true
+            },
+            {
+              "name": "EndDate",
+              "type": "DateOnly",
+              "required": false
+            },
+            {
+              "name": "Note",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "Status",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/planning/cash-flows/{plan_id}/status",
+      "controller": "Planning",
+      "action": "SetStatus",
+      "summary": "",
+      "params": [
+        {
+          "name": "plan_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "StatusBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Status",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "ExpectedUpdatedAt",
+              "type": "DateTimeOffset",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/planning/cash-flows/due",
+      "controller": "Planning",
+      "action": "Due",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/portfolio",
+      "controller": "Portfolio",
+      "action": "Portfolio",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/portfolio/drawdown",
+      "controller": "Drawdown",
+      "action": "Read",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/portfolio/drawdown/validate",
+      "controller": "Drawdown",
+      "action": "Validate",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "Body",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "RunId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Nav",
+              "type": "NavPoint[]",
+              "required": true
+            },
+            {
+              "name": "Threshold",
+              "type": "double",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/portfolio/fund-nav",
+      "controller": "FundNav",
+      "action": "Run",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "Body",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/portfolio/history",
+      "controller": "LedgerRead",
+      "action": "PortfolioHistory",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/portfolio/photo-holdings",
+      "controller": "Photo",
+      "action": "Holdings",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/preferences",
+      "controller": "Preferences",
+      "action": "Get",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/preferences/news/read",
+      "controller": "Preferences",
+      "action": "NewsRead",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "NewsBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Ids",
+              "type": "string[]",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/preferences/watchlist",
+      "controller": "Preferences",
+      "action": "Watchlist",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "WatchlistBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Items",
+              "type": "WatchlistItem[]",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/agent-runs",
+      "controller": "Research",
+      "action": "List",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs",
+      "controller": "Research",
+      "action": "Create",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CreateResearchBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/agent-runs/{job_id}",
+      "controller": "Research",
+      "action": "Get",
+      "summary": "",
+      "params": [
+        {
+          "name": "job_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs/{job_id}/cancel",
+      "controller": "Research",
+      "action": "Cancel",
+      "summary": "",
+      "params": [
+        {
+          "name": "job_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs/{job_id}/retry",
+      "controller": "Research",
+      "action": "Retry",
+      "summary": "",
+      "params": [
+        {
+          "name": "job_id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "RetryResearchBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/agent-runs/~/api/v1/research/previews",
+      "controller": "Research",
+      "action": "Previews",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/agent-runs/~/api/v1/research/screener",
+      "controller": "Research",
+      "action": "Screener",
+      "summary": "",
+      "params": [
+        {
+          "name": "factors",
+          "kind": "query",
+          "type": "IFactorRepository",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ScreenerRequestBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/benchmarks",
+      "controller": "ResearchMetadata",
+      "action": "Benchmarks",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/benchmarks",
+      "controller": "ResearchMetadata",
+      "action": "CreateBenchmark",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "BenchmarkBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Name",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Components",
+              "type": "double>",
+              "required": true
+            },
+            {
+              "name": "BenchmarkId",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "IsDefault",
+              "type": "bool",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/benchmarks/{benchmarkId}/compare",
+      "controller": "ResearchRead",
+      "action": "Benchmark",
+      "summary": "",
+      "params": [
+        {
+          "name": "benchmarkId",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/factors/{factor}",
+      "controller": "ResearchMetadata",
+      "action": "FactorMonitor",
+      "summary": "",
+      "params": [
+        {
+          "name": "factor",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/factors/alerts",
+      "controller": "ResearchMetadata",
+      "action": "FactorAlerts",
+      "summary": "",
+      "params": [
+        {
+          "name": "factor",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/factors/observations",
+      "controller": "ResearchMetadata",
+      "action": "RecordFactor",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "FactorBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Factor",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "AsOfDate",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "Ic",
+              "type": "double",
+              "required": false
+            },
+            {
+              "name": "Ir",
+              "type": "double",
+              "required": false
+            },
+            {
+              "name": "SampleCount",
+              "type": "int",
+              "required": false
+            },
+            {
+              "name": "Source",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/advisor-tracking",
+      "controller": "FundResearch",
+      "action": "Tracking",
+      "summary": "",
+      "params": [
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/cost-study",
+      "controller": "FundResearch",
+      "action": "Study",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/cost-study/curves",
+      "controller": "FundResearch",
+      "action": "Curves",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "period",
+          "kind": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/cost-study/update",
+      "controller": "FundResearch",
+      "action": "UpdateStatus",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/funds/cost-study/update",
+      "controller": "FundResearch",
+      "action": "Update",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/execution-replays",
+      "controller": "FundExecutionReplay",
+      "action": "List",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/funds/execution-replays",
+      "controller": "FundExecutionReplay",
+      "action": "Create",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ReplayBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/research/funds/execution-replays/{id}",
+      "controller": "FundExecutionReplay",
+      "action": "Delete",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/execution-replays/{id}",
+      "controller": "FundExecutionReplay",
+      "action": "Get",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/execution-replays/{id}/export",
+      "controller": "FundExecutionReplay",
+      "action": "Export",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/funds/portfolio-risk",
+      "controller": "FundResearch",
+      "action": "Risk",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/funds/public-observations",
+      "controller": "FundResearch",
+      "action": "Refresh",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "RefreshBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/macro/context",
+      "controller": "ResearchMetadata",
+      "action": "MacroContext",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/macro/observations",
+      "controller": "ResearchMetadata",
+      "action": "MacroObservations",
+      "summary": "",
+      "params": [
+        {
+          "name": "indicator",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": "int",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/macro/observations",
+      "controller": "ResearchMetadata",
+      "action": "RecordMacro",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "MacroBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "Indicator",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "ObservedOn",
+              "type": "DateOnly",
+              "required": true
+            },
+            {
+              "name": "Value",
+              "type": "double",
+              "required": true
+            },
+            {
+              "name": "Unit",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Source",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research/strategy-settings",
+      "controller": "Strategy",
+      "action": "Read",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/research/strategy-settings",
+      "controller": "Strategy",
+      "action": "Save",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "JsonObject",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/strategy-settings/preview",
+      "controller": "Strategy",
+      "action": "Preview",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "JsonObject",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/runtime/costs",
+      "controller": "Cost",
+      "action": "Read",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/runtime/costs",
+      "controller": "Cost",
+      "action": "Save",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "CostSettings",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/runtime/costs/{identity}/bill-evidence",
+      "controller": "Cost",
+      "action": "RecordBill",
+      "summary": "",
+      "params": [
+        {
+          "name": "identity",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "ModelBillEvidence",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/stocks/candidates",
+      "controller": "ResearchRead",
+      "action": "Stocks",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "controller": "Health",
+      "action": "Health",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v1/worker/claim",
+      "controller": "Worker",
+      "action": "Claim",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "ClaimBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "WorkerId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Capabilities",
+              "type": "string[]",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v1/worker/cost-finish",
+      "controller": "Worker",
+      "action": "FinishCost",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "CostFinishBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v1/worker/cost-reserve",
+      "controller": "Worker",
+      "action": "Reserve",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "query",
+          "type": "ReserveBody",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v1/worker/finish",
+      "controller": "Worker",
+      "action": "Finish",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "FinishBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "UserId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "JobId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Attempt",
+              "type": "int",
+              "required": true
+            },
+            {
+              "name": "OwnerToken",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Result",
+              "type": "JsonElement",
+              "required": true
+            },
+            {
+              "name": "ErrorCode",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "Timings",
+              "type": "JsonObject",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/internal/v1/worker/heartbeat",
+      "controller": "Worker",
+      "action": "Heartbeat",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "LeaseBody",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "UserId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "JobId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "Attempt",
+              "type": "int",
+              "required": true
+            },
+            {
+              "name": "OwnerToken",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "controller": "Health",
+      "action": "Metrics",
+      "summary": "",
+      "params": [
+        {
+          "name": "counters",
+          "kind": "query",
+          "type": "UsageCounterService",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/readyz",
+      "controller": "Health",
+      "action": "Ready",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    }
+  ],
+  "generated_at": "2026-10-21T02:26:04.616Z",
+  "route_count": 171,
+  "unexposed_count": 117
+}
