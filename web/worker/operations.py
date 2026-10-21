@@ -10,6 +10,7 @@ from paid_operations import PAID_CAPABILITIES, execute_paid
 from photo_operations import PHOTO_CAPABILITIES, execute_photo
 from public_operations import IN_PROCESS_CAPABILITIES, execute_public
 from read_operations import READ_CAPABILITIES, execute_read
+from redemption_operations import REDEMPTION_CAPABILITIES, execute_redemption
 from replay_operations import REPLAY_CAPABILITIES, execute_replay
 from research_operations import RESEARCH_CAPABILITIES, execute_research
 from strategy_operations import STRATEGY_CAPABILITIES, execute_strategy
@@ -29,6 +30,7 @@ CAPABILITIES = (
     *REPLAY_CAPABILITIES,
     *ATTRIBUTION_CAPABILITIES,
     *CALENDAR_CAPABILITIES,
+    *REDEMPTION_CAPABILITIES,
 )
 
 
@@ -59,4 +61,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_attribution(kind, payload)
     if kind in CALENDAR_CAPABILITIES:
         return execute_calendar(kind, payload)
+    if kind in REDEMPTION_CAPABILITIES:
+        return execute_redemption(kind, payload)
     raise ValueError("unsupported_operation")
