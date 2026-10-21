@@ -11,7 +11,7 @@ namespace QuantAssistant.Api.Services;
 /// <summary>
 /// batch5 任务1：目标规划投影（api/v1/goals/{id}/project）。
 /// current_amount 取账本净资产（ListPositionsAsync 市值合计口径），透调 worker op goal.project。
-/// 若 worker op 尚未实现（流 B 未完成），本地 stub 顶上并在响应中注明 calculation_source，
+/// worker 不可用时本地 stub 兜底并在响应中注明 calculation_source，
 /// 联调时直接替换即可（契约见 qr5-contracts.md；payload/返回形状与 worker 约定一致）。
 /// 进度偏离口径：线性假设（预期完成度=已流逝天数/总天数），实际完成度=current_amount/target_amount，
 /// 绝对差超 QUANT_GOAL_DEVIATION_THRESHOLD（默认 10%）即写入 user_alert_center（kind=goal_deviation）。
@@ -58,7 +58,7 @@ public sealed class GoalProjectionService(GoalTargetRepository goals, ComputeSer
         }
         catch (ApplicationFailure error) when (error.Code is "worker_unavailable" or "invalid_request")
         {
-            // 流 B 尚未实现 goal.project：本地 stub 顶上（纯计算公式，契约一致）。
+            // worker 不可用/拒绝时的防御性回退：本地 stub（纯计算公式，与 goal.project 同形状）。
             result = LocalProject(current, target, targetDate, monthlyAmount, assumed);
             source = "local_stub";
         }
