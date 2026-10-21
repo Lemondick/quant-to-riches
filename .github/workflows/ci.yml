@@ -190,6 +190,81 @@ jobs:
             echo "::warning::Runner --dry-run 退出码 $code；本 job 标记为待 A 流 E2 就绪。"
           fi
 
+  # 归属: D 流 batch2 任务14 —— pglast 解析全部 SQL 迁移（含 .down.sql），语法错误阻断。
+  migration-parse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pglast
+      - run: python3 .github/scripts/check_migration_syntax.py
+
+  # 归属: D 流 batch2 任务12 —— 审计哈希链独立验证脚本端到端检查。
+  # 有 PG 时：安装 PG18 → 全部迁移 → 按 0036 标准口径造链 → verify 脚本正/反向验证。
+  # 无 PG 时：跳过，不阻断。
+  audit-chain-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 55442
+      PGUSER: quant_audit
+      PGDATABASE: quant_audit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL 18 (best effort)
+        shell: bash
+        run: |
+          set +e
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-18 postgresql-client-18
+          sudo pg_createcluster 18 quantaudit --port 55442 --start -- --auth-local=trust --auth-host=trust
+          ready=false
+          for attempt in $(seq 1 30); do
+            if /usr/lib/postgresql/18/bin/pg_isready -h 127.0.0.1 -p 55442 -U postgres; then ready=true; break; fi
+            sleep 1
+          done
+          if [ "$ready" = true ]; then
+            /usr/lib/postgresql/18/bin/createuser -h 127.0.0.1 -p 55442 -U postgres --createdb quant_audit
+            /usr/lib/postgresql/18/bin/createdb -h 127.0.0.1 -p 55442 -U postgres -O quant_audit quant_audit
+            echo "PG_OK=true" >> "$GITHUB_ENV"
+          else
+            echo "PG_OK=false" >> "$GITHUB_ENV"
+          fi
+          exit 0
+      - name: Apply migrations, seed chain, verify
+        if: env.PG_OK == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="/usr/lib/postgresql/18/bin:$PATH"
+          for f in $(ls web/backend-dotnet/migrations/*.sql | grep -v '\.down\.sql' | sort); do
+            echo "apply $f"
+            psql -v ON_ERROR_STOP=1 -q -f "$f" >/dev/null
+          done
+          python3 .github/scripts/seed_audit_chain.py
+          bash web/backend-dotnet/deploy/verify-audit-chain.sh
+          # 反向测试：篡改一条明细，脚本必须报失败（退出码非 0）。
+          psql -v ON_ERROR_STOP=1 -q -c \
+            "UPDATE public.admin_audit SET detail = detail || 'tampered' WHERE id = (SELECT max(id) FROM public.admin_audit);"
+          if bash web/backend-dotnet/deploy/verify-audit-chain.sh; then
+            echo "反向测试失败：篡改后脚本仍返回成功" >&2
+            exit 1
+          fi
+          echo "audit-chain 正/反向验证通过"
+      - name: Skip notice
+        if: env.PG_OK != 'true'
+        run: echo "无可用 PostgreSQL，audit-chain-verify 跳过（不阻断）。"
+
   postgres-integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
