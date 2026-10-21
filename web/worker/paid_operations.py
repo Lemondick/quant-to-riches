@@ -124,13 +124,13 @@ def execute_paid(kind, payload):
                 "symbol_gates": {},
                 "observed_at": payload["request"].get("data_date"),
                 "tradingagents": {
-                    "data_quality_summary": upstream.get("data_quality_summary", ""),
+                    "data_quality_summary": str(upstream.get("data_quality_summary", ""))[:5000],
                     "missing_data_tasks": upstream.get("missing_data_tasks", []),
-                    "analysts": upstream.get("analysts", {}),
-                    "research_plan": upstream.get("research_plan", ""),
-                    "trader_proposal": upstream.get("trader_proposal", ""),
-                    "risk_debate": upstream.get("risk_debate", ""),
-                    "portfolio_decision": upstream.get("portfolio_decision", ""),
+                    "analysts": {key: str(value)[:1800] for key, value in upstream.get("analysts", {}).items()},
+                    "research_plan": str(upstream.get("research_plan", ""))[:5000],
+                    "trader_proposal": str(upstream.get("trader_proposal", ""))[:3000],
+                    "risk_debate": str(upstream.get("risk_debate", ""))[:5000],
+                    "portfolio_decision": str(upstream.get("portfolio_decision", ""))[:5000],
                 },
             }
         }
