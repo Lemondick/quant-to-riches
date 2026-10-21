@@ -157,7 +157,7 @@ public sealed class NativeFeatureFlowTests
         }
     }
 
-    [PgFact("测试引用已下线的旧版 Python API 路由/语义（如 /api/v1/planning/cash-flows、operations.alerts 结构），需按原生 API 重写后移除本 Skip（#6）。")]
+    [PgFact]
     public async Task PreferencesCashPlansAndCosts_RoundTripWithoutCrossAccountLeaks()
     {
         using var user = new PgTestUser();
@@ -181,16 +181,17 @@ public sealed class NativeFeatureFlowTests
             Assert.Empty(isolated.GetProperty("watchlist").EnumerateArray());
             Assert.Empty(isolated.GetProperty("read_news_ids").EnumerateArray());
 
-            var plan = await Json(await client.PostAsJsonAsync("/api/v1/planning/cash-flows", new
+            var plan = await Json(await client.PostAsJsonAsync("/api/v1/plans", new
             {
-                name = "Synthetic monthly deposit", direction = "deposit", amount = 1500.00000001m,
+                name = "Synthetic monthly deposit", direction = "in", amount = 1500.00000001m,
                 frequency = "monthly", start_date = "2026-01-31", end_date = "2026-03-31",
             }));
             Assert.Equal(1500.00000001m, plan.GetProperty("amount").DecimalText());
+            Assert.Equal("in", plan.GetProperty("direction").GetString());
             Assert.Equal(new[] { "2026-01-31", "2026-02-28", "2026-03-31" }, plan.GetProperty("next_dates").EnumerateArray().Select(item => item.GetString()).ToArray());
-            var due = await Json(await client.GetAsync("/api/v1/planning/cash-flows/due?as_of=2026-02-28"));
+            var due = await Json(await client.GetAsync("/api/v1/plans/due?as_of=2026-02-28"));
             Assert.Equal(plan.GetProperty("plan_id").GetString(), Assert.Single(due.GetProperty("items").EnumerateArray()).GetProperty("plan_id").GetString());
-            Assert.Empty((await Json(await second.GetAsync("/api/v1/planning/cash-flows"))).GetProperty("items").EnumerateArray());
+            Assert.Empty((await Json(await second.GetAsync("/api/v1/plans"))).GetProperty("items").EnumerateArray());
 
             var settings = new { revision = 0, currency = "CNY", daily_budget = 100.00000001m, prices = new { } };
             var costs = await Json(await client.PutAsJsonAsync("/api/v1/runtime/costs", settings));
@@ -199,10 +200,10 @@ public sealed class NativeFeatureFlowTests
             Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync("/api/v1/runtime/costs", settings)).StatusCode);
             Assert.Equal(0, (await Json(await second.GetAsync("/api/v1/runtime/costs"))).GetProperty("settings").GetProperty("revision").GetInt32());
 
-            await Json(await client.PostAsJsonAsync("/api/v1/operations/watchdog/heartbeat", new { job_name = "synthetic-job", status = "completed" }));
-            var heartbeat = Assert.Single((await Json(await client.GetAsync("/api/v1/operations/watchdog"))).GetProperty("items").EnumerateArray());
+            await Json(await client.PostAsJsonAsync("/api/v1/operations/heartbeats", new { job_name = "synthetic-job", expected_interval_minutes = 60, status = "healthy", completed_at = DateTime.UtcNow }));
+            var heartbeat = Assert.Single((await Json(await client.GetAsync("/api/v1/operations/watchdog"))).EnumerateArray());
             Assert.True(heartbeat.GetProperty("healthy").GetBoolean());
-            Assert.Empty((await Json(await second.GetAsync("/api/v1/operations/watchdog"))).GetProperty("items").EnumerateArray());
+            Assert.Empty((await Json(await second.GetAsync("/api/v1/operations/watchdog"))).EnumerateArray());
         }
         finally
         {
@@ -211,7 +212,7 @@ public sealed class NativeFeatureFlowTests
         }
     }
 
-    [PgFact("测试引用已下线的旧版 Python API 路由/语义（如 /api/v1/planning/cash-flows、operations.alerts 结构），需按原生 API 重写后移除本 Skip（#6）。")]
+    [PgFact]
     public async Task NativePageModules_ReadEmptyAccountWithoutServerErrors()
     {
         using var user = new PgTestUser();
@@ -220,11 +221,11 @@ public sealed class NativeFeatureFlowTests
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         foreach (var path in new[]
         {
-            "/api/v1/portfolio", "/api/v1/portfolio/history", "/api/v1/portfolio/photo-holdings",
-            "/api/v1/ledger", "/api/v1/ledger/actions", "/api/v1/ledger/corrections",
+            "/api/v1/portfolio", "/api/v1/ledger/portfolio-history", "/api/v1/portfolio/photo-holdings",
+            "/api/v1/ledger", "/api/v1/ledger/corporate-actions", "/api/v1/ledger/corrections",
             "/api/v1/ledger/reconciliation/accounts", "/api/v1/ledger/reconciliation/history",
             "/api/v1/ledger/replay/history", "/api/v1/dca/plans", "/api/v1/preferences",
-            "/api/v1/planning/cash-flows", "/api/v1/planning/cash-flows/due", "/api/v1/runtime/costs",
+            "/api/v1/plans", "/api/v1/plans/due", "/api/v1/runtime/costs",
             "/api/v1/operations/watchdog", "/api/v1/operations/trends", "/api/v1/onboarding",
             "/api/v1/advisor/reports", "/api/v1/advisor/schedule", "/api/v1/advisor/notifications",
             "/api/v1/funds/510300/fee-evidence", "/api/v1/funds/510300/holding-lots",
