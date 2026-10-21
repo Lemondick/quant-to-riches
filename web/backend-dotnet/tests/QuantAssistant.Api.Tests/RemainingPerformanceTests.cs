@@ -52,7 +52,7 @@ public sealed class RemainingPerformanceTests(ITestOutputHelper output)
         using var user = new PgTestUser(); user.SeedLedger();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient(); PgTestUser.AttachSession(client, user.Connection, user.Id);
+        using var client = factory.CreateTestClient(); PgTestUser.AttachSession(client, user.Connection, user.Id);
         var before = await client.GetFromJsonAsync<JsonObject>("/api/v1/dashboard/summary");
         Assert.Equal(10000m, decimal.Parse(before!["portfolio"]!["cash"]!.GetValue<string>()));
         user.Execute("UPDATE positions SET quantity=123,market_value=123 WHERE user_id=$1 AND symbol='CNY'", user.Id);
@@ -287,7 +287,7 @@ public sealed class RemainingPerformanceTests(ITestOutputHelper output)
         user.Execute("INSERT INTO usage_daily(user_id,day,category,requests,errors,duration_ms,last_activity_at) VALUES($1,$2,'market',0,0,0,now())", user.Id, day);
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         factory.Services.GetRequiredService<PublicMarketSnapshot>().Publish(JsonNode.Parse(Market)!.AsObject(), DateTime.UtcNow);
         await using var connection = new Npgsql.NpgsqlConnection(user.Connection);
@@ -316,7 +316,7 @@ public sealed class RemainingPerformanceTests(ITestOutputHelper output)
         using var user = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         const string trace = "abcdef0123456789abcdef0123456789";
         client.DefaultRequestHeaders.Add("X-Trace-Id", trace);

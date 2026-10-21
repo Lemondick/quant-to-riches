@@ -26,7 +26,7 @@ public sealed class ContractTests : IClassFixture<WebApplicationFactory<Program>
             services.AddSingleton<IReadinessProbe, NotConfiguredProbe>();
         }));
 
-    private HttpClient CreateClient() => _factory.CreateClient();
+    private HttpClient CreateClient() => _factory.CreateTestClient();
 
     [Fact]
     public async Task VueRoutes_ServeTheBuiltEntryOnDirectNavigation_WithoutMaskingMissingApiOrAssets()
@@ -40,7 +40,7 @@ public sealed class ContractTests : IClassFixture<WebApplicationFactory<Program>
         {
             Environment.SetEnvironmentVariable("QUANT_WEB_ROOT", root);
             using var factory = new WebApplicationFactory<Program>();
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             foreach (var route in new[] { "/portfolio", "/ledger", "/watchlist", "/market", "/ai-stock", "/fund-review", "/quant", "/news", "/admin", "/settings" })
             {
                 var response = await client.GetAsync(route);

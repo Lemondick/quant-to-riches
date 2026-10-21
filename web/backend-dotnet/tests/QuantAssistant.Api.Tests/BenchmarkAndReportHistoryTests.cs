@@ -15,8 +15,8 @@ public sealed class BenchmarkAndReportHistoryTests
         using var other = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-        using var second = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var second = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         PgTestUser.AttachSession(second, user.Connection, other.Id);
         async Task<JsonElement> Save(HttpClient target, string id, Dictionary<string, double> components, bool isDefault = true)
@@ -72,8 +72,8 @@ public sealed class BenchmarkAndReportHistoryTests
         using var other = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-        using var second = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var second = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         PgTestUser.AttachSession(second, user.Connection, other.Id);
         var ids = new List<string>();

@@ -22,7 +22,7 @@ public sealed class LaunchPreparationTests
         var saved=repository.Compare(user.Id,new(["account"],true,0,new(2026,1,2),new(2026,1,2),"=synthetic proof"));
         var id=saved["reconciliation_id"]!.ToString();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",user.Connection);
-        using var factory=new WebApplicationFactory<Program>();using var client=factory.CreateClient();using var foreign=factory.CreateClient();using var anonymous=factory.CreateClient();
+        using var factory=new WebApplicationFactory<Program>();using var client=factory.CreateTestClient();using var foreign=factory.CreateClient();using var anonymous=factory.CreateClient();
         PgTestUser.AttachSession(client,user.Connection,user.Id);PgTestUser.AttachSession(foreign,user.Connection,other.Id);
         var route="/api/v1/ledger/reconciliation/"+id;
         Assert.Equal(HttpStatusCode.Unauthorized,(await anonymous.GetAsync(route)).StatusCode);
@@ -51,7 +51,7 @@ public sealed class LaunchPreparationTests
         Assert.Null(costs.Read(user.Id)["items"]![0]!["cost"]);
         Assert.False(database.Read(sql=>ModelCostRepository.EvidenceReadinessFor(sql,user.Id))["passed"]!.GetValue<bool>());
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",user.Connection);
-        using var factory=new WebApplicationFactory<Program>();using var client=factory.CreateClient();using var foreign=factory.CreateClient();
+        using var factory=new WebApplicationFactory<Program>();using var client=factory.CreateTestClient();using var foreign=factory.CreateClient();
         PgTestUser.AttachSession(client,user.Connection,user.Id);PgTestUser.AttachSession(foreign,user.Connection,other.Id);
         var route="/api/v1/runtime/costs/"+id+"/bill-evidence";
         var proof=new{amount="0.12345678",currency="CNY",reference="synthetic bill line #1",confirmed=true};

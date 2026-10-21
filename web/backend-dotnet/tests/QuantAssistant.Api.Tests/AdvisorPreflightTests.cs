@@ -23,7 +23,7 @@ public sealed class AdvisorPreflightTests
         try
         {
             using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["QUANT_SECRET_ROOT"] = root, ["QUANT_WORKER_SECRET"] = "synthetic-preflight-worker-secret-1234" })));
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             var secrets = factory.Services.GetRequiredService<PrivateSecretStore>();
             foreach (var key in new[] { "model-provider", "model-jev" })
@@ -60,7 +60,7 @@ public sealed class AdvisorPreflightTests
         using var user = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var response = await client.PostAsJsonAsync("/api/v1/advisor/preflight", new { kind = "morning" });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -74,7 +74,7 @@ public sealed class AdvisorPreflightTests
         Assert.Equal(0L, user.Query("SELECT count(*) FROM market_advisor_reports WHERE user_id=$1", user.Id));
         Assert.Equal(0L, user.Query("SELECT count(*) FROM model_call_costs WHERE user_id=$1", user.Id));
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await client.PostAsJsonAsync("/api/v1/advisor/preflight", new { kind = "bad" })).StatusCode);
-        using var anonymous = factory.CreateClient();
+        using var anonymous = factory.CreateTestClient();
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsJsonAsync("/api/v1/advisor/preflight", new { kind = "morning" })).StatusCode);
     }
 }

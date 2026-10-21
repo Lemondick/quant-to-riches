@@ -59,7 +59,7 @@ public sealed class MarketCalendarTests
         try
         {
             using var factory = Factory(admin);
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, admin.Connection, admin.Id);
             var cn = await Json(await client.GetAsync("/api/v1/admin/calendar?year=2026&market=CN"));
             var hk = await Json(await client.GetAsync("/api/v1/admin/calendar?year=2028&market=HK"));
@@ -95,7 +95,7 @@ public sealed class MarketCalendarTests
         try
         {
             using var factory = Factory(admin);
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, admin.Connection, admin.Id);
             await factory.Services.GetRequiredService<TradingCalendarRepository>().SnapshotAsync(year);
             var prior = await Json(await client.GetAsync("/api/v1/admin/calendar?year=" + year));
@@ -108,7 +108,7 @@ public sealed class MarketCalendarTests
             var jobs = new ComputeJobRepository(admin.Connection);
             var id = jobs.Enqueue(admin.Id, "market.quotes", "{\"stocks\":[],\"indices\":[],\"_calendars\":{\"format_version\":999}}", DateTime.UtcNow.AddMinutes(1));
             var hash = admin.Query("SELECT input_hash FROM compute_jobs WHERE user_id=$1 AND job_id=$2", admin.Id, id);
-            using var worker = factory.CreateClient();
+            using var worker = factory.CreateTestClient();
             worker.DefaultRequestHeaders.Add("X-Quant-Worker-Secret", WorkerSecret);
             var job = await Json(await worker.PostAsJsonAsync("/internal/v1/worker/claim", new { worker_id = "synthetic-calendar-worker", capabilities = new[] { "market.quotes" } }));
             var input = job.GetProperty("input");

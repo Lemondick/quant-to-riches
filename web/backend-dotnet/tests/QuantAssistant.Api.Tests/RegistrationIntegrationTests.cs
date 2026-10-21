@@ -18,7 +18,7 @@ public sealed class RegistrationIntegrationTests
         var created = new List<string>();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", admin.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         var username = "reg_" + Guid.NewGuid().ToString("N")[..12];
         const string password = "RegistrationTest_12345";
         try
@@ -70,7 +70,7 @@ public sealed class RegistrationIntegrationTests
         var created = new List<string>();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", helper.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         try
         {
             while (repository.CountUsers() < 29)

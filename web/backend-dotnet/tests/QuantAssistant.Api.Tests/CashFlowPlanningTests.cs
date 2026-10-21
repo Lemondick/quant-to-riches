@@ -40,7 +40,7 @@ public sealed class CashFlowPlanningTests
         using var user = new PgTestUser();
         using var other = new PgTestUser();
         using var factory = Factory(user);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         try
         {
@@ -50,7 +50,7 @@ public sealed class CashFlowPlanningTests
                 'once','2026-01-01',CASE WHEN i%2=0 THEN 'paused' ELSE 'active' END,now(),now()
                 FROM generate_series(0,504) i
                 """, user.Id);
-            using var foreign = factory.CreateClient();
+            using var foreign = factory.CreateTestClient();
             PgTestUser.AttachSession(foreign, user.Connection, other.Id);
             await Json(await foreign.PostAsJsonAsync(Route, Body("foreign-only")));
             var first = await Json(await client.GetAsync(Route + "?limit=20&offset=0"));
@@ -86,7 +86,7 @@ public sealed class CashFlowPlanningTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         try
         {
@@ -124,8 +124,8 @@ public sealed class CashFlowPlanningTests
         using var other = new PgTestUser();
         user.SeedLedger();
         using var factory = Factory(user);
-        using var client = factory.CreateClient();
-        using var foreign = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var foreign = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         PgTestUser.AttachSession(foreign, user.Connection, other.Id);
         try
@@ -165,7 +165,7 @@ public sealed class CashFlowPlanningTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         try
         {
@@ -192,7 +192,7 @@ public sealed class CashFlowPlanningTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         try
         {

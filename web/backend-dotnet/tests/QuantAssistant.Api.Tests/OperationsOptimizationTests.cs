@@ -27,7 +27,7 @@ public sealed class OperationsOptimizationTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user, new() { ["QUANT_EXPECTED_WORKERS"] = "3", ["QUANT_WORKER_SECRET"] = new string('x', 40) });
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         // API startup already marks old heartbeats as stopping in this isolated database.
         var prefix = "optimization-" + user.Id;
         user.Execute("UPDATE worker_heartbeats SET stopping=true");
@@ -48,7 +48,7 @@ public sealed class OperationsOptimizationTests
         using var user = new PgTestUser();
         user.Execute("UPDATE users SET role='admin' WHERE id=$1", user.Id);
         using var factory = Factory(user, new() { ["QUANT_EXPECTED_WORKERS"] = "3", ["QUANT_BACKUP_DIR"] = "", ["QUANT_DISK_MIN_FREE_PERCENT"] = "100" });
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         user.Execute("INSERT INTO compute_jobs(user_id,job_id,kind,input_json,input_hash,status,deadline,created_at) VALUES($1,'old-queued','market.quotes','{}','x','queued',now()+interval '1 hour',now()-interval '10 minutes'),($1,'overdue','market.quotes','{}','y','running',now()-interval '1 minute',now()-interval '2 minutes')", user.Id);
         var runtime = await Json(await client.GetAsync("/api/v1/admin/runtime"));
@@ -74,8 +74,8 @@ public sealed class OperationsOptimizationTests
         using var other = new PgTestUser();
         admin.Execute("UPDATE users SET role='admin' WHERE id=$1", admin.Id);
         using var factory = Factory(admin);
-        using var client = factory.CreateClient();
-        using var ordinary = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var ordinary = factory.CreateTestClient();
         PgTestUser.AttachSession(client, admin.Connection, admin.Id);
         PgTestUser.AttachSession(ordinary, admin.Connection, other.Id);
         const int year = 2099;
@@ -119,7 +119,7 @@ public sealed class OperationsOptimizationTests
         try
         {
             using var factory = Factory(user, new() { ["QUANT_BACKUP_DIR"] = directory });
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             foreach (var invalid in new[] { "null", "{bad json", "{\"status\":1}" })
             {

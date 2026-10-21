@@ -27,7 +27,7 @@ public class AuthMiddlewareIntegrationTests : IClassFixture<WebApplicationFactor
         if (string.IsNullOrEmpty(_connection)) return;
 
         using var registration = new RegistrationScope();
-        var client = _factory.CreateClient();
+        var client = _factory.CreateTestClient();
 
         // 1. Register
         var username = $"u{Guid.NewGuid():N}".Substring(0, 32);
@@ -50,7 +50,7 @@ public class AuthMiddlewareIntegrationTests : IClassFixture<WebApplicationFactor
         var cookieValue = quantSession.Split(';')[0].Substring("quant_session=".Length);
 
         // 4. Create new client with cookie, call a secured endpoint (e.g., /api/v1/history/onboarding which uses CurrentUserId())
-        var authedClient = _factory.CreateClient();
+        var authedClient = _factory.CreateTestClient();
         authedClient.DefaultRequestHeaders.Add("Cookie", $"quant_session={cookieValue}");
 
         var historyRes = await authedClient.GetAsync("/api/v1/onboarding");

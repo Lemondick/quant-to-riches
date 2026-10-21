@@ -26,7 +26,7 @@ public sealed class NativeFeatureFlowTests
         try
         {
             using var factory = Factory(user.Connection);
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             foreach (var id in new[] { "synthetic-private-run", "synthetic-missing-run" })
             {
@@ -56,8 +56,8 @@ public sealed class NativeFeatureFlowTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var anonymous = factory.CreateClient();
-        using var client = factory.CreateClient();
+        using var anonymous = factory.CreateTestClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         for (var index = 0; index < 25; index++)
         {
@@ -81,7 +81,7 @@ public sealed class NativeFeatureFlowTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         var repository = new AccountRepository(user.Connection);
         Assert.Null(repository.FindById(user.Id)!.LastLoginAt);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { username = user.Username, password = "SyntheticWrongPassword" })).StatusCode);
@@ -120,8 +120,8 @@ public sealed class NativeFeatureFlowTests
         var repository = new AccountRepository(admin.Connection);
         var previous = repository.RegistrationEnabled();
         using var factory = Factory(admin.Connection);
-        using var anonymous = factory.CreateClient();
-        using var client = factory.CreateClient();
+        using var anonymous = factory.CreateTestClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, admin.Connection, admin.Id);
         try
         {
@@ -163,8 +163,8 @@ public sealed class NativeFeatureFlowTests
         using var user = new PgTestUser();
         using var other = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
-        using var second = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var second = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         PgTestUser.AttachSession(second, other.Connection, other.Id);
         try
@@ -216,7 +216,7 @@ public sealed class NativeFeatureFlowTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         foreach (var path in new[]
         {

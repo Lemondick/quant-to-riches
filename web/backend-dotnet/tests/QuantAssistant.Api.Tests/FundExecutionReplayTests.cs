@@ -17,8 +17,8 @@ public sealed class FundExecutionReplayTests
         using var other = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["QUANT_WORKER_SECRET"] = "synthetic-fund-replay-worker-secret-123" })));
-        using var client = factory.CreateClient();
-        using var foreign = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var foreign = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         PgTestUser.AttachSession(foreign, user.Connection, other.Id);
         const string route = "/api/v1/research/funds/execution-replays";
@@ -62,7 +62,7 @@ public sealed class FundExecutionReplayTests
         using var user = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         const string route = "/api/v1/research/funds/execution-replays";
         foreach (var raw in new[] { "[]", "null", "{\"fingerprint\":123}", "{\"id\":false}" })
@@ -90,7 +90,7 @@ public sealed class FundExecutionReplayTests
         using var user = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> { ["QUANT_WORKER_SECRET"] = "synthetic-fund-replay-worker-secret-123" })));
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         const string route = "/api/v1/research/funds/execution-replays";
         var id = Guid.NewGuid().ToString("N");

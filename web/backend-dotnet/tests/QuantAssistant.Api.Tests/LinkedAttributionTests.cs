@@ -86,7 +86,7 @@ public sealed class LinkedAttributionTests
         var second=Seed(user,new(2026,1,15),new(2026,1,30),true);
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",user.Connection);
         using var factory=new WebApplicationFactory<Program>();
-        using var client=factory.CreateClient();
+        using var client=factory.CreateTestClient();
         PgTestUser.AttachSession(client,user.Connection,user.Id);
         var id=Guid.NewGuid().ToString("N");
         var body=new {report_id=id,report_ids=new[]{second.Report.Id,first.Report.Id}};
@@ -124,7 +124,7 @@ public sealed class LinkedAttributionTests
         var second=Seed(user,new(2026,1,15),new(2026,1,30),true);
         var foreign=Seed(other,new(2026,1,15),new(2026,1,30),true);
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",user.Connection);
-        using var factory=new WebApplicationFactory<Program>(); using var client=factory.CreateClient();
+        using var factory=new WebApplicationFactory<Program>(); using var client=factory.CreateTestClient();
         PgTestUser.AttachSession(client,user.Connection,user.Id);
         async Task<HttpStatusCode> Link(params string[] ids)=>(await client.PostAsJsonAsync(Route,new{report_id=Guid.NewGuid().ToString("N"),report_ids=ids})).StatusCode;
         Assert.Equal(HttpStatusCode.NotFound,await Link(first.Report.Id,foreign.Report.Id));

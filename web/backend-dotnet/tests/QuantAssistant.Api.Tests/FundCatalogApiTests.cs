@@ -15,7 +15,7 @@ public sealed class FundCatalogApiTests
     [Fact]
     public async Task CatalogAndCategoriesRequireRealAccountAuthentication()
     {
-        using var factory=new WebApplicationFactory<Program>();using var client=factory.CreateClient();
+        using var factory=new WebApplicationFactory<Program>();using var client=factory.CreateTestClient();
         foreach(var path in new[]{"/api/v1/funds/catalog","/api/v1/funds/categories"})
             Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync(path)).StatusCode);
     }
@@ -51,7 +51,7 @@ public sealed class FundCatalogApiTests
         {
             user.Execute("INSERT INTO public_compute_snapshots(kind,input_hash,input_json,result_json,completed_at,expires_at) VALUES('fund.catalog',$1,'{}',$2::jsonb,now(),now()+interval '6 hours')",key,directory.ToJsonString());
             using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(builder=>builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?>{["QUANT_PUBLIC_REFRESH_ENABLED"]="false"})));
-            using var client=factory.CreateClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
+            using var client=factory.CreateTestClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
             foreach(var initial in new[]{"/api/v1/funds/catalog","/api/v1/funds/catalog?q=","/api/v1/funds/catalog?q=%20%20"})
                 Assert.Equal(HttpStatusCode.OK,(await client.GetAsync(initial)).StatusCode);
             var path="/api/v1/funds/catalog?q=023&asset_class="+Uri.EscapeDataString("股票型")+"&strategy_tags="+Uri.EscapeDataString("指数策略")+"&share_class=__unknown&page_size=1";
@@ -61,7 +61,7 @@ public sealed class FundCatalogApiTests
             var categories=await client.GetFromJsonAsync<JsonObject>("/api/v1/funds/categories");Assert.NotNull(categories!["dimensions"]!["asset_class"]);
             // The complete directory is retained once in the service, not parsed for every page/account.
             user.Execute("DELETE FROM public_compute_snapshots WHERE input_hash=$1",key);
-            using var otherClient=factory.CreateClient();PgTestUser.AttachSession(otherClient,user.Connection,other.Id);
+            using var otherClient=factory.CreateTestClient();PgTestUser.AttachSession(otherClient,user.Connection,other.Id);
             var same=await otherClient.GetFromJsonAsync<JsonObject>(path);Assert.True(JsonNode.DeepEquals(result["items"],same!["items"]));
             Assert.Equal(0L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id IN ($1,$2)",user.Id,other.Id));
             foreach(var invalid in new[]{"page=0","page_size=101","asset_class="+new string('x',101)})Assert.Equal(HttpStatusCode.UnprocessableEntity,(await client.GetAsync("/api/v1/funds/catalog?"+invalid)).StatusCode);
@@ -82,7 +82,7 @@ public sealed class FundCatalogApiTests
             user.Execute("INSERT INTO public_compute_snapshots(kind,input_hash,input_json,result_json,completed_at,expires_at) VALUES('fund.catalog',$1,'{}',$2::jsonb,now()-interval '7 hours',now()-interval '1 hour')",key,directory.ToJsonString());
             using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(builder=>builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?>{
                 ["QUANT_PUBLIC_REFRESH_ENABLED"]="false",["QUANT_WORKER_SECRET"]="synthetic-catalog-worker-secret-123456"})));
-            using var client=factory.CreateClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
+            using var client=factory.CreateTestClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
             var initial=await client.GetFromJsonAsync<JsonObject>("/api/v1/funds/categories");Assert.True(initial!["stale"]!.GetValue<bool>());
             Assert.Equal(1L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id IN ($1,$2) AND kind='fund.catalog'",user.Id,other.Id));
             var jobs=new ComputeJobRepository(user.Connection);var claim=jobs.Claim("catalog-refresh-regression",["fund.catalog"])!;
@@ -90,7 +90,7 @@ public sealed class FundCatalogApiTests
             directory["fetched_at"]=DateTimeOffset.UtcNow.ToString("O");
             Assert.True(jobs.Finish(user.Id,claim.JobId,claim.Attempt,claim.OwnerToken,directory.ToJsonString(),null));
             Assert.Equal(1L,user.Query("SELECT count(*) FROM public_compute_snapshots WHERE kind='fund.catalog' AND input_hash<>$1 AND result_json->>'refresh_test'=$2",key,user.Id));
-            using var otherClient=factory.CreateClient();PgTestUser.AttachSession(otherClient,user.Connection,other.Id);
+            using var otherClient=factory.CreateTestClient();PgTestUser.AttachSession(otherClient,user.Connection,other.Id);
             // The singleton still serves its observed stale directory for 60 seconds, across accounts.
             foreach(var reader in new[]{client,otherClient,client,otherClient})
             {
@@ -115,7 +115,7 @@ public sealed class FundCatalogApiTests
         {
             using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(builder=>builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?>{
                 ["QUANT_PUBLIC_REFRESH_ENABLED"]="false",["QUANT_WORKER_SECRET"]="synthetic-catalog-worker-secret-123456"})));
-            using var client=factory.CreateClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
+            using var client=factory.CreateTestClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
             foreach(var path in new[]{"/api/v1/funds/catalog","/api/v1/funds/categories"})Assert.Equal(HttpStatusCode.ServiceUnavailable,(await client.GetAsync(path)).StatusCode);
             Assert.Equal(1L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1 AND kind='fund.catalog'",user.Id));
             var input=JsonNode.Parse((string)user.Query("SELECT input_json::text FROM compute_jobs WHERE user_id=$1 AND kind='fund.catalog'",user.Id)!)!.AsObject();

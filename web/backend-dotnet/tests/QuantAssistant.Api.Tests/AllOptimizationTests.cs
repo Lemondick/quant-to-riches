@@ -17,7 +17,7 @@ public sealed class AllOptimizationTests
         using var user = new PgTestUser(); using var other = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient(); using var foreign = factory.CreateClient();
+        using var client = factory.CreateTestClient(); using var foreign = factory.CreateClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id); PgTestUser.AttachSession(foreign, user.Connection, other.Id);
         var created = await client.PostAsJsonAsync("/api/v1/attribution/reports", new { portfolio_symbol = "=SUM(1,2)", benchmark_symbol = "B", start_date = "2026-01-01", end_date = "2026-01-31", details = new[] { new { sector_name = "@行业\"", portfolio_weight = "1", benchmark_weight = "1", portfolio_return = "0.123456789123456789", benchmark_return = "0" } } });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);

@@ -54,7 +54,7 @@ public sealed class ScreenerIntegrationTests : IClassFixture<WebApplicationFacto
 
         try
         {
-            var client = _factory.CreateClient();
+            var client = _factory.CreateTestClient();
             PgTestUser.AttachSession(client, _connection, userId);
             var req = new
             {

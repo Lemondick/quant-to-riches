@@ -25,8 +25,8 @@ public sealed class AttributionCompletionTests
         using var other = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
-        using var otherClient = factory.CreateClient();
+        using var client = factory.CreateTestClient();
+        using var otherClient = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         PgTestUser.AttachSession(otherClient, user.Connection, other.Id);
         var created = await client.PostAsJsonAsync("/api/v1/attribution/reports", Body(Details("旧行业")));
@@ -56,7 +56,7 @@ public sealed class AttributionCompletionTests
         using var user = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         foreach (var body in new[]
         {

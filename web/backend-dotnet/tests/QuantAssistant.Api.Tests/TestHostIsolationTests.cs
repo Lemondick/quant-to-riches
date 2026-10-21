@@ -12,7 +12,7 @@ public sealed class TestHostIsolationTests
     public void RequestTestsNeverStartAutomaticAdvisorJobs()
     {
         using var factory=new WebApplicationFactory<Program>();
-        using var client=factory.CreateClient();
+        using var client=factory.CreateTestClient();
         Assert.Equal("true",factory.Services.GetRequiredService<IConfiguration>()["QUANT_DISABLE_SCHEDULER"]);
         Assert.False(factory.Services.GetRequiredService<NativeScheduler>().Running);
     }

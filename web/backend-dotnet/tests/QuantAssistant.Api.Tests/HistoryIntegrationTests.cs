@@ -27,7 +27,7 @@ public sealed class HistoryIntegrationTests
         SeedRows(other, 1);
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         foreach (var route in new[] { "/api/v1/history/ledger/export", "/api/v1/history/ledger?export=true&page=3&limit=1" })
         {
@@ -102,7 +102,7 @@ public sealed class HistoryIntegrationTests
         SeedRows(user, 100_001);
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         foreach (var route in new[] { "/api/v1/history/ledger/export", "/api/v1/history/ledger?export=true" })
         {
@@ -122,7 +122,7 @@ public sealed class HistoryIntegrationTests
             Assert.Throws<ArgumentException>(() => repo.Query(user.Id, "ledger", page, limit, null, null, null, false));
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         foreach (var route in new[] { "/api/v1/history/ledger", "/api/v1/history/ledger/export" })
         {

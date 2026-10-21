@@ -47,7 +47,7 @@ public sealed class JevDiscoveryIntegrationTests
                 services.RemoveAll<PublicModelCatalog>(); services.AddSingleton(catalog);
                 services.RemoveAll<PrivateSecretStore>(); services.AddSingleton(secrets);
             }));
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync("/api/v1/advisor/jev-connection", new { api_key = "synthetic-old-key", revision = 0 })).StatusCode);
             var pending = client.PostAsJsonAsync("/api/v1/advisor/jev-models/discover", new { api_key = "", revision = 1 });
@@ -93,8 +93,8 @@ public sealed class JevDiscoveryIntegrationTests
                 services.RemoveAll<PrivateSecretStore>();
                 services.AddSingleton(secrets);
             }));
-            using var client = factory.CreateClient();
-            using var otherClient = factory.CreateClient();
+            using var client = factory.CreateTestClient();
+            using var otherClient = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             PgTestUser.AttachSession(otherClient, user.Connection, other.Id);
             var response = await client.PostAsJsonAsync("/api/v1/advisor/jev-models/discover", new { api_key = "synthetic-good-key", revision = 0 });

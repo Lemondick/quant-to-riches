@@ -42,7 +42,7 @@ public class PeerApiIntegrationTests : IClassFixture<WebApplicationFactory<Progr
             repo.UpsertRankings(rankings);
 
             using var user = new PgTestUser();
-            var client = _factory.WithWebHostBuilder(b => { }).CreateClient();
+            var client = _factory.WithWebHostBuilder(b => { }).CreateTestClient();
             PgTestUser.AttachSession(client, _connection, user.Id);
 
             // Test 1: Get Group Rankings

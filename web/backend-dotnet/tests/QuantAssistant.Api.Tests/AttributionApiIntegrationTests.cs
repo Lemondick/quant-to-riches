@@ -29,7 +29,7 @@ public class AttributionApiIntegrationTests : IClassFixture<WebApplicationFactor
         var userId = Guid.NewGuid().ToString("N");
         SeedUser(userId);
 
-        var client = _factory.WithWebHostBuilder(b => { }).CreateClient();
+        var client = _factory.WithWebHostBuilder(b => { }).CreateTestClient();
         PgTestUser.AttachSession(client, _connection, userId);
 
         try

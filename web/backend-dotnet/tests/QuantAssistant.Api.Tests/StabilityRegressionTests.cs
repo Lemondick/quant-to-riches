@@ -103,7 +103,7 @@ public sealed class StabilityRegressionTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         client.DefaultRequestHeaders.Add("X-Test-User", user.Id);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/dca/plans")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/dca/plans", new { symbol = "510300", base_amount = 100 })).StatusCode);
@@ -126,7 +126,7 @@ public sealed class StabilityRegressionTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         client.DefaultRequestHeaders.Remove("X-CSRF-Token");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/v1/dca/plans", new { symbol = "510300", base_amount = 100 })).StatusCode);
@@ -140,7 +140,7 @@ public sealed class StabilityRegressionTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         var response = await client.PostAsJsonAsync("/api/v1/auth/login", new { username = user.Username, password = PgTestUser.Password });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -156,8 +156,8 @@ public sealed class StabilityRegressionTests
         var session = auth.CreateSession(user.Id, "test");
         var recovery = auth.IssueRecovery(user.Id, user.Id);
         using var factory = Factory(user.Connection);
-        using var first = factory.CreateClient();
-        using var second = factory.CreateClient();
+        using var first = factory.CreateTestClient();
+        using var second = factory.CreateTestClient();
         const string password = "SyntheticNewPassword123!";
         var body = new { username = user.Username, token = recovery.Token, new_password = password };
         var responses = await Task.WhenAll(first.PostAsJsonAsync("/api/v1/auth/recovery/redeem", body), second.PostAsJsonAsync("/api/v1/auth/recovery/redeem", body));
@@ -221,7 +221,7 @@ public sealed class StabilityRegressionTests
         using var user = new PgTestUser();
         user.SeedLedger();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var body = await (await client.GetAsync("/api/v1/portfolio")).Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(10000m, body.GetProperty("total_value").DecimalText());
@@ -235,7 +235,7 @@ public sealed class StabilityRegressionTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var response = await client.GetAsync("/api/v1/portfolio");
         response.EnsureSuccessStatusCode();
@@ -251,7 +251,7 @@ public sealed class StabilityRegressionTests
         user.SeedLedger();
         user.Execute("DELETE FROM instruments WHERE user_id=$1", user.Id);
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var trade = new { entry_type = "buy", symbol = "510300", name = "测试基金", asset_type = "fund", quantity = "100.5", price = "10", fees = "1", occurred_at = "2026-10-05T10:00:00+08:00", external_id = "API-TRADE", note = "test" };
         var response = await client.PostAsJsonAsync("/api/v1/ledger/transactions", trade);
@@ -288,7 +288,7 @@ public sealed class StabilityRegressionTests
         var svc = new TransactionService(new LedgerRepository(user.Connection), TimeProvider.System);
         var id = svc.RecordTransaction(user.Id, Trade("MIGRATED") with { Source = "manual-api" });
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var response = await client.PostAsJsonAsync("/api/v1/ledger/transactions", new { entry_type = "buy", symbol = "510300", name = "Synthetic", asset_type = "fund", quantity = "100", price = "10", fees = "0", occurred_at = "2026-10-05T10:00:00+08:00", external_id = "MIGRATED" });
         response.EnsureSuccessStatusCode();
@@ -306,7 +306,7 @@ public sealed class StabilityRegressionTests
         var id = svc.RecordDividend(user.Id, new DividendInput("510300", AssetType.Fund, 50, 2, new DateTimeOffset(2026, 10, 5, 10, 0, 0, TimeSpan.FromHours(8)), "DIV"));
         svc.CorrectLedgerEntry(user.Id, new LedgerCorrectionInput("dividend", id, "test", new DateTimeOffset(2026, 10, 5, 11, 0, 0, TimeSpan.FromHours(8)), "REVERSE"));
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var response = await client.GetAsync("/api/v1/ledger");
         response.EnsureSuccessStatusCode();
@@ -323,7 +323,7 @@ public sealed class StabilityRegressionTests
         user.SeedLedger();
         user.Execute("DELETE FROM instruments WHERE user_id=$1", user.Id);
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var response = await client.PostAsJsonAsync("/api/v1/ledger/transactions", new { entry_type = "buy", symbol = "510300", name = "Synthetic", asset_type = "fund", quantity = "100000", price = "10", fees = "0", occurred_at = "2026-10-05T10:00:00+08:00", external_id = "INSUFFICIENT" });
         Assert.False(response.IsSuccessStatusCode);
@@ -340,7 +340,7 @@ public sealed class StabilityRegressionTests
         other.SeedLedger();
         var id = new TransactionService(new LedgerRepository(owner.Connection), TimeProvider.System).RecordTransaction(other.Id, Trade("PRIVATE"));
         using var factory = Factory(owner.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, owner.Connection, owner.Id);
         client.DefaultRequestHeaders.Add("X-Test-User", other.Id);
         var response = await client.GetAsync("/api/v1/ledger");
@@ -357,7 +357,7 @@ public sealed class StabilityRegressionTests
         using var user = new PgTestUser();
         user.SeedLedger();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         var response = await client.PostAsJsonAsync("/api/v1/ledger/transactions", new { entry_type = "dca", symbol = "510300", name = "Synthetic", asset_type = "fund", quantity = "100", price = "10", fees = "0", occurred_at = "2026-10-05T10:00:00+08:00", external_id = "DCA-API" });
         response.EnsureSuccessStatusCode();
@@ -487,7 +487,7 @@ public sealed class StabilityRegressionTests
         using var owner = new PgTestUser();
         using var other = new PgTestUser();
         using var factory = Factory(owner.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, owner.Connection, owner.Id);
         client.DefaultRequestHeaders.Add("X-Test-User", other.Id);
         var response = await client.PostAsJsonAsync("/api/v1/dca/plans", new { symbol = "510300", base_amount = 100 });
@@ -502,7 +502,7 @@ public sealed class StabilityRegressionTests
     {
         using var user = new PgTestUser();
         using var factory = Factory(user.Connection);
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/readyz")).StatusCode);
     }
 

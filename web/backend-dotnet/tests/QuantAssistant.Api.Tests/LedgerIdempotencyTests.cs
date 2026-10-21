@@ -314,7 +314,7 @@ public sealed class LedgerIdempotencyTests
         using var user = new PgTestUser();
         Prepare(user, "dividend");
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.UseSetting("QUANT_PG_CONNECTION", user.Connection));
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         object Body(decimal amount) => new { symbol = "510300", asset_type = "fund", gross_amount = amount.ToString(CultureInfo.InvariantCulture), fees = "1", occurred_at = At(3).ToString("O"), external_id = "api-key", note = "note" };
         Assert.Equal(HttpStatusCode.Created, (await client.PostAsJsonAsync("/api/v1/ledger/dividends", Body(100m))).StatusCode);

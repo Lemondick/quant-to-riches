@@ -24,7 +24,7 @@ public sealed class NativeRouteParityTests
             Environment.SetEnvironmentVariable("QUANT_WEB_ROOT", directory);
             Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
             using var factory = new WebApplicationFactory<Program>();
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             Assert.Equal("NativeSyntheticShell", await client.GetStringAsync("/"));
         }
         finally

@@ -21,7 +21,7 @@ public sealed class AutomaticAttributionTests
         using var user = new PgTestUser();
         Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
         using var factory = new WebApplicationFactory<Program>();
-        using var client = factory.CreateClient();
+        using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsJsonAsync(Route, Body("another-account"))).StatusCode);
         Assert.Equal(0L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1", user.Id));
@@ -43,8 +43,8 @@ public sealed class AutomaticAttributionTests
             Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION", user.Connection);
             using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             { ["QUANT_SITE_ROOT"] = root, ["QUANT_WORKER_SECRET"] = "synthetic-automatic-attribution-worker-secret" })));
-            using var client = factory.CreateClient();
-            using var foreign = factory.CreateClient();
+            using var client = factory.CreateTestClient();
+            using var foreign = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             PgTestUser.AttachSession(foreign, user.Connection, other.Id);
             var jobs = new ComputeJobRepository(user.Connection);
