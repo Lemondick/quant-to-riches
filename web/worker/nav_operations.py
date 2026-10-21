@@ -1,6 +1,7 @@
 """Collect exact formal NAV values and immutable source files, without touching the ledger."""
 
 import hashlib
+import os
 from datetime import date, datetime
 
 import pandas as pd
@@ -14,18 +15,41 @@ from quant_assistant.providers.fund_detail import PublicFundDetailProvider
 
 NAV_CAPABILITIES = ("fund.nav_sources",)
 
+NAV_SYMBOLS_DEFAULT_MAX = 50
+
+
+def _nav_symbols_max():
+    try:
+        return max(1, int(os.environ.get("QUANT_WORKER_NAV_SYMBOLS_MAX", str(NAV_SYMBOLS_DEFAULT_MAX))))
+    except (TypeError, ValueError):
+        return NAV_SYMBOLS_DEFAULT_MAX
+
 
 def execute_nav(_kind, payload):
     directory = site_directory(payload["snapshot"])
     day = date.fromisoformat(payload["as_of_date"])
+    symbols = payload["symbols"]
+    if (
+        not isinstance(symbols, list)
+        or not symbols
+        or any(not isinstance(symbol, str) for symbol in symbols)
+    ):
+        raise ValueError("invalid_nav_symbols")
+    limit = _nav_symbols_max()
+    if len(symbols) > limit:
+        raise ValueError(f"too_many_nav_symbols:{len(symbols)}>{limit}")
     root = directory / "native-raw"
     if root.resolve() != root:
         raise ValueError("snapshot_path_escape")
     result, blockers = [], []
     provider = PublicFundDetailProvider()
-    for symbol in payload["symbols"]:
+    histories = provider.nav_histories(symbols)
+    for symbol in symbols:
         try:
-            rows = [row for row in provider.nav_history(symbol) if row.nav_date == day]
+            points = histories.get(symbol)
+            if points is None:
+                raise ValueError("formal_nav_unavailable")
+            rows = [row for row in points if row.nav_date == day]
             if len(rows) != 1 or rows[0].source not in {"eastmoney", "tencent"}:
                 raise ValueError("formal_nav_missing")
             point, now = rows[0], datetime.now(SHANGHAI_TZ)
