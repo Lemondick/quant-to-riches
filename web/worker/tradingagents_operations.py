@@ -13,10 +13,12 @@ DEFAULT_TIMEOUT_SECONDS = 170
 
 def execute_full_tradingagents(payload: dict) -> dict:
     python = os.environ.get("QUANT_TRADINGAGENTS_PYTHON", "").strip()
-    runner = Path(os.environ.get(
-        "QUANT_TRADINGAGENTS_RUNNER",
-        "/opt/quant-tradingagents/runner.py",
-    ))
+    runner = Path(
+        os.environ.get(
+            "QUANT_TRADINGAGENTS_RUNNER",
+            "/opt/quant-tradingagents/runner.py",
+        )
+    )
     if not python or not Path(python).is_file() or not runner.is_file():
         raise AdvisorModelError("model_configuration")
 
@@ -49,9 +51,17 @@ def execute_full_tradingagents(payload: dict) -> dict:
     env = {
         key: value
         for key, value in os.environ.items()
-        if key.upper() in {
-            "PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL",
-            "SSL_CERT_FILE", "SSL_CERT_DIR",
+        if key.upper()
+        in {
+            "PATH",
+            "SYSTEMROOT",
+            "WINDIR",
+            "TEMP",
+            "TMP",
+            "LANG",
+            "LC_ALL",
+            "SSL_CERT_FILE",
+            "SSL_CERT_DIR",
         }
     }
     env["PYTHONDONTWRITEBYTECODE"] = "1"
