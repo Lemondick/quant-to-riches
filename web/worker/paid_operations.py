@@ -97,7 +97,10 @@ def execute_paid(kind, payload):
     )
     models = AdvisorModels(settings, post=public_post)
     models.costs = CostClient(payload["_execution"])
-    if kind == "agent.research" and payload.get("research_engine") == "tradingagents_full":
+    if (
+        kind == "agent.research"
+        and payload.get("research_engine") == "tradingagents_full"
+    ):
         from tradingagents_operations import execute_full_tradingagents
 
         expires = datetime.fromisoformat(payload["preview_expires_at"])
@@ -107,7 +110,10 @@ def execute_paid(kind, payload):
             "strategy.preview",
             {"snapshot": payload["snapshot"], "parameters": payload["preview_parameters"]},
         )
-        if current.get("_evidence", {}).get("content_hash") != payload["preview_content_hash"]:
+        if (
+            current.get("_evidence", {}).get("content_hash")
+            != payload["preview_content_hash"]
+        ):
             raise AdvisorModelError("preview_changed")
         upstream = execute_full_tradingagents(payload)
         facts = payload["request"].get("facts", [])
@@ -148,9 +154,15 @@ def execute_paid(kind, payload):
                         key: str(value)[:1800]
                         for key, value in upstream.get("analysts", {}).items()
                     },
-                    "research_plan": str(upstream.get("research_plan", ""))[:5000],
-                    "trader_proposal": str(upstream.get("trader_proposal", ""))[:3000],
-                    "risk_debate": str(upstream.get("risk_debate", ""))[:5000],
+                    "research_plan": str(
+                        upstream.get("research_plan", "")
+                    )[:5000],
+                    "trader_proposal": str(
+                        upstream.get("trader_proposal", "")
+                    )[:3000],
+                    "risk_debate": str(
+                        upstream.get("risk_debate", "")
+                    )[:5000],
                     "portfolio_decision": str(
                         upstream.get("portfolio_decision", "")
                     )[:5000],
@@ -174,19 +186,24 @@ def execute_paid(kind, payload):
                 ),
                 "criteria": {
                     "research_candidate": "Enter further research only.",
-                    "watch": "Evidence is incomplete, stale, conflicting or requires human review.",
+                    "watch": (
+                        "Evidence is incomplete, stale, conflicting or requires human review."
+                    ),
                     "exclude": (
-                        "Current evidence supports excluding this candidate "
-                        "from further research."
+                        "Current evidence supports excluding this candidate from further research."
                     ),
                 },
             },
         }
         models.call_role = "jev"
-        verdict = models.decide(compact_state, questions, model=models_config["decision"])
+        verdict = models.decide(
+            compact_state, questions, model=models_config["decision"]
+        )
         answer = verdict["answers"]["candidate_0"]
         evidence_ok = verdict["answers"]["evidence"]["noul"] >= 0.8
-        confidence = min(answer["confidence"], answer["probabilities"][answer["choice"]])
+        confidence = min(
+            answer["confidence"], answer["probabilities"][answer["choice"]]
+        )
         hard_blockers = list(payload["request"].get("warnings", []))
         if upstream.get("missing_data_requires_reanalysis"):
             hard_blockers.append("TradingAgents 标记缺失数据需要重新分析")
