@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily Guanlan snapshot partition retention (task 9)
+
+[Timer]
+# 复用 quant-backup.timer 模式：每日凌晨执行，随机抖动，断电/关机后补跑。
+OnCalendar=*-*-* 03:30:00 Asia/Shanghai
+RandomizedDelaySec=300
+Persistent=true
+Unit=quant-snapshot-cleanup.service
+
+[Install]
+WantedBy=timers.target

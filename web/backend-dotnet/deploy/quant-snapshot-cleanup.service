@@ -1,0 +1,13 @@
+[Unit]
+Description=Guanlan snapshot partition retention maintenance (task 9)
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+# 与 quant-backup.* 同模式：环境文件可选缺失，连接串走 QUANT_PG_CONNECTION。
+EnvironmentFile=-/etc/quant/environment
+# 安装：sudo install -o root -g root -m 0755 deploy/quant-snapshot-cleanup.sh /usr/local/bin/
+ExecStart=/usr/local/bin/quant-snapshot-cleanup.sh
+TimeoutStartSec=600
+TimeoutStopSec=60
