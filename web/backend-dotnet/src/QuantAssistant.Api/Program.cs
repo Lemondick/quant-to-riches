@@ -104,7 +104,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
         var path = Path.GetFullPath(logDirectory);
         Directory.CreateDirectory(path);
         configuration.WriteTo.File(formatter, Path.Combine(path, "api-.jsonl"), rollingInterval: RollingInterval.Day,
-            fileSizeLimitBytes: 20_000_000, rollOnFileSizeLimit: true, retainedFileCountLimit: 30);
+            fileSizeLimitBytes: 20_000_000, rollOnFileSizeLimit: true, retainedFileCountLimit: options.LogRetentionDays);
     }
 });
 
