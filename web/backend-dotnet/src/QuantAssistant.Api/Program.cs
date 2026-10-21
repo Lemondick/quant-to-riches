@@ -145,7 +145,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IReadinessProbe>(_ => new PostgresReadinessProbe(connectionString));
 
 // P2 账号认证依赖：连接串来自配置 ConnectionStrings:Default 或环境 QUANT_PG_CONNECTION。
-builder.Services.AddSingleton<IAccountRepository>(_ => new AccountRepository(connectionString));
+builder.Services.AddSingleton<IAccountRepository>(_ => new AccountRepository(connectionString, options.AuditHashAlgo));
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<AuthService>();
@@ -177,6 +177,13 @@ builder.Services.AddSingleton<AnalysisSnapshotRepository>();
 // E5：控制器 SQL 下沉后的仓储/服务（构造器注入 IAccountDatabase）。
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.CashFlowPlanRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AlertCenterRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.RebalanceRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.SmartDcaRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.SmartDcaService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.AskService>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AnnouncementRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.AnnouncementService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.FundMaintenanceService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchJobQueryRepository>();
@@ -196,10 +203,14 @@ builder.Services.AddHostedService<QuantAssistant.Api.Services.PublicSnapshotRefr
 builder.Services.AddHostedService(provider => new QuantAssistant.Api.Services.ComputeNotificationListener(connectionString, provider.GetRequiredService<ILogger<QuantAssistant.Api.Services.ComputeNotificationListener>>()));
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AutomaticAttributionService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.LinkedAttributionService>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Auth.AdminAuditRepository>(sp =>
+    new QuantAssistant.Infrastructure.Auth.AdminAuditRepository(sp.GetRequiredService<AccountDatabase>(),
+        sp.GetRequiredService<QuantAssistant.Api.Configuration.QuantOptions>().AuditHashAlgo));
 builder.Services.AddSingleton<AdminDataRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Runtime.UserOperationAuditWriter>();
 builder.Services.AddSingleton<TradingCalendarRepository>(sp => new TradingCalendarRepository(sp.GetRequiredService<AccountDatabase>(),
-    sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<QuantAssistant.Api.Configuration.QuantOptions>().CalendarAutoAccept));
+    sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<QuantAssistant.Api.Configuration.QuantOptions>().CalendarAutoAccept,
+    sp.GetRequiredService<QuantAssistant.Infrastructure.Auth.AdminAuditRepository>()));
 var keyProtection = builder.Services.AddDataProtection().SetApplicationName("QuantAssistant.Native");
 if (options.SecretRoot is { Length: > 0 })
 {

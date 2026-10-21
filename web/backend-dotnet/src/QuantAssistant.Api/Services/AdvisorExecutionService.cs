@@ -8,7 +8,7 @@ using QuantAssistant.Infrastructure.Runtime;
 
 namespace QuantAssistant.Api.Services;
 
-public sealed class AdvisorExecutionService(AccountDatabase database, ModelConnectionService connections, TradingCalendarRepository calendar, ComputeJobRepository jobs, ComputeService compute)
+public sealed class AdvisorExecutionService(AccountDatabase database, ModelConnectionService connections, TradingCalendarRepository calendar, ComputeJobRepository jobs, ComputeService compute, SmartDcaService smartDca, AnnouncementService announcements, FundMaintenanceService funds)
 {
     private DateOnly lastCalendarRolloverCheck = DateOnly.MinValue;
     private static JsonObject Issue(string code, string message, string label, string url) => new()
@@ -106,6 +106,10 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
     {
         jobs.Recover();
         CheckCalendarRollover();
+        smartDca.CheckReminders(); // batch2-5：智能定投到期/估值提醒（只提醒，不自动扣款）。
+        announcements.CheckDailySync(); // batch2-8：公告每日抓取（参考 F1 rollover 接入模式）。
+        funds.CheckRedemptionReminders(); // batch2-3：赎回费率提醒（QUANT_REDEMPTION_REMIND_DAYS，默认14天）。
+        funds.CheckFundHealth(); // batch2-4：基金体检（QUANT_HEALTH_CHECK_CRON，默认周一06:00）。
         database.WriteNonLedger("compute:reaper",sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='interrupted',error_code='schedule_interrupted' WHERE status='claimed' AND report_id IS NULL AND started_at<now()-interval '2 minutes'"));
         var now=DateTime.UtcNow.AddHours(8);var date=DateOnly.FromDateTime(now);
         if(calendar.TradingDay(date)!=true) return;

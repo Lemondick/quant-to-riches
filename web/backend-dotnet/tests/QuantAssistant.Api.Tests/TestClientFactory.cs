@@ -12,7 +12,7 @@ internal static class TestClientFactory
 {
     public static HttpClient CreateTestClient(this WebApplicationFactory<Program> factory)
     {
-        var client = factory.CreateTestClient();
+        var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("Origin", "http://localhost");
         return client;
     }

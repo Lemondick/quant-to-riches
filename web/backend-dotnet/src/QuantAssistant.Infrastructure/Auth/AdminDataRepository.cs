@@ -6,7 +6,7 @@ using QuantAssistant.Infrastructure.Db;
 
 namespace QuantAssistant.Infrastructure.Auth;
 
-public sealed class AdminDataRepository(AccountDatabase database)
+public sealed class AdminDataRepository(AccountDatabase database, AdminAuditRepository auditChain)
 {
     private const string Holdings = """
         SELECT p.*,coalesce(i.name,p.symbol) AS name,
@@ -49,11 +49,11 @@ public sealed class AdminDataRepository(AccountDatabase database)
         """;
 
     private static JsonObject User(AccountSql sql, string userId) => sql.Query("SELECT id,username,role,status,created_at,last_login_at FROM users WHERE id=$1", userId).FirstOrDefault()?.DeepClone().AsObject() ?? throw new AuthFailure("account_not_found");
-    private static void Audit(AccountSql sql, string actor, string target, string action, string category, JsonObject range)
+    private void Audit(AccountSql sql, string actor, string target, string action, string category, JsonObject range)
     {
         if ((long)sql.Scalar("SELECT count(*) FROM users WHERE id=$1 AND role='admin' AND status='active'", actor)! != 1) throw new AuthFailure("admin_required");
-        sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,$2,$3,$4,now())", actor, action, target,
-            new JsonObject { ["category"] = category, ["range"] = range }.ToJsonString());
+        auditChain.Write(sql, actor, action, target,
+            new JsonObject { ["category"] = category, ["range"] = range }.ToJsonString(), DateTime.UtcNow);
     }
 
     public static JsonObject Summary(AccountSql sql, string userId) => sql.Query("""

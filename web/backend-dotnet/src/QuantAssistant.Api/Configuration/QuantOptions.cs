@@ -39,6 +39,25 @@ public sealed class QuantOptions
     /// <summary>F1：日历政策（QUANT_CALENDAR_AUTO_ACCEPT），true=TradingDay 采纳未确认的自动日历，默认 true。</summary>
     public bool CalendarAutoAccept { get; init; } = true;
 
+    /// <summary>batch2-2：估值百分位缓存分钟数（QUANT_VALUATION_CACHE_TTL_MIN），默认 360。</summary>
+    public int ValuationCacheTtlMinutes { get; init; } = 360;
+
+    /// <summary>batch2-3/4：赎回降档提前提醒天数（QUANT_REDEMPTION_REMIND_DAYS），默认 14。</summary>
+    public int RedemptionRemindDays { get; init; } = 14;
+
+    /// <summary>batch2-3/4：基金体检 cron（QUANT_HEALTH_CHECK_CRON），默认周一 06:00（北京时间）。Tick 内解析。</summary>
+    public string HealthCheckCron { get; init; } = "0 6 * * 1";
+
+    /// <summary>batch2-11：2FA 展示名（QUANT_TOTP_ISSUER），默认"观澜"。</summary>
+    public string TotpIssuer { get; init; } = "观澜";
+
+    /// <summary>batch2-12：审计哈希链算法（QUANT_AUDIT_HASH_ALGO），默认 SHA256。</summary>
+    public string AuditHashAlgo { get; init; } = "SHA256";
+
+    /// <summary>任务9：分钟/tick 级快照分区保留天数（QUANT_SNAPSHOT_RETENTION_TICK_DAYS），默认 90。
+    /// 由 quant-snapshot-cleanup timer 经 GUC 传入 quant_snapshot_maintenance()；日线及以上快照永久保留。</summary>
+    public int SnapshotRetentionTickDays { get; init; } = 90;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -66,6 +85,12 @@ public sealed class QuantOptions
             ModelBudgetWarnRatio = Ratio(configuration["QUANT_MODEL_BUDGET_WARN_RATIO"], 0.8),
             PublicSourceFailAlertRounds = Int(configuration["QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS"], 3, 1, 100),
             CalendarAutoAccept = Bool(configuration["QUANT_CALENDAR_AUTO_ACCEPT"], true),
+            ValuationCacheTtlMinutes = Int(configuration["QUANT_VALUATION_CACHE_TTL_MIN"], 360, 1, 43200),
+            RedemptionRemindDays = Int(configuration["QUANT_REDEMPTION_REMIND_DAYS"], 14, 1, 90),
+            HealthCheckCron = configuration["QUANT_HEALTH_CHECK_CRON"] ?? "0 6 * * 1",
+            TotpIssuer = configuration["QUANT_TOTP_ISSUER"] ?? "观澜",
+            AuditHashAlgo = configuration["QUANT_AUDIT_HASH_ALGO"] ?? "SHA256",
+            SnapshotRetentionTickDays = Int(configuration["QUANT_SNAPSHOT_RETENTION_TICK_DAYS"], 90, 1, 3650),
         };
     }
 

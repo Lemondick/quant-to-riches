@@ -37,6 +37,12 @@ public static class ErrorMessages
             [ErrorCodes.LedgerCorrectionDateInvalid] = "冲正日期不能早于原记录或当前账本日期。账户未改动。",
             [ErrorCodes.LedgerCorrectionDependentEvents] =
                 "原成交之后已有卖出、份额变化或账户校准，无法可靠直接冲正。请先核对关联记录或使用完整账户对账校准；账户未改动。",
+            // batch2 新增错误码文案。
+            [ErrorCodes.RebalanceTargetNotFound] = "未设置再平衡目标，请先配置目标比例。",
+            [ErrorCodes.SmartDcaPlanNotFound] = "未找到该智能定投计划。",
+            [ErrorCodes.TwoFactorRequired] = "账号已启用双重验证，请输入 6 位动态口令完成登录。",
+            [ErrorCodes.InvalidTotpCode] = "动态口令不正确或已过期，请重新输入。",
+            [ErrorCodes.AuditChainNotEnabled] = "审计哈希链尚未启用（admin_audit 缺少 prev_hash/hash 列），请先应用迁移 0036。",
         };
 
     public static string Get(string code) =>

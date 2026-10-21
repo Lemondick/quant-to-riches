@@ -62,6 +62,19 @@ public sealed class AuthController(AuthService auth, IWebHostEnvironment environ
             return MapError("invalid_credentials");
         }
 
+        // batch2-11：密码通过→若启用 2FA→签发短期挑战，要求 6 位码→通过才发 session。
+        if (auth.TotpState(account.Id).Enabled)
+        {
+            var pending = auth.BeginTotpChallenge(account.Id);
+            return Ok(new { two_factor_required = true, pending_token = pending,
+                error_code = "two_factor_required", message = AuthErrors.Message("two_factor_required") });
+        }
+        return IssueSession(account);
+    }
+
+    /// <summary>batch2-11：签发会话 Cookie（登录直通与 2FA 第二步共用）。</summary>
+    internal IActionResult IssueSession(Account account)
+    {
         var session = auth.CreateSession(account.Id, "未知设备");
         Response.Cookies.Append(AuthErrors.CookieName, session.Token, new CookieOptions
         {

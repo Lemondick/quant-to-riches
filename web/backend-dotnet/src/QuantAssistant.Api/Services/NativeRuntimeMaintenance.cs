@@ -6,7 +6,8 @@ using QuantAssistant.Infrastructure.Db;
 namespace QuantAssistant.Api.Services;
 
 public sealed class NativeRuntimeMaintenance(AccountDatabase database, NativeMetrics metrics,
-    IConfiguration configuration, ILogger<NativeRuntimeMaintenance> logger) : BackgroundService
+    IConfiguration configuration, ILogger<NativeRuntimeMaintenance> logger,
+    QuantAssistant.Api.Configuration.QuantOptions? options = null) : BackgroundService
 {
     public static JsonObject Queue(IAccountSql sql) => sql.Query("""
         SELECT count(*) FILTER(WHERE status='queued') AS queued,
@@ -56,7 +57,10 @@ public sealed class NativeRuntimeMaintenance(AccountDatabase database, NativeMet
               ORDER BY completed_at LIMIT 1000 FOR UPDATE SKIP LOCKED)
             DELETE FROM compute_jobs j USING old WHERE j.user_id=old.user_id AND j.job_id=old.job_id
             """);
-        var samples = sql.Execute("DELETE FROM native_monitor_samples WHERE captured_at<now()-interval '14 days'");
+        // 保留期冲突修复：采样行保留天数读 QUANT_SNAPSHOT_RETENTION_TICK_DAYS（默认 90），
+        // 与任务9 的 90 天分区保留策略一致（此前硬编码 14 天每小时删一次）。
+        var retentionDays = options?.SnapshotRetentionTickDays ?? 90;
+        var samples = sql.Execute("DELETE FROM native_monitor_samples WHERE captured_at<now()-make_interval(days=>$1)", retentionDays);
         sql.Execute("""
             INSERT INTO native_maintenance_state VALUES(1,now(),$1,$2,$3) ON CONFLICT(id) DO UPDATE SET
               completed_at=EXCLUDED.completed_at,previews_deleted=EXCLUDED.previews_deleted,

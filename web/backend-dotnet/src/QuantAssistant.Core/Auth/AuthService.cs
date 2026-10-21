@@ -242,6 +242,89 @@ public sealed class AuthService(
 
     public (IReadOnlyList<AuditEntry> Items, int Total) ListAudit(int page, int limit) => repository.ListAudit(page, limit);
 
+    // ===== batch2-11：双重验证（TOTP RFC6238 + 恢复码）=====
+
+    public (string? Secret, bool Enabled) TotpState(string userId) => repository.GetTotp(userId);
+
+    /// <summary>登录第一步通过后：签发 2FA 挑战（5 分钟有效，单次使用）。返回明文 pending token。</summary>
+    public string BeginTotpChallenge(string userId)
+    {
+        var token = GenerateToken();
+        var now = Now();
+        repository.CreateTotpChallenge(Sha256(token), userId, now, now.AddMinutes(5));
+        return token;
+    }
+
+    /// <summary>登录第二步：消费挑战并校验 6 位 TOTP 码或恢复码；通过返回账号，否则 null。</summary>
+    public Account? VerifyTotpChallenge(string pendingToken, string code)
+    {
+        if (string.IsNullOrWhiteSpace(pendingToken)) return null;
+        var userId = repository.ConsumeTotpChallenge(Sha256(pendingToken.Trim()), Now());
+        if (userId is null) return null;
+        var account = repository.FindById(userId);
+        if (account is not { Status: AccountStatus.Active }) return null;
+        var (secret, enabled) = repository.GetTotp(userId);
+        if (!enabled || string.IsNullOrEmpty(secret)) return account; // 未启用→直接通过（防御性）
+        var normalized = code?.Trim() ?? "";
+        if (Totp.Verify(secret, normalized, DateTimeOffset.UtcNow)) return account;
+        foreach (var (id, hash) in repository.ListUnusedRecoveryCodes(userId))
+        {
+            if (hasher.Verify(hash, normalized.ToUpperInvariant()))
+            {
+                repository.MarkRecoveryCodeUsed(id);
+                return account;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>开始启用：生成密钥并存储（尚未启用），返回密钥与扫码 URI。</summary>
+    public (string Secret, string ProvisioningUri) BeginTotpEnrollment(string userId, string issuer)
+    {
+        var account = repository.FindById(userId) ?? throw new AuthFailure("account_not_found");
+        var secret = Totp.GenerateSecret();
+        repository.SetTotpSecret(userId, secret);
+        return (secret, Totp.ProvisioningUri(issuer, account.Username, secret));
+    }
+
+    /// <summary>确认启用：校验动态口令，通过则启用并签发 10 个恢复码（明文仅返回一次）。</summary>
+    public IReadOnlyList<string> ConfirmTotpEnrollment(string userId, string code)
+    {
+        var (secret, enabled) = repository.GetTotp(userId);
+        if (enabled) throw new ApplicationFailure("invalid_request", 409, "双重验证已启用，无需重复确认。");
+        if (string.IsNullOrEmpty(secret) || !Totp.Verify(secret, code?.Trim() ?? "", DateTimeOffset.UtcNow))
+            throw new AuthFailure("invalid_totp_code");
+        repository.SetTotpEnabled(userId, true);
+        return RegenerateRecoveryCodes(userId);
+    }
+
+    /// <summary>重新生成恢复码（作废旧码，明文仅返回一次）。</summary>
+    public IReadOnlyList<string> RegenerateRecoveryCodes(string userId)
+    {
+        var (_, enabled) = repository.GetTotp(userId);
+        if (!enabled) throw new ApplicationFailure("invalid_request", 409, "请先启用双重验证。");
+        var codes = Enumerable.Range(0, 10).Select(_ => GenerateRecoveryCode()).ToArray();
+        repository.ReplaceRecoveryCodes(userId, codes.Select(hasher.Hash).ToArray(), Now());
+        return codes;
+    }
+
+    /// <summary>关闭 2FA：需先验证密码；清除密钥与恢复码。</summary>
+    public void DisableTotp(string userId, string password)
+    {
+        var account = repository.FindById(userId) ?? throw new AuthFailure("account_not_found");
+        if (!hasher.Verify(account.PasswordHash, password ?? "")) throw new AuthFailure("invalid_credentials");
+        repository.ClearTotp(userId);
+    }
+
+    private static string GenerateRecoveryCode()
+    {
+        const string alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // 去掉易混淆字符
+        var bytes = RandomNumberGenerator.GetBytes(8);
+        var sb = new StringBuilder();
+        for (var i = 0; i < 8; i++) { if (i == 4) sb.Append('-'); sb.Append(alphabet[bytes[i] % alphabet.Length]); }
+        return sb.ToString();
+    }
+
     private static string GenerateToken()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
