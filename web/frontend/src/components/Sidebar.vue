@@ -50,7 +50,8 @@ const icons = {
   Scale: I.Scale,
   Gauge: I.Gauge,
   Stethoscope: I.Stethoscope,
-  History: I.History
+  History: I.History,
+  Megaphone: I.Megaphone
 }
 const groups = ['资产管理', '市场观察', '投资研究', '高级工具']
 const grouped = computed(() => Object.fromEntries(groups.map(g => [g, navItems.filter(i => i.group === g)])))

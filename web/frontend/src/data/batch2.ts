@@ -1,5 +1,5 @@
 /** Batch2 新页面的本地 mock 数据：后端联调前保证可构建、可演示。 */
-import type { RebalanceState, ValuationSnapshot, FundHealthSnapshot, BacktestRequest, BacktestResult } from '../services/batch2Api'
+import type { RebalanceState, ValuationSnapshot, FundHealthSnapshot, BacktestRequest, BacktestResult, AnnouncementList } from '../services/batch2Api'
 import { ASK_QUICK_QUESTIONS } from '../services/batch2Api.ts'
 
 export function mockRebalanceState(): RebalanceState {
@@ -161,4 +161,17 @@ export function mockAskAnswer(question: string): string {
     if (question.includes(chip)) return answers[chip]
   }
   return `【演示】已收到问题「${question}」。接入后端后将走 POST api/v1/ask，命中模板走确定性账本查询返回。`
+}
+
+/** 演示公告（时间倒序，含一则清盘预警）。 */
+export function mockAnnouncements(): AnnouncementList {
+  return {
+    announcements: [
+      { fund_code: '005911', fund_name: '广发双擎升级混合', title: '广发双擎升级混合：规模连续两季度低于 5000 万元，可能触发清盘', kind: 'liquidation_risk', published_at: '2026-10-20T09:00:00+08:00', summary: '截至 2026Q3 末规模 0.42 亿元，连续两季度低于 5000 万元，敬请关注清盘风险。' },
+      { fund_code: '110022', fund_name: '易方达消费行业股票', title: '易方达消费行业股票 2026 年第三次分红公告', kind: 'dividend', published_at: '2026-10-18T15:30:00+08:00', summary: '每 10 份派现 0.85 元，权益登记日 2026-10-22。' },
+      { fund_code: '005911', fund_name: '广发双擎升级混合', title: '广发双擎升级混合基金经理变更公告', kind: 'manager_change', published_at: '2026-08-15T09:00:00+08:00', summary: '原基金经理离任，新任基金经理此前管理规模 12 亿元。' },
+      { fund_code: '270002', fund_name: '广发稳健增长混合', title: '广发稳健增长混合 2026 年中期分红公告', kind: 'dividend', published_at: '2026-07-10T15:00:00+08:00', summary: '每 10 份派现 0.50 元。' },
+      { fund_code: '110022', fund_name: '易方达消费行业股票', title: '易方达消费行业股票招募说明书更新', kind: 'other', published_at: '2026-06-28T09:00:00+08:00', summary: '更新基金经理简介与风险揭示章节。' },
+    ],
+  }
 }

@@ -250,3 +250,55 @@ export const ASK_QUICK_QUESTIONS = [
   '今年收益', '盈亏排名', '回撤贡献', '定投统计', '费率支出',
   '现金比例', '行业分布', '近一月涨跌', '分红统计', '估值分位',
 ]
+
+/* ---------------- 公告流（任务8） ---------------- */
+
+export type AnnouncementKind = 'dividend' | 'manager_change' | 'liquidation_risk' | 'other'
+export const ANNOUNCEMENT_KIND_NAMES: Record<AnnouncementKind, string> = {
+  dividend: '分红', manager_change: '经理变更', liquidation_risk: '清盘预警', other: '其他',
+}
+
+export type Announcement = {
+  id?: string
+  fund_code: string
+  fund_name?: string | null
+  title: string
+  kind: AnnouncementKind
+  published_at: string
+  source_url?: string | null
+  summary?: string | null
+}
+
+export type AnnouncementList = { announcements: Announcement[] }
+
+/** 公告唯一键：后端未给 id 时用三元组。 */
+export function announcementId(item: Announcement): string {
+  return item.id ?? `${item.fund_code}|${item.published_at}|${item.title}`
+}
+
+/** 按发布时间倒序。 */
+export function sortAnnouncementsDesc(items: Announcement[]): Announcement[] {
+  return [...items].sort((a, b) => b.published_at.localeCompare(a.published_at))
+}
+
+const READ_KEY = 'guanlan.announcements.read.v1'
+
+/** 已读 id 集合（本地记录，localStorage）。 */
+export function loadReadAnnouncementIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(READ_KEY)
+    if (!raw) return new Set()
+    const parsed: unknown = JSON.parse(raw)
+    return new Set(Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+export function saveReadAnnouncementIds(ids: Set<string>): void {
+  try {
+    localStorage.setItem(READ_KEY, JSON.stringify([...ids].slice(-500)))
+  } catch {
+    /* 本次会话内仍可用内存集合，见调用方。 */
+  }
+}
