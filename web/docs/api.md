@@ -66,6 +66,8 @@
 | POST | `/api/v1/admin/users/{id}/revoke-sessions` | 强制退出普通用户全部会话 |
 | POST | `/api/v1/admin/registration` | enabled布尔值；不修改30人硬上限 |
 | PUT | `/api/v1/admin/calendar` | year、source官方HTTPS链接、holidays ISO日期列表 |
+| POST | `/api/v1/admin/calendar/auto-generate` | market、year（默认次年）；调 worker 生成，origin=auto 待确认 |
+| POST | `/api/v1/admin/calendar/{market}/{year}/confirm` | 确认自动生成的日历（幂等） |
 | GET | `/api/v1/admin/audit` | page、limit；管理员、目标、内容、时间 |
 | GET | `/api/v1/admin/users/{id}/usage` | 最近活动、7天请求/错误、报告与任务耗时及异常 |
 | GET | `/api/v1/admin/users/{id}/export` | section、symbol、start/end；完整筛选明细，最多10万条 |
@@ -84,6 +86,7 @@
 | AI报告/模型/调度 | POST | `/api/v1/advisor/reports` | `CreateAdvisorReport` |
 | AI报告/模型/调度 | GET | `/api/v1/advisor/reports/{report_id}` | `—` |
 | AI报告/模型/调度 | GET | `/api/v1/advisor/schedule` | `—` |
+| AI报告/模型/调度 | POST | `/api/v1/admin/advisor/schedule/rerun` | user_id、run_date、kind、confirm；窗口外需 confirm=true，否则 409 |
 | 分析 | POST | `/api/v1/analysis/explain` | `AnalysisExplainBody` |
 | 历史回放 | GET | `/api/v1/backtests/latest` | `—` |
 | 数据状态 | GET | `/api/v1/data/status` | `—` |
