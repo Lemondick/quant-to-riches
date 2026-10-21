@@ -20,7 +20,7 @@ public sealed class RuntimeViewService(IAccountDatabase database, NativeOperatio
             var users = await sql.QueryAsync("SELECT id,role,display_name,timezone,status,created_at,last_login_at,last_active_at FROM users WHERE id=$1", id);
             var node = users[0]!.AsObject(); node.Remove("id");
             node["costs"] = costs.SummaryFor(sql, id);
-            var archives = (await sql.QueryAsync("SELECT id,finished_at,status FROM site_archives ORDER BY finished_at DESC LIMIT 1"))[0];
+            var archives = (await sql.QueryAsync("SELECT id,finished_at,status FROM site_archives ORDER BY finished_at DESC LIMIT 1")).FirstOrDefault()?.AsObject();
             node["archive"] = archives is null ? new JsonObject { ["status"] = "none" } : new JsonObject { ["status"] = archives["status"]!.DeepClone(), ["finished_at"] = archives["finished_at"]!.DeepClone() };
             return node;
         }, cancellation);

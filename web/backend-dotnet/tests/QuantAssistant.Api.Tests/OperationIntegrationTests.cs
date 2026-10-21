@@ -55,8 +55,9 @@ public sealed class OperationIntegrationTests
         {
             SeedUser(userId);
             var now = DateTime.UtcNow;
-            repo.UpsertHeartbeat(userId, "daily-report", 1440, now.AddMinutes(-1), now, "completed", null);
-            repo.UpsertHeartbeat(userId, "daily-report", 1440, now, now, "running", null);
+            // 状态枚举以 OperationsViewsController 为准：healthy/failed/blocked（迁移 0045 已对齐 DB 约束）。
+            repo.UpsertHeartbeat(userId, "daily-report", 1440, now.AddMinutes(-1), now, "healthy", null);
+            repo.UpsertHeartbeat(userId, "daily-report", 1440, now, now, "failed", "synthetic");
             // 不抛异常即 upsert 成功
         }
         finally

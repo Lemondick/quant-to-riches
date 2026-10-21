@@ -42,17 +42,18 @@ public sealed class OperationsOptimizationTests
         finally { user.Execute("DELETE FROM worker_heartbeats WHERE worker_id LIKE $1", prefix + "%"); }
     }
 
-    [PgFact("测试引用已下线的旧版 Python API 路由/语义（如 /api/v1/planning/cash-flows、operations.alerts 结构），需按原生 API 重写后移除本 Skip（#6）。")]
+    [PgFact]
     public async Task RuntimeExposesDegradationQueueDiskAndBackupAge_WithoutFinancialWrites()
     {
+        // 新语义：运维监视改由 /api/v1/runtime/status 的 runtime 节点承载（任意登录用户可读，
+        // 不再是 /api/v1/admin/runtime 的 operations 节点）；告警码保持不变。
         using var user = new PgTestUser();
-        user.Execute("UPDATE users SET role='admin' WHERE id=$1", user.Id);
         using var factory = Factory(user, new() { ["QUANT_EXPECTED_WORKERS"] = "3", ["QUANT_BACKUP_DIR"] = "", ["QUANT_DISK_MIN_FREE_PERCENT"] = "100" });
         using var client = factory.CreateTestClient();
         PgTestUser.AttachSession(client, user.Connection, user.Id);
         user.Execute("INSERT INTO compute_jobs(user_id,job_id,kind,input_json,input_hash,status,deadline,created_at) VALUES($1,'old-queued','market.quotes','{}','x','queued',now()+interval '1 hour',now()-interval '10 minutes'),($1,'overdue','market.quotes','{}','y','running',now()-interval '1 minute',now()-interval '2 minutes')", user.Id);
-        var runtime = await Json(await client.GetAsync("/api/v1/admin/runtime"));
-        var operations = runtime.GetProperty("operations");
+        var status = await Json(await client.GetAsync("/api/v1/runtime/status"));
+        var operations = status.GetProperty("runtime");
         Assert.Equal(3, operations.GetProperty("workers").GetProperty("expected").GetInt32());
         Assert.Equal("degraded", operations.GetProperty("status").GetString());
         Assert.True(operations.GetProperty("queue").GetProperty("queued").GetInt64() >= 1);
@@ -109,11 +110,11 @@ public sealed class OperationsOptimizationTests
         }
     }
 
-    [PgFact("测试引用已下线的旧版 Python API 路由/语义（如 /api/v1/planning/cash-flows、operations.alerts 结构），需按原生 API 重写后移除本 Skip（#6）。")]
+    [PgFact]
     public async Task DamagedBackupStatusIsAnAlert_NotARuntimeFailure()
     {
+        // 新语义：运维监视改由 /api/v1/runtime/status 的 runtime.alerts 承载。
         using var user = new PgTestUser();
-        user.Execute("UPDATE users SET role='admin' WHERE id=$1", user.Id);
         var directory = Path.Combine(Path.GetTempPath(), "quant-backup-state-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -124,10 +125,10 @@ public sealed class OperationsOptimizationTests
             foreach (var invalid in new[] { "null", "{bad json", "{\"status\":1}" })
             {
                 File.WriteAllText(Path.Combine(directory, ".native-backup-status.json"), invalid);
-                var response = await client.GetAsync("/api/v1/admin/runtime");
+                var response = await client.GetAsync("/api/v1/runtime/status");
                 Assert.True(response.IsSuccessStatusCode, invalid + ": " + await response.Content.ReadAsStringAsync());
-                var runtime = await Json(response);
-                Assert.Contains(runtime.GetProperty("operations").GetProperty("alerts").EnumerateArray(), alert => alert.GetProperty("code").GetString() == "backup_automation_failed");
+                var status = await Json(response);
+                Assert.Contains(status.GetProperty("runtime").GetProperty("alerts").EnumerateArray(), alert => alert.GetProperty("code").GetString() == "backup_automation_failed");
             }
         }
         finally { Directory.Delete(directory, true); }

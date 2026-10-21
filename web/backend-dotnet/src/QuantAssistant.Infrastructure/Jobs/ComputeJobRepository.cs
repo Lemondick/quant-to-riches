@@ -160,7 +160,7 @@ public sealed class ComputeJobRepository(string connectionString)
         if ((long)(await cmd.ExecuteScalarAsync(cancellation))! >= 3) { await tx.CommitAsync(cancellation); return null; }
         // batch3 #11 starvation 防护：normal 任务排队超 maxLowWaitMinutes 分钟自动提级为 high，每任务只提级一次。
         cmd.CommandText = "UPDATE compute_jobs SET priority='high',priority_boosted=TRUE WHERE status='queued' AND priority='normal' AND NOT priority_boosted AND created_at<now()-make_interval(mins=>$1)";
-        cmd.Parameters.AddWithValue((double)Math.Max(1, maxLowWaitMinutes));
+        cmd.Parameters.AddWithValue(Math.Max(1, maxLowWaitMinutes));
         await cmd.ExecuteNonQueryAsync(cancellation);
         cmd.Parameters.Clear();
         cmd.CommandText = """
