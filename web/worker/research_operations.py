@@ -123,8 +123,13 @@ def execute_research(kind, payload):
             f["symbol"] for f in previous["funds"]
         }:
             raise ValueError("study_scope_changed")
+        # Rules are study-wide (run_refresh requires every fund to carry the
+        # default ScenarioRules), but compare per fund by symbol rather than
+        # against previous["funds"][0]: the old comparison was only correct
+        # while all funds happened to share identical rules.
+        previous_rules = {fund["symbol"]: fund["rules"] for fund in previous["funds"]}
         for fund in updated["funds"]:
-            if fund["rules"] != previous["funds"][0]["rules"]:
+            if fund["rules"] != previous_rules[fund["symbol"]]:
                 raise ValueError("study_rules_changed")
             for period in ("full", "early", "late"):
                 for rate in ("0", "0.0012", "0.012"):
