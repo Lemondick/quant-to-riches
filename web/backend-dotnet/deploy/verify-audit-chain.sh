@@ -36,7 +36,8 @@ done
 PSQL_BIN="${QUANT_PSQL_BIN:-psql}"
 
 if [ -n "${QUANT_PG_CONNECTION:-}" ]; then
-    pick() { printf '%s' "$QUANT_PG_CONNECTION" | tr ';' '\n' | grep -i -m1 "^$1=" | cut -d= -f2-; }
+    # 键不存在时 grep 返回 1：加 || true，避免 pipefail + set -e 误杀。
+    pick() { printf '%s' "$QUANT_PG_CONNECTION" | tr ';' '\n' | grep -i -m1 "^$1=" | cut -d= -f2- || true; }
     for mapping in "Host:PGHOST" "Port:PGPORT" "Database:PGDATABASE" "Username:PGUSER" "Password:PGPASSWORD"; do
         key="${mapping%%:*}"
         var="${mapping##*:}"
@@ -67,11 +68,12 @@ trap 'rm -f "$TMP"' EXIT
 "${PSQL[@]}" -F $'\x1f' -c "
 SELECT id,
        COALESCE(prev_hash, ''),
-       encode(convert_to(
+       -- 注意：PG 的 encode(x,'base64') 每 76 字符插入换行，须去掉，否则破坏行解析
+       replace(encode(convert_to(
            COALESCE(prev_hash, '') || COALESCE(actor_id, '') || COALESCE(action, '')
            || COALESCE(target_id, '') || COALESCE(detail, '')
            || to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'),
-           'UTF8'), 'base64'),
+           'UTF8'), 'base64'), chr(10), ''),
        hash
 FROM public.admin_audit
 WHERE hash IS NOT NULL

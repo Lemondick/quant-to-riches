@@ -21,7 +21,8 @@ fi
 
 # 解析 Npgsql 风格连接串为 PG* 环境变量（大小写不敏感的键名）。
 if [ -n "${QUANT_PG_CONNECTION:-}" ]; then
-    pick() { printf '%s' "$QUANT_PG_CONNECTION" | tr ';' '\n' | grep -i -m1 "^$1=" | cut -d= -f2-; }
+    # 键不存在时 grep 返回 1：加 || true，避免 pipefail + set -e 误杀。
+    pick() { printf '%s' "$QUANT_PG_CONNECTION" | tr ';' '\n' | grep -i -m1 "^$1=" | cut -d= -f2- || true; }
     for mapping in "Host:PGHOST" "Port:PGPORT" "Database:PGDATABASE" "Username:PGUSER" "Password:PGPASSWORD"; do
         key="${mapping%%:*}"
         var="${mapping##*:}"

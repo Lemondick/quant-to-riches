@@ -1,4 +1,3 @@
--- quant:no-transaction
 -- 0035_snapshot_retention.sql — 任务9：快照表保留策略（分钟/tick 级分区 + 90 天保留）。
 --
 -- 背景：native_monitor_samples 由 NativeRuntimeMaintenance 每分钟写入一行
@@ -10,18 +9,26 @@
 -- 本迁移：
 --   ① 把 native_monitor_samples 重建为按月 RANGE 分区表（分区键 captured_at）；
 --   ② 预建未来 3 个月分区 + DEFAULT 分区兜底；
---   ③ 新增覆盖索引（CONCURRENTLY，需本文件首行 -- quant:no-transaction 标记）；
+--   ③ 新增覆盖索引（(captured_at DESC) INCLUDE (payload)，供趋势查询 index-only 扫描）；
 --   ④ 新增维护函数 quant_ensure_snapshot_partitions / quant_cleanup_snapshot_partitions /
 --      quant_snapshot_maintenance，供 systemd timer（deploy/quant-snapshot-cleanup.*）每日调用。
 --      保留天数默认 90，可用环境变量 QUANT_SNAPSHOT_RETENTION_TICK_DAYS 覆盖
 --      （timer 经 GUC quant.snapshot_retention_tick_days 传入）。
+--
+-- 说明：原计划用 `-- quant:no-transaction` 标记 + CREATE INDEX CONCURRENTLY，
+-- 但 PG（18 已实测）不支持在分区表上并发建索引
+-- （ERROR: cannot create index on partitioned table concurrently），
+-- 故覆盖索引改为普通构建——迁移时分区均为新建小分区，构建极快，
+-- 且本迁移本来就要求停机窗口（见下）。文件整体在 Runner 事务内执行，
+-- 回填行数校验失败会整体回滚。
 --
 -- 生产执行假设（高风险操作，详见维护说明.md §13）：
 --   - 执行前已做完整备份（F2 备份链）并在 staging 演练过本迁移；
 --   - 停机窗口内停止写入者（后端 API / QUANT_DISABLE_MAINTENANCE=true），
 --     迁移期间写入旧表的数据不会自动进入新分区表；
 --   - 用 Runner 执行：dotnet QuantAssistant.Api.dll --migrate migrations
---     （本文件首行标记使 Runner 在显式事务外执行，CREATE INDEX CONCURRENTLY 需要）。
+--     （本文件在显式事务内执行：回填行数校验失败会整体回滚；
+--     事务内 DDL 持有锁时间短，但重建期间仍需停写入者，见下）。
 -- 回滚：执行 0035_snapshot_retention.down.sql（重建为普通表），或从备份恢复。
 --
 -- 幂等：重复执行安全（分区表已存在则跳过重建；函数/索引用 IF NOT EXISTS / OR REPLACE）。
@@ -193,8 +200,11 @@ BEGIN
 END;
 $$;
 
--- ============ 覆盖索引（CONCURRENTLY：本文件首行标记使 Runner 在事务外执行） ============
+-- ============ 覆盖索引 ============
 -- 趋势查询 SELECT captured_at, payload ... ORDER BY captured_at DESC LIMIT 120
 -- 可走 index-only 扫描；主键已覆盖排序，此索引主要省去回表取 payload。
-CREATE INDEX CONCURRENTLY IF NOT EXISTS native_monitor_samples_recent_covering
+-- 注意：PG 不允许在分区表上 CREATE INDEX CONCURRENTLY
+-- （"cannot create index on partitioned table concurrently"），故此处用普通建索引；
+-- 迁移时分区都是新建/小分区，构建极快，且本迁移本来就要求停机窗口（见文件头与维护说明 §13）。
+CREATE INDEX IF NOT EXISTS native_monitor_samples_recent_covering
     ON public.native_monitor_samples (captured_at DESC) INCLUDE (payload);
