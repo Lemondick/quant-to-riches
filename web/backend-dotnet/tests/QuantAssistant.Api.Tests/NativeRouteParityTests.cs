@@ -34,6 +34,24 @@ public sealed class NativeRouteParityTests
         }
     }
 
+    // 原生重写中有意改名的路由：基线（旧 Python 站点 api-inventory.json）→ 现行原生路由。
+    // 测试允许旧路由或其映射后继任者任一存在；新增改名必须在此登记，否则视为意外缺失。
+    private static readonly Dictionary<string, string> RenamedRoutes = new(StringComparer.Ordinal)
+    {
+        ["GET /api/v1/admin/runtime"] = "GET /api/v1/runtime/status",
+        ["GET /api/v1/alerts"] = "GET /api/v1/alerts/center",
+        ["GET /api/v1/alerts/settings"] = "GET /api/v1/alerts/center/settings",
+        ["PUT /api/v1/alerts/settings"] = "PUT /api/v1/alerts/center/settings",
+        ["POST /api/v1/alerts/{}/acknowledge"] = "POST /api/v1/alerts/center/{}/acknowledge",
+        ["GET /api/v1/health"] = "GET /healthz",
+        ["GET /api/v1/ledger/actions"] = "GET /api/v1/ledger/corporate-actions",
+        ["GET /api/v1/planning/cash-flows"] = "GET /api/v1/plans",
+        ["GET /api/v1/planning/cash-flows/due"] = "GET /api/v1/plans/due",
+        ["POST /api/v1/planning/cash-flows"] = "POST /api/v1/plans",
+        ["GET /api/v1/portfolio/history"] = "GET /api/v1/ledger/portfolio-history",
+        ["POST /api/v1/operations/watchdog/heartbeat"] = "POST /api/v1/operations/heartbeats",
+    };
+
     [Fact]
     public void EveryBaselineRoute_HasANativeControllerAction()
     {
@@ -59,7 +77,9 @@ public sealed class NativeRouteParityTests
         }
         var missing = baseline.RootElement.GetProperty("routes").EnumerateArray()
             .Select(route => route.GetProperty("method").GetString() + " " + Normalize(route.GetProperty("path").GetString()!))
-            .Where(route => !routes.Contains(route)).Distinct().Order().ToArray();
+            .Where(route => !routes.Contains(route)
+                && !(RenamedRoutes.TryGetValue(route, out var successor) && routes.Contains(successor)))
+            .Distinct().Order().ToArray();
         Assert.True(missing.Length == 0, "Missing native routes: " + string.Join(", ", missing));
     }
 }

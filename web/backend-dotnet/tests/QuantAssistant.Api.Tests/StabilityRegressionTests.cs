@@ -27,6 +27,15 @@ public sealed class PgFactAttribute : FactAttribute
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("QUANT_TEST_PG_CONNECTION")))
             Skip = "QUANT_TEST_PG_CONNECTION is required for PostgreSQL integration tests.";
     }
+
+    /// <summary>
+    /// 显式跳过：用于引用已下线旧版 API 的用例（#6）。reason 说明需重写的原因，
+    /// 在任何环境都跳过，避免 CI 因旧路由 404 而失败。重写完成后移除该参数。
+    /// </summary>
+    public PgFactAttribute(string skipReason)
+    {
+        Skip = skipReason;
+    }
 }
 
 internal sealed class PgTestUser : IDisposable
@@ -107,7 +116,7 @@ public sealed class StabilityRegressionTests
         client.DefaultRequestHeaders.Add("X-Test-User", user.Id);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/dca/plans")).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/dca/plans", new { symbol = "510300", base_amount = 100 })).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/admin/runtime")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/runtime/status")).StatusCode);
     }
 
     [PgFact]
@@ -494,7 +503,7 @@ public sealed class StabilityRegressionTests
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(owner.Id, body.GetProperty("user_id").GetString());
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/runtime")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/v1/admin/users")).StatusCode);
     }
 
     [PgFact]

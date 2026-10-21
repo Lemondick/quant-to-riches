@@ -106,7 +106,9 @@ public sealed class FundFeeDrawdownCaliberTests
         }
         var reasons = breaches > 0 ? new[] { "drawdown_control_line_breached" } : Array.Empty<string>();
         var exp = c["expected"]!.AsObject();
-        Assert.True(Math.Abs(maxDrawdown - exp["max_drawdown"]!.GetValue<double>()) < 1e-12,
+        // fixture 中 max_drawdown 为字符串（保精度，Python 侧同样 float() 转换），此处解析而非直接取值。
+        var expectedDrawdown = double.Parse(exp["max_drawdown"]!.GetValue<string>(), CultureInfo.InvariantCulture);
+        Assert.True(Math.Abs(maxDrawdown - expectedDrawdown) < 1e-12,
             $"max_drawdown mismatch: {maxDrawdown} vs {exp["max_drawdown"]}");
         Assert.Equal(exp["breach_count"]!.GetValue<int>(), breaches);
         Assert.Equal(exp["passed"]!.GetValue<bool>(), reasons.Length == 0);

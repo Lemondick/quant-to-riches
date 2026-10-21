@@ -9,8 +9,17 @@ namespace QuantAssistant.Api.Tests;
 internal static class TestHostEnvironment
 {
     // Request fixtures must not acquire scheduled account writes when CI enters a report window.
+    // 另外：E7 起 Program 启动要求连接串（fail-fast）；不触库的契约测试在没有
+    // QUANT_PG_CONNECTION 的环境（如本机）用 dummy 串启动，CI 有真实串时不受影响。
+    // 需要真实库的测试走 [PgFact] + QUANT_TEST_PG_CONNECTION，本处不干预。
     [ModuleInitializer]
-    internal static void Initialize() => Environment.SetEnvironmentVariable("QUANT_DISABLE_SCHEDULER", "true");
+    internal static void Initialize()
+    {
+        Environment.SetEnvironmentVariable("QUANT_DISABLE_SCHEDULER", "true");
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("QUANT_PG_CONNECTION")))
+            Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",
+                "Host=127.0.0.1;Port=59999;Database=quant_test_dummy;Username=none;Password=none;Timeout=2");
+    }
 }
 
 internal static class NativeTestSupport
