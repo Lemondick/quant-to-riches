@@ -75,9 +75,13 @@ public sealed class NativeOperationsMonitor(IConfiguration configuration, Tradin
             if (view["configured"]!.GetValue<bool>() && view["origin"]?.GetValue<string>() == "auto" && view["confirmed"]?.GetValue<bool>() == false)
                 Alert("calendar_auto_pending", $"{market} {nextYear}年交易日历已自动生成待确认，请管理员核对后确认。");
         }
+        // F3：公开源连续失败的 critical 告警（operational_alerts，跨用户去重展示）。
+        var sourceAlerts = sql.Query("SELECT DISTINCT ON(alert_key) alert_key,severity,message,first_seen_at,details_json FROM operational_alerts WHERE status='open' AND alert_key LIKE 'public_source:%' ORDER BY alert_key,first_seen_at DESC LIMIT 20");
+        foreach (var row in sourceAlerts.OfType<JsonObject>())
+            Alert("public_source_failed", row["message"]!.GetValue<string>(), "critical");
         return new JsonObject { ["checked_at"] = now.ToString("O"), ["status"] = alerts.Count == 0 ? "healthy" : "degraded",
             ["workers"] = workers, ["queue"] = queue, ["disks"] = disks, ["backup"] = backup, ["calendar"] = calendar,
-            ["metrics"] = metrics.Snapshot(), ["database"] = database,
+            ["metrics"] = metrics.Snapshot(), ["database"] = database, ["public_source_alerts"] = sourceAlerts,
             ["recent_failures"] = sql.Query("SELECT kind,status,error_code,completed_at FROM compute_jobs WHERE status IN('failed','interrupted') ORDER BY completed_at DESC NULLS LAST LIMIT 20"),
             ["trend"] = sql.Query("SELECT captured_at,payload FROM (SELECT captured_at,payload FROM native_monitor_samples ORDER BY captured_at DESC LIMIT 120) recent ORDER BY captured_at"),
             ["maintenance"] = sql.Query("SELECT * FROM native_maintenance_state WHERE id=1").FirstOrDefault()?.DeepClone(), ["alerts"] = alerts };

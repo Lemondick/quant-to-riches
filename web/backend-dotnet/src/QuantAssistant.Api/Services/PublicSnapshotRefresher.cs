@@ -73,6 +73,9 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
             var saved = await repository.MarketAsync(task.Token);
             if (saved is null || !snapshot.Publish(saved.Data, saved.CompletedAt))
                 throw new ApplicationFailure("public_snapshot_unavailable", 503, "公开快照没有可发布的新观测。");
+            // F3：公开源连续失败达到阈值后给管理员写 critical 告警（B 未上报 provider_failures 则静默）。
+            var alertRounds = int.TryParse(configuration["QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS"], out var rounds) && rounds > 0 ? rounds : 3;
+            await repository.CheckPublicSourceFailuresAsync(saved.Data, alertRounds, task.Token);
         }
         async Task Queue(string kind, object payload, bool reuseCompleted=true)
         {

@@ -130,4 +130,40 @@ public sealed class PublicSnapshotRepository(AccountDatabase database)
             .Select(row => row["symbol"]!.GetValue<string>()).Where(symbol => symbol.Length == 6 && symbol.All(char.IsAsciiDigit)).ToArray();
         return (user, Select("fund"), Select("stock"));
     }, cancellation);
+
+    /// <summary>
+    /// F3：公开源连续失败告警。B 在 market.snapshot 的 result_json 上报
+    /// provider_failures:{provider:连续失败轮数}；达到阈值后给活跃管理员写 critical 告警
+    ///（alert_key=public_source:&lt;provider&gt;），恢复后 resolve。B 未落地前无字段则静默。
+    /// </summary>
+    public async Task CheckPublicSourceFailuresAsync(JsonObject data, int alertRounds, CancellationToken cancellation = default)
+    {
+        if (data["provider_failures"] is not JsonObject failures) return;
+        var failing = failures
+            .Where(p => p.Value?.GetValue<int>() >= alertRounds)
+            .Select(p => "public_source:" + p.Key)
+            .ToArray();
+        var admins = await database.QueryAsync("SELECT id FROM users WHERE status='active' AND role='admin'", [], cancellation);
+        foreach (var admin in admins.OfType<JsonObject>())
+        {
+            var adminId = admin["id"]!.GetValue<string>();
+            await database.WriteNonLedgerAsync(adminId, async sql =>
+            {
+                foreach (var (provider, node) in failures)
+                {
+                    var rounds = node?.GetValue<int>() ?? 0;
+                    if (rounds < alertRounds) continue;
+                    var key = "public_source:" + provider;
+                    await sql.ExecuteAsync("INSERT INTO operational_alerts(user_id,alert_key,severity,message,status,first_seen_at,last_seen_at,details_json) VALUES($1,$2,'critical',$3,'open',now(),now(),$4::json) ON CONFLICT(user_id,alert_key,status) DO UPDATE SET severity=EXCLUDED.severity,message=EXCLUDED.message,last_seen_at=EXCLUDED.last_seen_at,details_json=EXCLUDED.details_json",
+                        adminId, key, $"公开数据源 {provider} 已连续 {rounds} 轮失败，请检查数据源配置与网络。",
+                        new JsonObject { ["provider"] = provider, ["failed_rounds"] = rounds }.ToJsonString());
+                }
+                // 不在失败集合中的 public_source 告警视为已恢复 → resolve。
+                await sql.ExecuteAsync("UPDATE operational_alerts SET status='resolved',last_seen_at=now() WHERE user_id=$1 AND status='open' AND alert_key LIKE 'public_source:%' AND NOT (alert_key = ANY($2))",
+                    adminId, failing);
+                return 0;
+            }, cancellation);
+        }
+    }
 }
+
