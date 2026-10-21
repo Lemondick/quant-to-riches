@@ -38,7 +38,7 @@ public sealed class LedgerCsvImportTests
     public async Task BatchCommit_IsAtomic_Owned_Idempotent_AndDuplicateImportIsReadonly()
     {
         using var user=new PgTestUser();user.SeedLedger();using var other=new PgTestUser();using var factory=Factory(user);
-        using var client=factory.CreateTestClient();using var foreign=factory.CreateClient();PgTestUser.AttachSession(client,user.Connection,user.Id);PgTestUser.AttachSession(foreign,other.Connection,other.Id);
+        using var client=factory.CreateTestClient();using var foreign=factory.CreateTestClient();PgTestUser.AttachSession(client,user.Connection,user.Id);PgTestUser.AttachSession(foreign,other.Connection,other.Id);
         var body=new { trades=new[]{Trade("csv-a"),Trade("csv-b",when:"2026-09-05T10:00:00+08:00")},reason="verified statement" };
         var preview=await Ready(client,user,PreviewRoute,body); Assert.Equal(0L,user.Query("SELECT count(*) FROM transactions WHERE user_id=$1",user.Id));
         var id=preview["preview_id"]!.GetValue<string>();var confirmation=new {preview_id=id,confirmed=true};
@@ -70,7 +70,7 @@ public sealed class LedgerCsvImportTests
     public async Task SavedBatchReceipts_AreOwned_Readonly_Paginated_AndSurvivePreviewExpiry()
     {
         using var user=new PgTestUser();using var other=new PgTestUser();using var factory=Factory(user);
-        using var client=factory.CreateTestClient();using var foreign=factory.CreateClient();
+        using var client=factory.CreateTestClient();using var foreign=factory.CreateTestClient();
         PgTestUser.AttachSession(client,user.Connection,user.Id);PgTestUser.AttachSession(foreign,other.Connection,other.Id);
         var plan="{\"transactions\":[{}],\"reason\":\"verified old statement\",\"new_count\":1,\"duplicate_count\":1,\"rows\":[{\"row\":2,\"external_id\":\"old\",\"status\":\"duplicate\",\"transaction_id\":10,\"message\":\"skip\"},{\"row\":3,\"external_id\":\"new\",\"status\":\"new\",\"transaction_id\":null,\"message\":\"pending\"}]}";
         foreach(var id in new[]{"saved-a","saved-b","saved-c","pending","single"})

@@ -58,7 +58,8 @@ public sealed class FundCatalogStorageTests
             {
                 var bad=result.DeepClone().AsObject();
                 if(mode=="empty")bad["items"]=new JsonArray();
-                if(mode=="private")bad["items"]![0]!["user_id"]="private-account";
+                // 隐私门控在结果顶层（触发器检查 result_json ?| [user_id, snapshot, credentials]），故 user_id 标在顶层。
+                if(mode=="private")bad["user_id"]="private-account";
                 if(mode=="fallback")bad["stale"]=true;
                 if(mode=="invalid")bad["quality_status"]="invalid";
                 Complete(user,"fund.catalog",input,bad);

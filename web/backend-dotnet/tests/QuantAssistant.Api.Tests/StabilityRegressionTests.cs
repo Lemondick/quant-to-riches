@@ -87,6 +87,9 @@ internal sealed class PgTestUser : IDisposable
     public void Dispose()
     {
         Execute("DELETE FROM worker_heartbeats WHERE worker_id IN(SELECT worker_id FROM compute_jobs WHERE user_id=$1)", Id);
+        // user_operation_audit.actor_id 引用 users(id) 且无级联删除，必须先于 users 清理，
+        // 否则 Dispose 自身触发 23503 外键违规并留下残留用户（batch4 流 A 实测）。
+        Execute("DELETE FROM user_operation_audit WHERE actor_id=$1", Id);
         foreach (var table in new[] { "ledger_reconciliations", "account_events", "account_positions", "portfolio_accounts", "ledger_replay_previews", "user_documents", "model_call_costs", "model_cost_settings", "compute_jobs", "portfolio_valuations", "data_snapshots" })
             Execute($"DELETE FROM {table} WHERE user_id=$1", Id);
         foreach (var table in new[] { "account_activity", "usage_daily", "audit_log", "ledger_corrections", "dividend_events", "corporate_action_events", "portfolio_events", "transactions", "positions", "instruments", "dca_plans", "attribution_reports", "sessions", "recovery_tokens", "agent_research_attempts", "agent_research_jobs" })
@@ -140,6 +143,9 @@ public sealed class StabilityRegressionTests
         client.DefaultRequestHeaders.Remove("X-CSRF-Token");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/v1/dca/plans", new { symbol = "510300", base_amount = 100 })).StatusCode);
         client.DefaultRequestHeaders.Add("X-CSRF-Token", "test-csrf");
+        // 注意：TestClientFactory 已预置 Origin: http://localhost，直接 Add 会产生双 Origin 头，
+        // 中间件取 FirstOrDefault() 仍会命中合法值；此处必须先移除再设置才能真正模拟不可信来源。
+        client.DefaultRequestHeaders.Remove("Origin");
         client.DefaultRequestHeaders.Add("Origin", "https://untrusted.invalid");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/v1/dca/plans", new { symbol = "510300", base_amount = 100 })).StatusCode);
     }
