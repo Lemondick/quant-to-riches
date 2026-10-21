@@ -61,6 +61,24 @@ public sealed class QuantOptions
     /// <summary>batch3 流 A：风险指标缓存分钟数（QUANT_RISK_METRICS_CACHE_TTL_MIN），默认 60。</summary>
     public int RiskMetricsCacheTtlMinutes { get; init; } = 60;
 
+    /// <summary>batch3 流 A：SMTP 服务器（QUANT_SMTP_HOST；site_settings 同名键可覆盖）。</summary>
+    public string? SmtpHost { get; init; }
+
+    /// <summary>batch3 流 A：SMTP 端口（QUANT_SMTP_PORT；site_settings 同名键可覆盖，未配默认 25）。</summary>
+    public int? SmtpPort { get; init; }
+
+    /// <summary>batch3 流 A：SMTP 用户名（QUANT_SMTP_USER；site_settings 同名键可覆盖）。</summary>
+    public string? SmtpUser { get; init; }
+
+    /// <summary>batch3 流 A：SMTP 密码（QUANT_SMTP_PASS；site_settings 同名键可覆盖。仅内存使用，永不落日志/响应）。</summary>
+    public string? SmtpPass { get; init; }
+
+    /// <summary>batch3 流 A：发件人地址（QUANT_SMTP_FROM；site_settings 同名键可覆盖）。</summary>
+    public string? SmtpFrom { get; init; }
+
+    /// <summary>batch3 流 A：告警/报告邮件收件人（QUANT_SMTP_NOTIFY_TO；site_settings 同名键可覆盖，未配回退发件人）。</summary>
+    public string? SmtpNotifyTo { get; init; }
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -95,6 +113,12 @@ public sealed class QuantOptions
             AuditHashAlgo = configuration["QUANT_AUDIT_HASH_ALGO"] ?? "SHA256",
             SnapshotRetentionTickDays = Int(configuration["QUANT_SNAPSHOT_RETENTION_TICK_DAYS"], 90, 1, 3650),
             RiskMetricsCacheTtlMinutes = Int(configuration["QUANT_RISK_METRICS_CACHE_TTL_MIN"], 60, 1, 1440),
+            SmtpHost = configuration["QUANT_SMTP_HOST"],
+            SmtpPort = OptInt(configuration["QUANT_SMTP_PORT"], 1, 65535),
+            SmtpUser = configuration["QUANT_SMTP_USER"],
+            SmtpPass = configuration["QUANT_SMTP_PASS"],
+            SmtpFrom = configuration["QUANT_SMTP_FROM"],
+            SmtpNotifyTo = configuration["QUANT_SMTP_NOTIFY_TO"],
         };
     }
 
@@ -105,6 +129,10 @@ public sealed class QuantOptions
     private static int Int(string? raw, int fallback, int min, int max) =>
         int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value >= min && value <= max
             ? value : fallback;
+
+    private static int? OptInt(string? raw, int min, int max) =>
+        int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) && value >= min && value <= max
+            ? value : null;
 
     private static bool Bool(string? raw, bool fallback) =>
         bool.TryParse(raw, out var value) ? value : fallback;

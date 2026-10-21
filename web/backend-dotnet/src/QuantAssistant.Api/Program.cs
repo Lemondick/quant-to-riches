@@ -183,6 +183,7 @@ builder.Services.AddSingleton<QuantAssistant.Api.Services.SmartDcaService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AskService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AnnouncementRepository>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AnnouncementService>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.EmailDeliveryService>(); // batch3-A：邮件推送统一入口
 builder.Services.AddSingleton<QuantAssistant.Api.Services.FundMaintenanceService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
