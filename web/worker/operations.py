@@ -16,6 +16,7 @@ from public_operations import IN_PROCESS_CAPABILITIES, execute_public
 from read_operations import READ_CAPABILITIES, execute_read
 from redemption_operations import REDEMPTION_CAPABILITIES, execute_redemption
 from replay_operations import REPLAY_CAPABILITIES, execute_replay
+from goal_operations import GOAL_CAPABILITIES, execute_goal
 from research_fetch_operations import RESEARCH_FETCH_CAPABILITIES, execute_research_fetch
 from research_operations import RESEARCH_CAPABILITIES, execute_research
 from risk_operations import RISK_CAPABILITIES, execute_risk
@@ -43,6 +44,7 @@ CAPABILITIES = (
     *RISK_CAPABILITIES,
     *COST_CAPABILITIES,
     *RESEARCH_FETCH_CAPABILITIES,
+    *GOAL_CAPABILITIES,
 )
 
 
@@ -87,4 +89,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_cost(kind, payload)
     if kind in RESEARCH_FETCH_CAPABILITIES:
         return execute_research_fetch(kind, payload)
+    if kind in GOAL_CAPABILITIES:
+        return execute_goal(kind, payload)
     raise ValueError("unsupported_operation")
