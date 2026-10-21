@@ -16,6 +16,7 @@ from read_operations import READ_CAPABILITIES, execute_read
 from redemption_operations import REDEMPTION_CAPABILITIES, execute_redemption
 from replay_operations import REPLAY_CAPABILITIES, execute_replay
 from research_operations import RESEARCH_CAPABILITIES, execute_research
+from risk_operations import RISK_CAPABILITIES, execute_risk
 from strategy_operations import STRATEGY_CAPABILITIES, execute_strategy
 
 from quant_assistant.reporting.fund_execution_study import replay as replay_fund_orders
@@ -37,6 +38,7 @@ CAPABILITIES = (
     *DCA_CAPABILITIES,
     *PORTFOLIO_CAPABILITIES,
     *CATALOG_VALIDATE_CAPABILITIES,
+    *RISK_CAPABILITIES,
 )
 
 
@@ -75,4 +77,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_portfolio_backtest(kind, payload)
     if kind in CATALOG_VALIDATE_CAPABILITIES:
         return execute_catalog_validate(kind, payload)
+    if kind in RISK_CAPABILITIES:
+        return execute_risk(kind, payload)
     raise ValueError("unsupported_operation")
