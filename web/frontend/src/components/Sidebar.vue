@@ -40,21 +40,24 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import * as I from 'lucide-vue-next'
-import { UsersRound, Settings2 } from 'lucide-vue-next'
+import {
+  LayoutDashboard, ChartNoAxesCombined, WalletCards, Star, Map, Sparkles, BadgeDollarSign,
+  Bot, Newspaper, UsersRound, Settings2, TerminalSquare, ClipboardList, CalendarDays,
+  Scale, Gauge, Stethoscope, History, Megaphone, ShieldAlert, Receipt, Library,
+} from 'lucide-vue-next'
 import { navItems, preloadRoute } from '../router'
 const icons = {
-  LayoutDashboard: I.LayoutDashboard, ChartNoAxesCombined: I.ChartNoAxesCombined, WalletCards: I.WalletCards,
-  Star: I.Star, Map: I.Map, Sparkles: I.Sparkles, BadgeDollarSign: I.BadgeDollarSign,
-  Bot: I.Bot, Newspaper: I.Newspaper, UsersRound, Settings2, TerminalSquare: I.TerminalSquare, ClipboardList: I.ClipboardList, CalendarDays: I.CalendarDays,
-  Scale: I.Scale,
-  Gauge: I.Gauge,
-  Stethoscope: I.Stethoscope,
-  History: I.History,
-  Megaphone: I.Megaphone,
-  ShieldAlert: I.ShieldAlert,
-  Receipt: I.Receipt,
-  Library: I.Library
+  LayoutDashboard, ChartNoAxesCombined, WalletCards,
+  Star, Map, Sparkles, BadgeDollarSign,
+  Bot, Newspaper, UsersRound, Settings2, TerminalSquare, ClipboardList, CalendarDays,
+  Scale,
+  Gauge,
+  Stethoscope,
+  History,
+  Megaphone,
+  ShieldAlert,
+  Receipt,
+  Library
 }
 const groups = ['资产管理', '市场观察', '投资研究', '高级工具']
 const grouped = computed(() => Object.fromEntries(groups.map(g => [g, navItems.filter(i => i.group === g)])))

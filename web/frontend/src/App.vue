@@ -13,11 +13,12 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { defineAsyncComponent, onMounted, onBeforeUnmount, watch } from 'vue'
 import router, { warmRouteComponents } from './router'
 import Sidebar from './components/Sidebar.vue'
 import Topbar from './components/Topbar.vue'
-import AskWidget from './components/AskWidget.vue'
+// batch4-B#9：问答浮窗不阻塞首屏，异步加载（连带 batch2Api/mock 数据移出 entry）。
+const AskWidget = defineAsyncComponent(() => import('./components/AskWidget.vue'))
 import { usePreferences } from './composables/usePreferences'
 import { localStorageAvailable } from './composables/useLocalState'
 import { setDisplayTimezone } from './utils/format'
