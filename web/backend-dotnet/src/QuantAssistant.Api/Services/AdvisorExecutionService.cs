@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using QuantAssistant.Core.Errors;
+using QuantAssistant.Core.Market;
 using QuantAssistant.Infrastructure.Db;
 using QuantAssistant.Infrastructure.Jobs;
 using QuantAssistant.Infrastructure.Portfolio;
@@ -9,6 +10,7 @@ namespace QuantAssistant.Api.Services;
 
 public sealed class AdvisorExecutionService(AccountDatabase database, ModelConnectionService connections, TradingCalendarRepository calendar, ComputeJobRepository jobs, ComputeService compute)
 {
+    private DateOnly lastCalendarRolloverCheck = DateOnly.MinValue;
     private static JsonObject Issue(string code, string message, string label, string url) => new()
     { ["code"] = code, ["message"] = message, ["symbol"] = null, ["label"] = label, ["url"] = url };
 
@@ -103,6 +105,7 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
     public void Tick()
     {
         jobs.Recover();
+        CheckCalendarRollover();
         database.WriteNonLedger("compute:reaper",sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='interrupted',error_code='schedule_interrupted' WHERE status='claimed' AND report_id IS NULL AND started_at<now()-interval '2 minutes'"));
         var now=DateTime.UtcNow.AddHours(8);var date=DateOnly.FromDateTime(now);
         if(calendar.TradingDay(date)!=true) return;
@@ -134,6 +137,53 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
     public async Task<bool> AcknowledgeNotificationAsync(string userId, string noticeId, CancellationToken cancellation = default) =>
         await database.WriteNonLedgerAsync(userId,
             sql => sql.ExecuteAsync("UPDATE advisor_notifications SET acknowledged=true WHERE user_id=$1 AND id=$2", userId, noticeId), cancellation) > 0;
+
+    /// <summary>
+    /// F1：每日日历 rollover 检查。10–12 月（site_settings.calendar_policy 的 months，
+    /// 无则默认 10,11,12）若缺次年日历→调 worker op 生成→SaveAuto（待确认）→admin_audit 记录。
+    /// 失败不中断 Tick，次日重试。
+    /// </summary>
+    public void CheckCalendarRollover()
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8));
+        if (lastCalendarRolloverCheck == today) return;
+        lastCalendarRolloverCheck = today;
+        var months = new[] { 10, 11, 12 };
+        try
+        {
+            // C 的 0028 将落地 calendar_policy；shape 假设为 {"months":[10,11,12]}，解析失败用默认。
+            if (database.Read(sql => sql.Scalar("SELECT value FROM site_settings WHERE key='calendar_policy'")) as string is { } raw
+                && JsonNode.Parse(raw)?["months"]?.AsArray() is { Count: > 0 } array)
+                months = array.Select(m => m!.GetValue<int>()).Where(m => m is >= 1 and <= 12).ToArray();
+        }
+        catch (Exception) { /* 用默认月份 */ }
+        if (!months.Contains(today.Month)) return;
+        var nextYear = today.Year + 1;
+        if (nextYear is < 2000 or > 2100) return;
+        foreach (var market in MarketCalendars.Markets)
+        {
+            try
+            {
+                // 完全缺失才生成；已有（含未确认的自动日历）不重复生成。
+                if (calendar.View(nextYear, market)["configured"]!.GetValue<bool>()) continue;
+                // 费用归属最早创建的活跃管理员（无则最早活跃用户）；无用户则跳过。
+                var userId = database.Read(sql => sql.Query("SELECT id FROM users WHERE status='active' ORDER BY (role='admin') DESC, created_at LIMIT 1"))
+                    .FirstOrDefault()?["id"]?.GetValue<string>();
+                if (userId is null) continue;
+                var result = compute.Run(userId, "calendar.generate_next_year", new { market, year = nextYear }, CancellationToken.None, seconds: 300)
+                    .GetAwaiter().GetResult()?.AsObject();
+                if (result is null || result["status"]?.GetValue<string>() is string status && status != "ok" || result["error_code"] is not null) continue;
+                var holidays = result["holidays"]?.AsArray().Select(h => h!.GetValue<string>()).ToArray();
+                if (holidays is null) continue;
+                calendar.SaveAuto(userId, market, nextYear, holidays,
+                    result["source"]?.GetValue<string>() ?? "worker:calendar.generate_next_year",
+                    result["confidence"]?.GetValue<double>(),
+                    result["notes"]?.AsArray().Select(n => n!.GetValue<string>()).ToArray(),
+                    new JsonObject { ["op"] = "calendar.generate_next_year", ["at"] = DateTimeOffset.UtcNow.ToString("O"), ["trigger"] = "scheduler-rollover" });
+            }
+            catch (Exception) { /* rollover 失败不中断 Tick，次日重试 */ }
+        }
+    }
 
     /// <summary>
     /// F9：管理者手动重跑定时报告。定时窗口（北京时间 09:30–09:44 / 14:30–14:44）外

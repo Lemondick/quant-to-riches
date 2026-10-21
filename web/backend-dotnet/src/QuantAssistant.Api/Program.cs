@@ -198,7 +198,8 @@ builder.Services.AddSingleton<QuantAssistant.Api.Services.AutomaticAttributionSe
 builder.Services.AddSingleton<QuantAssistant.Api.Services.LinkedAttributionService>();
 builder.Services.AddSingleton<AdminDataRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Runtime.UserOperationAuditWriter>();
-builder.Services.AddSingleton<TradingCalendarRepository>();
+builder.Services.AddSingleton<TradingCalendarRepository>(sp => new TradingCalendarRepository(sp.GetRequiredService<AccountDatabase>(),
+    sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<IConfiguration>()["QUANT_CALENDAR_AUTO_ACCEPT"] == "true"));
 var keyProtection = builder.Services.AddDataProtection().SetApplicationName("QuantAssistant.Native");
 if (options.SecretRoot is { Length: > 0 })
 {

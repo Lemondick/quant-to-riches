@@ -67,6 +67,14 @@ public sealed class NativeOperationsMonitor(IConfiguration configuration, Tradin
         if (backup["automation"]?["status"]?.GetValue<string>() is "failed" or "restart_failed") Alert("backup_automation_failed", "最近自动备份或服务恢复失败，请检查运维日志。", "critical");
         var calendar = calendars.Status(DateOnly.FromDateTime(now.UtcDateTime.AddHours(8)));
         foreach (var warning in calendar["warnings"]!.AsArray()) Alert("calendar_attention", warning!.GetValue<string>());
+        // F1：自动生成待确认的日历告警（确认前跨年自动报告可能暂停）。
+        var nextYear = DateOnly.FromDateTime(now.UtcDateTime.AddHours(8)).Year + 1;
+        foreach (var market in QuantAssistant.Core.Market.MarketCalendars.Markets)
+        {
+            var view = calendars.View(nextYear, market);
+            if (view["configured"]!.GetValue<bool>() && view["origin"]?.GetValue<string>() == "auto" && view["confirmed"]?.GetValue<bool>() == false)
+                Alert("calendar_auto_pending", $"{market} {nextYear}年交易日历已自动生成待确认，请管理员核对后确认。");
+        }
         return new JsonObject { ["checked_at"] = now.ToString("O"), ["status"] = alerts.Count == 0 ? "healthy" : "degraded",
             ["workers"] = workers, ["queue"] = queue, ["disks"] = disks, ["backup"] = backup, ["calendar"] = calendar,
             ["metrics"] = metrics.Snapshot(), ["database"] = database,

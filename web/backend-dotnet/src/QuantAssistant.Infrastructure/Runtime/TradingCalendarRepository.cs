@@ -8,14 +8,23 @@ using QuantAssistant.Infrastructure.Db;
 
 namespace QuantAssistant.Infrastructure.Runtime;
 
-public sealed class TradingCalendarRepository(AccountDatabase database, TimeProvider? clock = null)
+public sealed class TradingCalendarRepository(AccountDatabase database, TimeProvider? clock = null, bool autoAccept = false)
 {
     private readonly SemaphoreSlim snapshotGate = new(1);
     private sealed record CachedCalendar(int Year, MarketCalendars Data, DateTimeOffset Expires);
     private CachedCalendar? cached;
     private DateTimeOffset Now => (clock ?? TimeProvider.System).GetUtcNow();
     public MarketCalendars CurrentSnapshot => Volatile.Read(ref cached) is { } saved && saved.Expires > Now ? saved.Data : MarketCalendars.Empty;
-    public sealed record Calendar(int Year, string Source, string[] Holidays, string Market = "CN");
+    /// <summary>
+    /// F1：日历存储形状。Origin: imported（人工导入）/ auto（worker 自动生成）；
+    /// Confirmed=false 表示待管理员确认；Provenance 记录生成来源。
+    /// 老行缺这些字段时按默认值反序列化（Parse 兼容）。
+    /// </summary>
+    public sealed record Calendar(int Year, string Source, string[] Holidays, string Market = "CN",
+        string Origin = "imported", bool Confirmed = true, double? Confidence = null,
+        string? Notes = null, JsonObject? Provenance = null);
+    /// <summary>F1：该日历是否可用于交易日判定（未确认的自动日历仅在 autoAccept 时采纳）。</summary>
+    private bool Effective(Calendar? calendar) => calendar is not null && (calendar.Confirmed || calendar.Origin != "auto" || autoAccept);
     private static string MarketId(string market)
     {
         var normalized = market?.Trim().ToUpperInvariant();
@@ -54,6 +63,65 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
         return result;
     }
 
+    /// <summary>
+    /// F1：保存 worker 自动生成的日历（origin=auto, confirmed=false）。
+    /// 已确认的日历不会被覆盖（409）；未确认的自动日历允许重写。
+    /// </summary>
+    public JsonObject SaveAuto(string actor, string market, int year, string[] holidays, string source,
+        double? confidence, string[]? notes, JsonObject? provenance)
+    {
+        market = MarketId(market);
+        if (year is < 2000 or > 2100 || string.IsNullOrWhiteSpace(source) || source.Length > 2000
+            || holidays is null || holidays.Length is < 1 or > 100
+            || holidays.Any(d => !DateOnly.TryParseExact(d, "yyyy-MM-dd", out var date) || date.Year != year)
+            || confidence is < 0 or > 1)
+            throw new ArgumentException("自动生成的日历数据无效");
+        var body = new Calendar(year, source.Trim(), holidays.Distinct().Order().ToArray(), market,
+            Origin: "auto", Confirmed: false, Confidence: confidence,
+            Notes: notes is null || notes.Length == 0 ? null : string.Join("\n", notes), Provenance: provenance);
+        var result = database.WriteNonLedger(actor, sql =>
+        {
+            sql.Execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", Key(market, year));
+            var existing = View(sql, year, market);
+            if (existing["configured"]!.GetValue<bool>() && existing["confirmed"]!.GetValue<bool>())
+                throw new ApplicationFailure("calendar_exists", 409, "该年份日历已存在且已确认，自动生成不会覆盖。");
+            sql.Execute("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value", Key(market, year), JsonSerializer.Serialize(body, FinanceJson.Options));
+            sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,'calendar.auto',NULL,$2,now())", actor,
+                new JsonObject { ["value"] = new JsonObject { ["market"] = market, ["year"] = year, ["source"] = body.Source, ["holiday_count"] = body.Holidays.Length, ["confidence"] = confidence } }.ToJsonString());
+            return View(sql, year, market);
+        });
+        snapshotGate.Wait();
+        try { Volatile.Write(ref cached, null); }
+        finally { snapshotGate.Release(); }
+        return result;
+    }
+
+    /// <summary>F1：管理员确认自动生成的日历（仅 origin=auto 且未确认的可确认；幂等）。</summary>
+    public JsonObject Confirm(string actor, string market, int year)
+    {
+        market = MarketId(market);
+        if (year is < 2000 or > 2100) throw new ArgumentException("日历年份须为2000至2100");
+        var result = database.WriteNonLedger(actor, sql =>
+        {
+            sql.Execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", Key(market, year));
+            var calendar = Parse(sql.Scalar("SELECT value FROM site_settings WHERE key=$1", Key(market, year)) as string, year, market)
+                ?? throw new ApplicationFailure("calendar_not_found", 404, "该年份日历不存在。");
+            if (calendar.Origin != "auto") throw new ApplicationFailure("calendar_not_auto", 409, "只有自动生成的日历需要确认。");
+            if (!calendar.Confirmed)
+            {
+                sql.Execute("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",
+                    Key(market, year), JsonSerializer.Serialize(calendar with { Confirmed = true }, FinanceJson.Options));
+                sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,created_at) VALUES($1,'calendar.confirm',NULL,$2,now())", actor,
+                    new JsonObject { ["value"] = new JsonObject { ["market"] = market, ["year"] = year } }.ToJsonString());
+            }
+            return View(sql, year, market);
+        });
+        snapshotGate.Wait();
+        try { Volatile.Write(ref cached, null); }
+        finally { snapshotGate.Release(); }
+        return result;
+    }
+
     public JsonObject View(int year, string market = "CN")
     {
         if (year is < 2000 or > 2100) throw new ArgumentException("日历年份须为2000至2100");
@@ -66,9 +134,11 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
         var value = sql.Scalar("SELECT value FROM site_settings WHERE key=$1", Key(market, year)) as string;
         var calendar = Parse(value, year, market);
         var revision = Revision(calendar, value);
+        // F1：暴露 origin/confirmed/confidence/notes；老行按 imported/已确认兼容。
         return new JsonObject { ["market"] = market, ["year"] = year, ["configured"] = calendar is not null,
             ["source"] = calendar?.Source, ["holidays"] = new JsonArray(calendar?.Holidays.Select(day => (JsonNode?)JsonValue.Create(day)).ToArray() ?? []),
-            ["revision"] = revision, ["origin"] = value is not null ? "imported" : calendar is null ? "missing" : "builtin" };
+            ["revision"] = revision, ["origin"] = value is null ? calendar is null ? "missing" : "builtin" : calendar!.Origin,
+            ["confirmed"] = calendar?.Confirmed ?? true, ["confidence"] = calendar?.Confidence, ["notes"] = calendar?.Notes };
     }
 
     public JsonObject Status(DateOnly today, string market = "CN")
@@ -85,7 +155,9 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
     public Calendar? Load(int year, string market = "CN")
     {
         market = MarketId(market);
-        return database.Read(sql => Parse(sql.Scalar("SELECT value FROM site_settings WHERE key=$1", Key(market, year)) as string, year, market));
+        var calendar = database.Read(sql => Parse(sql.Scalar("SELECT value FROM site_settings WHERE key=$1", Key(market, year)) as string, year, market));
+        // F1：未确认的自动日历仅在 QUANT_CALENDAR_AUTO_ACCEPT=true 时采纳。
+        return Effective(calendar) ? calendar : null;
     }
     public bool? TradingDay(DateOnly day, string market = "CN")
     {
@@ -110,7 +182,8 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
             foreach (var id in identities)
             {
                 var raw = values.GetValueOrDefault(Key(id.Market, id.Year));
-                if (Parse(raw, id.Year, id.Market) is { } calendar)
+                // F1：快照仅收录 effective 日历（未确认自动日历看 autoAccept）。
+                if (Parse(raw, id.Year, id.Market) is { } calendar && Effective(calendar))
                     entries.Add(new(id.Market, id.Year, calendar.Source, Revision(calendar, raw), calendar.Holidays.Select(DateOnly.Parse).ToFrozenSet()));
             }
             var result = new MarketCalendars(entries);
