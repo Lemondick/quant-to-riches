@@ -13,7 +13,7 @@ namespace QuantAssistant.Api.Services;
 /// 键 = sha256(model_version + canonical_json(prompt))（batch3 跨流契约）；
 /// TTL 走 QUANT_MODEL_CACHE_TTL_MIN（默认 60 分钟），开关 QUANT_MODEL_CACHE_ENABLED（默认 true）；
 /// 命中返回 cached:true（由调用方在响应中标记），DB 侧审计记 model_call_cache.hits+1。
-/// model_call_cache 表由流 D 建（0041：prompt_hash PK, model_version, result_json, hits, created_at, expires_at）；
+/// model_call_cache 表由流 D 建（0040：prompt_hash PK, model_version, result_json, hits, created_at, expires_at）；
 /// 表不存在时降级为内存缓存并记 warning，不抛错（应用重启内存缓存清零）。
 /// 局限（commit 注明）：API 侧只知道 worker op（如 ask.answer），不知道 worker 选用的具体模型，
 /// 因此 model_version 取 op 作用域版本（如 "ask.answer/v1"）；worker 更换模型时须升级版本，
@@ -68,7 +68,7 @@ public sealed class ModelCallCacheService(AccountDatabase database, QuantOptions
         if (!_tableExists && !_warnedMissing)
         {
             _warnedMissing = true;
-            logger.LogWarning("model_call_cache 表不存在（流 D 0041 未应用），模型去重缓存降级为内存实现。");
+            logger.LogWarning("model_call_cache 表不存在（流 D 0040 未应用），模型去重缓存降级为内存实现。");
         }
         return _tableExists;
     }
