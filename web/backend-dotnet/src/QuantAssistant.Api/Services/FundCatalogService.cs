@@ -10,7 +10,10 @@ namespace QuantAssistant.Api.Services;
 /// <summary>One bounded public directory; no user preferences, per-row crawlers or financial writes.</summary>
 public sealed class FundCatalogService(PublicSnapshotRepository repository,ComputeService compute,TimeProvider clock,TradingCalendarRepository calendars)
 {
-    private sealed record Snapshot(JsonObject Metadata,JsonObject[] Rows,JsonObject Categories,DateTimeOffset LoadedAt);
+    private sealed record Snapshot(JsonObject Metadata,JsonObject[] Rows,JsonObject Categories,DateTimeOffset LoadedAt)
+    {
+        public int RefreshRequested;
+    }
     private readonly object gate=new();
     private Snapshot? saved;
     private Lazy<Task<Snapshot>>? pending;
@@ -70,7 +73,12 @@ public sealed class FundCatalogService(PublicSnapshotRepository repository,Compu
         Snapshot source;
         try{source=await Read(cancellation);}
         catch(ApplicationFailure){await compute.QueuePublicRefresh(userId,"fund.catalog",new{},cancellation,force:true);throw;}
-        if(source.Metadata["stale"]?.GetValue<bool>()==true)await compute.QueuePublicRefresh(userId,"fund.catalog",new{},cancellation,force:true);
+        // A completed refresh must not be queued again by readers of the same retained stale snapshot.
+        if(source.Metadata["stale"]?.GetValue<bool>()==true&&Interlocked.CompareExchange(ref source.RefreshRequested,1,0)==0)
+        {
+            try{await compute.QueuePublicRefresh(userId,"fund.catalog",new{},cancellation,force:true);}
+            catch{Interlocked.Exchange(ref source.RefreshRequested,0);throw;}
+        }
         var result=categories?new JsonObject{["dimensions"]=source.Categories.DeepClone()}:FundCatalogQuery.Apply(source.Rows,filter);
         foreach(var pair in source.Metadata)result[pair.Key]=pair.Value?.DeepClone();
         result["cache_read_at"]=clock.GetUtcNow().ToString("O");
