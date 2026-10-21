@@ -53,6 +53,56 @@ export function validateRebalanceTarget(target: RebalanceTarget): string | null 
 }
 
 /** 由当前配置与目标配置算出偏离、告警与调仓建议（纯函数，可单元测试）。 */
+/* ---------------- 估值仪表盘（任务2） ---------------- */
+
+export type ValuationItem = {
+  symbol: string
+  name: string
+  pe: number | null
+  pb: number | null
+  /** PE 百分位 0–100，越低越便宜 */
+  pe_pct: number
+  pb_pct: number
+  /** 股权风险溢价（%），null 表示暂无 */
+  erp: number | null
+}
+
+export type ValuationSnapshot = {
+  as_of: string
+  items: ValuationItem[]
+  temperature: { score: number; label: string }
+}
+
+export const VALUATION_INDEX_ORDER = ['000300.SH', '000905.SH', '399006.SZ', 'HSI', 'SPX', 'NDX']
+export const VALUATION_INDEX_NAMES: Record<string, string> = {
+  '000300.SH': '沪深300', '000905.SH': '中证500', '399006.SZ': '创业板指',
+  HSI: '恒生', SPX: '标普500', NDX: '纳斯达克',
+}
+
+/** 市场温度文案兜底（后端未给 label 时使用）。 */
+export function temperatureLabel(score: number): string {
+  if (score < 30) return '低估'
+  if (score < 45) return '偏低'
+  if (score < 55) return '合理'
+  if (score < 70) return '偏高'
+  return '高估'
+}
+
+/** 百分位条颜色：越低（越便宜）越绿，越高越红。 */
+export function percentileTone(pct: number): string {
+  if (pct < 30) return 'low'
+  if (pct < 70) return 'mid'
+  return 'high'
+}
+
+/** 最低估指数：PE/PB 百分位均值最小者（并列取 PE 更低者）。 */
+export function cheapestIndex(snapshot: ValuationSnapshot): ValuationItem | null {
+  if (!snapshot.items.length) return null
+  const score = (item: ValuationItem) => (item.pe_pct + item.pb_pct) / 2
+  return [...snapshot.items].sort((a, b) => score(a) - score(b) || a.pe_pct - b.pe_pct)[0]
+}
+
+/** 由当前配置与目标配置算出偏离、告警与调仓建议（纯函数，可单元测试）。 */
 export function buildRebalanceAdvice(state: RebalanceState): { advices: ClassAdvice[]; industryAlerts: IndustryAlert[]; hasAlert: boolean } {
   const total = Number(state.current.total_value) || 0
   const threshold = state.target.deviation_threshold_pct

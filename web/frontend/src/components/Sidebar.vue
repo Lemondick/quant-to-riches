@@ -47,7 +47,8 @@ const icons = {
   LayoutDashboard: I.LayoutDashboard, ChartNoAxesCombined: I.ChartNoAxesCombined, WalletCards: I.WalletCards,
   Star: I.Star, Map: I.Map, Sparkles: I.Sparkles, BadgeDollarSign: I.BadgeDollarSign,
   Bot: I.Bot, Newspaper: I.Newspaper, UsersRound, Settings2, TerminalSquare: I.TerminalSquare, ClipboardList: I.ClipboardList, CalendarDays: I.CalendarDays,
-  Scale: I.Scale
+  Scale: I.Scale,
+  Gauge: I.Gauge
 }
 const groups = ['资产管理', '市场观察', '投资研究', '高级工具']
 const grouped = computed(() => Object.fromEntries(groups.map(g => [g, navItems.filter(i => i.group === g)])))

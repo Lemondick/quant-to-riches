@@ -19,6 +19,7 @@
     <div class="panel donut-panel"><div class="panel-head"><div><h2>持仓构成</h2><p>按当前市值计算，包含账户现金</p></div><span class="tag blue">按市值</span></div><Donut :center="String(portfolio.holdings.length)" label="个持仓标的" :items="allocation" /></div>
   </div>
   <div class="insight-strip"><span>今日收益主要来源：<b>{{ leadingHolding?.name ?? '暂无持仓' }}</b></span><RouterLink to="/portfolio" class="text-action">查看收益贡献 <ArrowUpRight :size="13" aria-hidden="true" /></RouterLink></div>
+  <ValuationWidget :snapshot="valuationSnapshot" />
   <div class="panel table-panel">
     <div class="panel-head"><div><h2>持有明细</h2><p>录入现有持仓用于观察；买卖记录请前往交易账本。</p></div><button class="btn" @click="exportHoldings"><Download :size="14" aria-hidden="true" />导出持仓</button></div>
     <FilterBar v-model="category" v-model:query="query" :options="['全部', '基金', '股票']" class="panel-filters" label="持仓类型" placeholder="搜索持仓名称或代码" search-label="搜索持仓名称或代码" />
@@ -43,7 +44,10 @@
 </template>
 <script setup lang="ts">
 import LiveAssetOverview from '../components/LiveAssetOverview.vue'
+import ValuationWidget from '../components/ValuationWidget.vue'
+import { mockValuation } from '../data/batch2'
 const liveBackend = !!import.meta.env.VITE_API_BASE_URL?.trim()
+const valuationSnapshot = ref(mockValuation())
 
 import { computed, reactive, ref } from 'vue'
 import { ArrowUpRight, Download, Eye, EyeOff, Plus, RefreshCw, Wallet, ChartNoAxesColumnIncreasing, TrendingUp, PieChart } from 'lucide-vue-next'
