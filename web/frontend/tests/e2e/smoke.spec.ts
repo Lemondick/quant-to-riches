@@ -16,7 +16,12 @@ test.beforeEach(async ({ page }, testInfo) => {
   const consoleErrors: string[] = []
   const pageErrors: string[] = []
   page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text())
+    if (message.type() !== 'error') return
+    const text = message.text()
+    // live 模式下 401 是预期的未登录态（mock 对 /api/v1/* 返回 401），浏览器会记一条
+    // "Failed to load resource: 401" —— 属于正常业务流，不计为报错。
+    if (mode === 'live' && /status of 401/.test(text)) return
+    consoleErrors.push(text)
   })
   page.on('pageerror', (error) => pageErrors.push(String(error)))
   // @ts-expect-error 透传给 afterEach 断言

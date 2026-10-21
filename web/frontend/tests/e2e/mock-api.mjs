@@ -11,18 +11,32 @@ import http from 'node:http'
 const port = Number(process.argv[2] ?? 57451)
 const json = (res, status, body) => {
   const payload = JSON.stringify(body)
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(payload) })
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(payload),
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  })
   res.end(payload)
 }
 
 const server = http.createServer((req, res) => {
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    })
+    return res.end()
+  }
   const url = new URL(req.url ?? '/', 'http://localhost')
   if (url.pathname === '/api/v1/auth/session' && req.method === 'GET')
     return json(res, 401, { error_code: 'unauthorized', message: '请先登录后端账户。' })
   if (url.pathname === '/api/v1/auth/login' && req.method === 'POST')
     return json(res, 401, { error_code: 'invalid_credentials', message: '账号或密码无效。' })
   if (url.pathname.startsWith('/api/v1/'))
-    return json(res, 503, { error_code: 'mock_unavailable', message: 'mock 后端无此接口。' })
+    return json(res, 401, { error_code: 'unauthorized', message: '请先登录后端账户。' })
   return json(res, 404, { error_code: 'not_found' })
 })
 
