@@ -21,12 +21,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-vue-next'
-import { sortTableRows, type TableCell, type TableSort } from '../utils/table'
+import { escapeHtml, sortTableRows, type TableCell, type TableSort } from '../utils/table'
 import type { VirtualScrollBinding } from '../directives/virtualScroll'
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] as string))
-}
 
 const props = withDefaults(defineProps<{
   headers: string[]
@@ -39,6 +35,8 @@ const props = withDefaults(defineProps<{
   columnWidths?: string
   /** 可见列位置 → 原始列索引（配合 DataTable 列隐藏），默认恒等映射。 */
   columnIndexes?: number[]
+  /** 自定义单元格 HTML（返回 null 时走默认转义文本）；用于虚拟模式下保留标签等样式。 */
+  cellHtml?: (value: TableCell, columnIndex: number, row: TableCell[]) => string | null
   emptyTitle?: string
   emptyText?: string
 }>(), {
@@ -74,7 +72,9 @@ function cellClass(value: TableCell, index: number): string {
 function renderRow(row: TableCell[], index: number): string {
   const cells = indexes.value.map((originalIndex, columnIndex) => {
     const value = row[originalIndex]
-    return `<div class="${cellClass(value, columnIndex)}" role="cell">${escapeHtml(value === null || value === undefined ? '' : String(value))}</div>`
+    const custom = props.cellHtml?.(value, originalIndex, row)
+    const content = custom ?? escapeHtml(value === null || value === undefined ? '' : String(value))
+    return `<div class="${cellClass(value, columnIndex)}" role="cell">${content}</div>`
   }).join('')
   return `<div class="virtual-tr" role="row" aria-rowindex="${index + 2}" style="display:grid;grid-template-columns:${columns.value};height:100%">${cells}</div>`
 }

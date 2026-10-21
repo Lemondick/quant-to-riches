@@ -12,7 +12,7 @@
   <div class="panel table-panel section-space">
     <div class="panel-head"><div><h2>交易记录</h2><p>按交易类型、名称、代码或备注查找记录。</p></div><span class="tag blue">现金与持仓联动</span></div>
     <FilterBar v-model="direction" v-model:query="query" :options="['全部', '买入', '卖出', '分红']" class="panel-filters" label="交易类型" placeholder="搜索名称、代码或备注" search-label="搜索交易名称、代码或备注" />
-    <DataTable table-id="trade-ledger" label="交易记录" :headers="headers" :rows="rows" :numeric-columns="[4, 5, 6, 7, 8]" :min-width="1100" empty-title="没有符合条件的交易记录">
+    <DataTable table-id="trade-ledger" label="交易记录" :headers="headers" :rows="rows" :numeric-columns="[4, 5, 6, 7, 8]" :min-width="1100" virtual :cell-html="ledgerTypeTagHtml" empty-title="没有符合条件的交易记录">
       <template #summary>显示 <b>{{ rows.length }}</b> / {{ portfolio.transactions.length }} 笔记录</template>
       <template #cell-3="{ value }"><span class="tag" :class="{ red: value === '卖出', blue: value === '分红' }">{{ value }}</span></template>
       <template #empty-action><button class="btn" @click="direction = '全部'; query = ''">清除筛选</button></template>
@@ -44,6 +44,7 @@ import AppDialog from '../components/AppDialog.vue'
 import { usePortfolio } from '../composables/usePortfolio'
 import { fundList } from '../data/funds'
 import { money, number, dateTime, localDateInput, downloadCsv } from '../utils/format'
+import { ledgerTypeTagHtml } from '../utils/table'
 import type { TradeInput } from '../utils/portfolio'
 const { portfolio, addTrade } = usePortfolio()
 const direction = ref('全部'), query = ref(''), notice = ref(''), dialogOpen = ref(false), formError = ref(''), tradeDate = ref(localDateInput())

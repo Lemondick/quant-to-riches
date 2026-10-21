@@ -30,7 +30,8 @@
     <div class="table-wrap" :tabindex="rows.length ? 0 : undefined" :aria-label="label + '，可横向滚动'">
       <VirtualTable v-if="useVirtual" :headers="visibleColumns.map(c => c.label)" :rows="rows"
         :column-indexes="visibleColumns.map(c => c.index)" :label="label" :numeric-columns="numericColumns"
-        :sortable="sortable" :row-height="virtualRowHeight" :empty-title="emptyTitle" :empty-text="emptyText" />
+        :sortable="sortable" :row-height="virtualRowHeight" :cell-html="cellHtml"
+        :empty-title="emptyTitle" :empty-text="emptyText" />
       <table v-else :aria-label="label" :style="{ minWidth: Math.max(240, Math.round(minWidth * visibleColumns.length / headers.length)) + 'px' }">
         <thead>
           <tr>
@@ -88,6 +89,8 @@ const props = withDefaults(defineProps<{
   virtual?: boolean
   virtualThreshold?: number
   virtualRowHeight?: number
+  /** 虚拟模式下的自定义单元格 HTML（列索引为原始列索引，与 cell-N 插槽语义一致）。 */
+  cellHtml?: (value: TableCell, columnIndex: number, row: TableCell[]) => string | null
 }>(), {
   label: '数据表格', numericColumns: () => [], lockedColumns: () => [0], sortable: true,
   minWidth: 640, emptyTitle: '暂无匹配记录', emptyText: '请尝试调整筛选条件或搜索关键词。',

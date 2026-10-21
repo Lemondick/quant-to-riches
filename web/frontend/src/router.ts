@@ -20,6 +20,7 @@ const Valuation = import.meta.env.VITE_API_BASE_URL ? () => import('./components
 const FundHealth = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveFundHealth.vue') : () => import('./views/FundHealth.vue')
 const PortfolioBacktest = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LivePortfolioBacktest.vue') : () => import('./views/PortfolioBacktest.vue')
 const Announcements = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveAnnouncements.vue') : () => import('./views/Announcements.vue')
+const VirtualScrollLab = () => import('./views/VirtualScrollLab.vue')
 
 const routePreloader = createRoutePreloader({
   '/': () => import.meta.env.VITE_API_BASE_URL ? Promise.resolve(LiveAssetOverview) : import('./views/AssetOverview.vue'),
@@ -34,6 +35,7 @@ const routePreloader = createRoutePreloader({
   '/health': FundHealth,
   '/portfolio-backtest': PortfolioBacktest,
   '/announcements': Announcements,
+  '/lab/virtual-scroll': VirtualScrollLab,
 })
 export const preloadRoute = routePreloader.preload
 export const warmRouteComponents = routePreloader.warm
@@ -81,6 +83,7 @@ export default createRouter({
     { path: '/valuation', component: Valuation },
     { path: '/health', component: FundHealth },
     { path: '/portfolio-backtest', component: PortfolioBacktest },
-    { path: '/announcements', component: Announcements }
+    { path: '/announcements', component: Announcements },
+    { path: '/lab/virtual-scroll', component: VirtualScrollLab }
   ]
 })

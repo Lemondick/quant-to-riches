@@ -175,3 +175,28 @@ export function mockAnnouncements(): AnnouncementList {
     ],
   }
 }
+
+/** 10000 行账本 mock 数据（虚拟滚动性能验证用，确定性生成）。 */
+export function mockLedgerRows(count: number): (string | number)[][] {
+  const names = ['易方达消费行业股票', '广发双擎升级混合', '招商银行', '沪深300ETF', '广发稳健增长混合', '贵州茅台']
+  const codes = ['110022', '005911', '600036', '510300', '270002', '600519']
+  const directions = ['买入', '卖出', '分红', '定投']
+  const rows: (string | number)[][] = []
+  for (let i = 0; i < count; i++) {
+    const pick = i % names.length
+    const direction = directions[i % directions.length]
+    const price = 1 + ((i * 7919) % 10000) / 1000
+    const quantity = 100 + ((i * 104729) % 900)
+    const amount = price * quantity
+    const day = String(1 + (i % 28)).padStart(2, '0')
+    const month = String(1 + ((i >> 4) % 12)).padStart(2, '0')
+    rows.push([
+      names[pick], `2026-${month}-${day} 15:00`, codes[pick], direction,
+      amount.toFixed(2), direction === '分红' ? '—' : price.toFixed(4),
+      direction === '分红' ? '—' : quantity.toFixed(0), (amount * 0.0003).toFixed(2),
+      direction === '买入' ? '—' : ((i % 7 - 3) * 123.4).toFixed(2),
+      i % 11 === 0 ? '定投扣款' : '',
+    ])
+  }
+  return rows
+}
