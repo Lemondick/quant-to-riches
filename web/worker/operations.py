@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from advisor_preflight import execute_preflight
 from attribution_operations import ATTRIBUTION_CAPABILITIES, execute_attribution
+from calendar_generation import CALENDAR_CAPABILITIES, execute_calendar
 from nav_operations import NAV_CAPABILITIES, execute_nav
 from paid_operations import PAID_CAPABILITIES, execute_paid
 from photo_operations import PHOTO_CAPABILITIES, execute_photo
@@ -27,6 +28,7 @@ CAPABILITIES = (
     *NAV_CAPABILITIES,
     *REPLAY_CAPABILITIES,
     *ATTRIBUTION_CAPABILITIES,
+    *CALENDAR_CAPABILITIES,
 )
 
 
@@ -55,4 +57,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_replay(kind, payload)
     if kind in ATTRIBUTION_CAPABILITIES:
         return execute_attribution(kind, payload)
+    if kind in CALENDAR_CAPABILITIES:
+        return execute_calendar(kind, payload)
     raise ValueError("unsupported_operation")
