@@ -23,3 +23,26 @@
 .page-shell .ai-hero,
 .page-shell .market-page .tab-content-fade,
 .page-shell .market-page .fund-kpi-card{animation:none}
+
+/* ── F10: 640px / 1200px 断点修复 ───────────────────────────────────
+   目标：账本、管理后台等复杂页面在小屏下无横向溢出、表格可横滑。
+   表格横滑由 .table-wrap{overflow:auto} 承担；这里只收紧会挤出页面的布局。 */
+@media(max-width:1200px){
+  /* 复杂表单与筛选在小宽屏下允许换行，避免被挤出 */
+  .filter-bar{flex-wrap:wrap}
+  .panel-head{flex-wrap:wrap}
+}
+@media(max-width:640px){
+  /* 两列表单堆叠为单列（新增交易、汇率设置等对话框） */
+  .form-grid{grid-template-columns:minmax(0,1fr)}
+  /* 管理后台的页签行可横滑，不挤压页面 */
+  .tabs-line{overflow-x:auto;scrollbar-width:thin}
+  .tabs-line button{flex:none}
+  /* 键值行允许换行，避免长文本把面板撑出 */
+  .row-list .row{flex-wrap:wrap;gap:6px 12px}
+  /* 栅格/面板在 flex 布局中允许收缩，杜绝横向溢出 */
+  .page-shell,.panel,.data-table,.table-panel{min-width:0}
+  /* 持仓/账本数值在小屏下略收，避免 metric 卡被撑高 */
+  .metric-value{font-size:20px;overflow-wrap:anywhere}
+  .stat-value{overflow-wrap:anywhere}
+}

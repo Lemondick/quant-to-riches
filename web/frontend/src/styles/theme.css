@@ -130,7 +130,7 @@
 .tabs button{border:0;background:transparent;color:#8da3bf;padding:7px 12px;border-radius:6px;font-size:12px;transition:all .2s}
 .tabs button:hover{color:var(--text-1);background:rgba(77,141,255,.06)}
 .tabs button.active{background:linear-gradient(135deg,#2d6fe1,#4b8cff);color:#fff;box-shadow:0 2px 8px rgba(45,111,225,.3)}
-.searchbox{height:34px;width:320px;border:1px solid rgba(41,64,93,.7);border-radius:8px;background:rgba(19,35,58,.7);display:flex;align-items:center;gap:7px;padding:0 10px;color:#7890ad;transition:all .3s}
+.searchbox{height:34px;width:min(320px,100%);border:1px solid rgba(41,64,93,.7);border-radius:8px;background:rgba(19,35,58,.7);display:flex;align-items:center;gap:7px;padding:0 10px;color:#7890ad;transition:all .3s}
 .searchbox:focus-within{border-color:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
 .searchbox input{border:0;outline:0;background:transparent;width:100%;font-size:12px;color:var(--text-1)}
 .sort{margin-left:auto;height:34px;background:rgba(19,35,58,.7);border:1px solid rgba(41,64,93,.7);border-radius:8px;padding:0 10px;font-size:12px;transition:border-color .2s}
