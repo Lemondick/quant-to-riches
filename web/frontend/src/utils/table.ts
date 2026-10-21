@@ -53,3 +53,18 @@ export function sortTableRows(rows: TableCell[][], sort: TableSort) {
     return sort.direction === 'asc' ? comparison : -comparison
   })
 }
+
+/** HTML 转义（虚拟表格字符串渲染用）。 */
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] as string))
+}
+
+/**
+ * 交易账本"类型"列（原始第 3 列）的标签 HTML，供 DataTable 虚拟模式使用，
+ * 与 #cell-3 插槽的渲染效果一致（小数据量时仍走插槽）。
+ */
+export function ledgerTypeTagHtml(value: TableCell, columnIndex: number): string | null {
+  if (columnIndex !== 3 || typeof value !== 'string') return null
+  const tone = value === '卖出' ? 'red' : value === '分红' ? 'blue' : ''
+  return `<span class="tag ${tone}">${escapeHtml(value)}</span>`
+}

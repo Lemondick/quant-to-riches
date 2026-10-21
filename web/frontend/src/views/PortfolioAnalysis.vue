@@ -16,7 +16,7 @@
   <div class="panel table-panel section-space"><div class="panel-head"><div><h2>资产配置</h2><p>与资产总览使用同一份账户数据。</p></div></div><DataTable table-id="portfolio" label="资产配置" :headers="['资产类别', '市值', '占比', '持仓成本', '浮动收益']" :rows="allocation" :numeric-columns="[1, 2, 3, 4]" /></div>
   <div class="panel table-panel section-space">
     <div class="panel-head"><div><h2>收益贡献</h2><p>按当前浮动收益排序，可切换查看正负贡献。</p></div><div class="segmented" role="group" aria-label="收益贡献筛选"><button v-for="option in ['全部', '正贡献', '负贡献']" :key="option" :aria-pressed="contribution === option" :class="{ selected: contribution === option }" @click="contribution = option">{{ option }}</button></div></div>
-    <DataTable table-id="portfolio-contribution" label="持仓收益贡献" :headers="['名称', '代码', '市值', '浮动收益', '持仓收益率']" :rows="contributions" :numeric-columns="[2, 3, 4]" empty-title="当前没有此类收益贡献" />
+    <DataTable table-id="portfolio-contribution" label="持仓收益贡献" virtual :headers="['名称', '代码', '市值', '浮动收益', '持仓收益率']" :rows="contributions" :numeric-columns="[2, 3, 4]" empty-title="当前没有此类收益贡献" />
   </div>
 </template>
 </template>

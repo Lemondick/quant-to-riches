@@ -28,7 +28,11 @@
       </div>
     </div>
     <div class="table-wrap" :tabindex="rows.length ? 0 : undefined" :aria-label="label + '，可横向滚动'">
-      <table :aria-label="label" :style="{ minWidth: Math.max(240, Math.round(minWidth * visibleColumns.length / headers.length)) + 'px' }">
+      <VirtualTable v-if="useVirtual" :headers="visibleColumns.map(c => c.label)" :rows="rows"
+        :column-indexes="visibleColumns.map(c => c.index)" :label="label" :numeric-columns="numericColumns"
+        :sortable="sortable" :row-height="virtualRowHeight" :cell-html="cellHtml"
+        :empty-title="emptyTitle" :empty-text="emptyText" />
+      <table v-else :aria-label="label" :style="{ minWidth: Math.max(240, Math.round(minWidth * visibleColumns.length / headers.length)) + 'px' }">
         <thead>
           <tr>
             <th v-for="column in visibleColumns" :key="column.index" scope="col" :class="columnClasses(column.index)" :aria-sort="sortState(column.index)">
@@ -56,7 +60,7 @@
         <slot name="empty-action" />
       </div>
     </div>
-    <div v-if="pageSize && rows.length > pageSize" class="data-table-toolbar table-pagination"><button class="btn" :disabled="page === 1" @click="page--">上一页</button><span role="status">第 {{ page }} / {{ pageCount }} 页 · 共 {{ rows.length }} 条</span><button class="btn" :disabled="page === pageCount" @click="page++">下一页</button></div>
+    <div v-if="pageSize && rows.length > pageSize && !useVirtual" class="data-table-toolbar table-pagination"><button class="btn" :disabled="page === 1" @click="page--">上一页</button><span role="status">第 {{ page }} / {{ pageCount }} 页 · 共 {{ rows.length }} 条</span><button class="btn" :disabled="page === pageCount" @click="page++">下一页</button></div>
     <div class="data-table-foot"><span>{{ preferences.density === 'compact' ? '紧凑视图' : '舒适视图' }} · {{ visibleColumns.length }} / {{ headers.length }} 列</span><span>视图设置自动保存</span></div>
   </div>
 </template>
@@ -66,6 +70,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, FileSearch, List, Rows3 } from 'lucide-vue-next'
 import { readTablePreferences, sortTableRows, type TableCell } from '../utils/table'
 import { usePreferences } from '../composables/usePreferences'
+import VirtualTable from './VirtualTable.vue'
 
 const props = withDefaults(defineProps<{
   headers: string[]
@@ -80,9 +85,16 @@ const props = withDefaults(defineProps<{
   emptyTitle?: string
   emptyText?: string
   pageSize?: number
+  /** 启用虚拟滚动：行数超过 virtualThreshold 时用 v-virtual-scroll 渲染（分页自动停用）。 */
+  virtual?: boolean
+  virtualThreshold?: number
+  virtualRowHeight?: number
+  /** 虚拟模式下的自定义单元格 HTML（列索引为原始列索引，与 cell-N 插槽语义一致）。 */
+  cellHtml?: (value: TableCell, columnIndex: number, row: TableCell[]) => string | null
 }>(), {
   label: '数据表格', numericColumns: () => [], lockedColumns: () => [0], sortable: true,
-  minWidth: 640, emptyTitle: '暂无匹配记录', emptyText: '请尝试调整筛选条件或搜索关键词。'
+  minWidth: 640, emptyTitle: '暂无匹配记录', emptyText: '请尝试调整筛选条件或搜索关键词。',
+  virtual: false, virtualThreshold: 300, virtualRowHeight: 36,
 })
 
 const storageKey = 'guanlan.table.v1.' + (props.tableId ?? props.headers.join('|'))
@@ -106,9 +118,11 @@ const page = ref(1)
 const pageCount = computed(() => props.pageSize ? Math.max(1, Math.ceil(props.rows.length / props.pageSize)) : 1)
 watch([() => props.rows.length, () => preferences.value.sort], () => { page.value = 1 })
 const displayedRows = computed(() => {
-  const sorted = sortTableRows(props.rows, props.sortable ? preferences.value.sort : null)
+  const sorted = sortTableRows(props.rows, props.sortable && !useVirtual.value ? preferences.value.sort : null)
   return props.pageSize ? sorted.slice((page.value - 1) * props.pageSize, page.value * props.pageSize) : sorted
 })
+/** 行数超过阈值才启用虚拟滚动，小表保持原表格渲染；虚拟模式下排序由 VirtualTable 内部处理。 */
+const useVirtual = computed(() => props.virtual && props.rows.length > (props.virtualThreshold ?? 300))
 
 function toggleColumn(index: number) {
   if (props.lockedColumns.includes(index)) return

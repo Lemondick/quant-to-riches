@@ -15,6 +15,12 @@ const AccountSettings = () => import('./views/AccountSettings.vue')
 const ApiConsole = () => import('./components/LiveApiConsole.vue')
 const ReportTasks = () => import('./components/LiveReportTasks.vue')
 const Calendar = () => import('./components/LiveCalendar.vue')
+const Rebalance = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveRebalance.vue') : () => import('./views/Rebalance.vue')
+const Valuation = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveValuation.vue') : () => import('./views/Valuation.vue')
+const FundHealth = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveFundHealth.vue') : () => import('./views/FundHealth.vue')
+const PortfolioBacktest = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LivePortfolioBacktest.vue') : () => import('./views/PortfolioBacktest.vue')
+const Announcements = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveAnnouncements.vue') : () => import('./views/Announcements.vue')
+const VirtualScrollLab = () => import('./views/VirtualScrollLab.vue')
 
 const routePreloader = createRoutePreloader({
   '/': () => import.meta.env.VITE_API_BASE_URL ? Promise.resolve(LiveAssetOverview) : import('./views/AssetOverview.vue'),
@@ -24,6 +30,12 @@ const routePreloader = createRoutePreloader({
   '/api-console': ApiConsole,
   '/reports': ReportTasks,
   '/calendar': Calendar,
+  '/rebalance': Rebalance,
+  '/valuation': Valuation,
+  '/health': FundHealth,
+  '/portfolio-backtest': PortfolioBacktest,
+  '/announcements': Announcements,
+  '/lab/virtual-scroll': VirtualScrollLab,
 })
 export const preloadRoute = routePreloader.preload
 export const warmRouteComponents = routePreloader.warm
@@ -38,6 +50,11 @@ export const navItems = [
   { path: '/fund-review', label: '基金复核', group: '投资研究', icon: 'BadgeDollarSign' },
   { path: '/quant', label: '量化策略', group: '投资研究', icon: 'Bot' },
   { path: '/news', label: '市场资讯', group: '投资研究', icon: 'Newspaper' },
+  { path: '/rebalance', label: '再平衡', group: '投资研究', icon: 'Scale' },
+  { path: '/valuation', label: '估值仪表盘', group: '投资研究', icon: 'Gauge' },
+  { path: '/health', label: '基金体检', group: '投资研究', icon: 'Stethoscope' },
+  { path: '/portfolio-backtest', label: '组合回测', group: '投资研究', icon: 'History' },
+  { path: '/announcements', label: '公告流', group: '投资研究', icon: 'Megaphone' },
   { path: '/admin', label: '管理者后台', group: '系统', icon: 'UsersRound' },
   { path: '/settings', label: '账号与设置', group: '系统', icon: 'Settings2' },
   { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' },
@@ -61,6 +78,12 @@ export default createRouter({
     { path: '/settings', component: AccountSettings },
     { path: '/api-console', component: ApiConsole },
     { path: '/reports', component: ReportTasks },
-    { path: '/calendar', component: Calendar }
+    { path: '/calendar', component: Calendar },
+    { path: '/rebalance', component: Rebalance },
+    { path: '/valuation', component: Valuation },
+    { path: '/health', component: FundHealth },
+    { path: '/portfolio-backtest', component: PortfolioBacktest },
+    { path: '/announcements', component: Announcements },
+    { path: '/lab/virtual-scroll', component: VirtualScrollLab }
   ]
 })

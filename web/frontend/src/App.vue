@@ -8,6 +8,7 @@
         <RouterView />
       </main>
     </div>
+    <AskWidget />
   </div>
 </template>
 
@@ -16,6 +17,7 @@ import { onMounted, onBeforeUnmount, watch } from 'vue'
 import router, { warmRouteComponents } from './router'
 import Sidebar from './components/Sidebar.vue'
 import Topbar from './components/Topbar.vue'
+import AskWidget from './components/AskWidget.vue'
 import { usePreferences } from './composables/usePreferences'
 import { localStorageAvailable } from './composables/useLocalState'
 import { setDisplayTimezone } from './utils/format'

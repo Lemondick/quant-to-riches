@@ -5,7 +5,7 @@
   <template v-if="data">
     <div class="page-context"><span class="data-badge">{{ session?.user.username }}</span><span>记账会同步更新当前账户持仓与现金。</span></div>
     <div class="kpi-grid"><div class="panel metric-card"><span class="metric-label">账户交易记录</span><div class="metric-value">{{ data.entries.length }} 笔</div><div class="metric-note">当前账户最近记录</div></div><div class="panel metric-card"><span class="metric-label">可用现金</span><div class="metric-value">{{ summary.data.value?.portfolio.cash ?? '—' }}</div><div class="metric-note">买入、卖出和分红后同步更新</div></div><div class="panel metric-card"><span class="metric-label">记录内已确认费用</span><div class="metric-value">{{ data.total_fees }}</div><div class="metric-note">分红总额 {{ data.total_dividends }}</div></div></div>
-    <div class="panel table-panel section-space"><div class="panel-head"><div><h2>交易记录</h2><p>按交易类型、名称、代码或备注查找记录。</p></div><span class="tag blue">现金与持仓联动</span></div><FilterBar v-model="direction" v-model:query="query" :options="['全部', '买入', '卖出', '分红', '定投']" class="panel-filters" label="交易类型" placeholder="搜索名称、代码或备注" search-label="搜索交易名称、代码或备注" /><DataTable table-id="native-ledger" label="账户交易账本" :headers="headers" :rows="rows" :numeric-columns="[4, 5, 6, 7]" :min-width="1100" empty-title="当前账户暂无账本记录"><template #summary>显示 <b>{{ rows.length }}</b> / {{ data.entries.length }} 笔记录</template><template #cell-3="{ value }"><span class="tag" :class="{ red: value === '卖出', blue: value === '分红' }">{{ value }}</span></template></DataTable></div>
+    <div class="panel table-panel section-space"><div class="panel-head"><div><h2>交易记录</h2><p>按交易类型、名称、代码或备注查找记录。</p></div><span class="tag blue">现金与持仓联动</span></div><FilterBar v-model="direction" v-model:query="query" :options="['全部', '买入', '卖出', '分红', '定投']" class="panel-filters" label="交易类型" placeholder="搜索名称、代码或备注" search-label="搜索交易名称、代码或备注" /><DataTable table-id="native-ledger" label="账户交易账本" :headers="headers" :rows="rows" :numeric-columns="[4, 5, 6, 7]" :min-width="1100" virtual :cell-html="ledgerTypeTagHtml" empty-title="当前账户暂无账本记录"><template #summary>显示 <b>{{ rows.length }}</b> / {{ data.entries.length }} 笔记录</template><template #cell-3="{ value }"><span class="tag" :class="{ red: value === '卖出', blue: value === '分红' }">{{ value }}</span></template></DataTable></div>
   </template>
   <AppDialog v-model="open" title="新增交易记录" description="记录已发生的交易或分红，确认后更新当前账户。">
     <form v-if="session" id="native-ledger-form" class="stack-form" aria-label="新增账户账本记录" @submit.prevent="save">
@@ -26,6 +26,7 @@ import { useDashboardSummary } from '../composables/useDashboardSummary'
 import PageHeader from './PageHeader.vue'
 import DataTable from './DataTable.vue'
 import BackendState from './BackendState.vue'
+import { ledgerTypeTagHtml } from '../utils/table'
 import { useAccountResource } from '../composables/useAccountResource'
 type Entry = { id: number; occurred_at: string; name: string; symbol: string; entry_type: string; quantity: string | null; price: string | null; fees: string; net_amount: string; reversed: boolean }
 const labels: Record<string, string> = { buy: '买入', sell: '卖出', dca: '定投', dividend: '分红' }
