@@ -27,6 +27,7 @@
       </template>
       <template v-else>
         <h2 class="card-title">数据与隐私</h2><p class="subtle">工作台偏好保存在当前浏览器。清除浏览器站点数据会移除本地记录。</p><div class="row-list section-space"><div class="row"><span>在线同步</span><span class="tag blue">未连接</span></div><div class="row"><span>当前数据位置</span><b>本浏览器</b></div></div><div class="inline-actions section-space"><button class="btn" type="button" @click="exportPreferences"><Download :size="15" aria-hidden="true" />导出已保存偏好</button><button class="btn" type="button" @click="resetOpen = true"><RotateCcw :size="15" aria-hidden="true" />恢复默认偏好</button></div><p class="form-hint section-space">恢复偏好只调整个人资料、提醒与外观，账户持仓和研究记录继续保留。</p>
+        <div v-if="liveBackend && account" class="section-space"><h3 class="card-title">整账户数据导出</h3><p class="subtle">聚合后端已有接口（持仓总览、账本、历史分区、自选偏好、投顾/归因报告、提醒），打包为单个 JSON 下载。后端暂无统一导出接口，故由前端聚合实现，各分区独立获取、互不影响。</p><div class="inline-actions"><button class="btn primary" type="button" :disabled="accountExport.exporting.value" @click="accountExport.exportAll()"><Download :size="15" aria-hidden="true" />{{ accountExport.exporting.value ? `正在导出（${accountExport.progress.value}）` : '导出整账户数据' }}</button></div><p v-if="accountExport.notice.value" class="feedback" role="status">{{ accountExport.notice.value }}</p><p v-if="accountExport.error.value" class="feedback error" role="alert">{{ accountExport.error.value }}</p></div>
       </template>
     </component>
   </div>
@@ -46,6 +47,7 @@ import LiveModelSettings from '../components/LiveModelSettings.vue'
 import ModelSettings from '../components/ModelSettings.vue'
 import { defaultPreferences, usePreferences } from '../composables/usePreferences'
 import { downloadFile } from '../utils/format'
+import { useAccountExport } from '../composables/useAccountExport'
 const account = liveBackend ? useAccountResource('settings-profile', (api, signal) => api.read<Record<string, unknown>>('/preferences', signal)) : undefined
 const { preferences } = usePreferences()
 const draft = reactive({ ...preferences.value })
@@ -64,5 +66,6 @@ function save() {
 }
 function discard() { Object.assign(draft, preferences.value); error.value = ''; notice.value = '已恢复为上次保存的偏好。' }
 function exportPreferences() { downloadFile('观澜-工作台偏好.json', JSON.stringify(preferences.value, null, 2), 'application/json') }
+const accountExport = useAccountExport(path => account!.read(path), () => account?.session.value?.user.username ?? 'unknown')
 function resetPreferences() { preferences.value = { ...defaultPreferences }; Object.assign(draft, preferences.value); resetOpen.value = false; notice.value = '已恢复默认偏好。' }
 </script>
