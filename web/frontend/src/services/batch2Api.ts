@@ -95,7 +95,58 @@ export function percentileTone(pct: number): string {
   return 'high'
 }
 
-/** 最低估指数：PE/PB 百分位均值最小者（并列取 PE 更低者）。 */
+/* ---------------- 基金体检（任务4） ---------------- */
+
+export type HealthSeverity = 'info' | 'warn' | 'critical'
+export type HealthKind = 'scale_change' | 'manager_change' | 'style_drift' | 'fee_level'
+export const HEALTH_KIND_NAMES: Record<HealthKind, string> = {
+  scale_change: '规模', manager_change: '经理', style_drift: '风格', fee_level: '费率',
+}
+export const HEALTH_KIND_ORDER: HealthKind[] = ['scale_change', 'manager_change', 'style_drift', 'fee_level']
+export const HEALTH_SEVERITY_NAMES: Record<HealthSeverity, string> = { info: '提示', warn: '关注', critical: '严重' }
+
+export type HealthFinding = {
+  kind: HealthKind
+  severity: HealthSeverity
+  detail: string
+  evidence?: string | null
+  /** 数据不足时后端可置 true，前端明确标注 */
+  insufficient?: boolean
+}
+
+export type FundHealthReport = {
+  code: string
+  name?: string | null
+  findings: HealthFinding[]
+}
+
+export type FundHealthSnapshot = {
+  as_of: string
+  reports: FundHealthReport[]
+}
+
+/** 是否为"数据不足"类发现：显式标记或文案含"数据不足"。 */
+export function isInsufficient(finding: HealthFinding): boolean {
+  return finding.insufficient === true || finding.detail.includes('数据不足')
+}
+
+/** 按四类顺序整理某只基金的发现（缺失的类别不占位）。 */
+export function orderFindings(report: FundHealthReport): HealthFinding[] {
+  const rank = new Map(HEALTH_KIND_ORDER.map((kind, index) => [kind, index]))
+  return [...report.findings].sort((a, b) => (rank.get(a.kind) ?? 99) - (rank.get(b.kind) ?? 99))
+}
+
+/** 某只基金的最高严重度（用于分组标题徽标）。 */
+export function worstSeverity(report: FundHealthReport): HealthSeverity {
+  if (report.findings.some(f => f.severity === 'critical')) return 'critical'
+  if (report.findings.some(f => f.severity === 'warn')) return 'warn'
+  return 'info'
+}
+
+/** severity 排序权重（critical 优先展示）。 */
+export function severityRank(severity: HealthSeverity): number {
+  return { critical: 0, warn: 1, info: 2 }[severity]
+}
 export function cheapestIndex(snapshot: ValuationSnapshot): ValuationItem | null {
   if (!snapshot.items.length) return null
   const score = (item: ValuationItem) => (item.pe_pct + item.pb_pct) / 2

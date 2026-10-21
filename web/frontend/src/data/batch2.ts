@@ -1,5 +1,5 @@
 /** Batch2 新页面的本地 mock 数据：后端联调前保证可构建、可演示。 */
-import type { RebalanceState, ValuationSnapshot } from '../services/batch2Api'
+import type { RebalanceState, ValuationSnapshot, FundHealthSnapshot } from '../services/batch2Api'
 
 export function mockRebalanceState(): RebalanceState {
   return {
@@ -29,6 +29,41 @@ export function mockValuation(): ValuationSnapshot {
       { symbol: 'HSI', name: '恒生', pe: 9.8, pb: 0.98, pe_pct: 18, pb_pct: 15, erp: 6.2 },
       { symbol: 'SPX', name: '标普500', pe: 28.6, pb: 4.72, pe_pct: 82, pb_pct: 88, erp: 1.2 },
       { symbol: 'NDX', name: '纳斯达克', pe: 34.1, pb: 6.05, pe_pct: 90, pb_pct: 93, erp: 0.8 },
+    ],
+  }
+}
+
+export function mockFundHealth(): FundHealthSnapshot {
+  return {
+    as_of: '2026-10-21',
+    reports: [
+      {
+        code: '110022', name: '易方达消费行业股票',
+        findings: [
+          { kind: 'scale_change', severity: 'warn', detail: '近一季度规模缩水 18%，跌破 50 亿元关口。', evidence: '2026Q3: 41.2亿 / 2026Q2: 50.3亿' },
+          { kind: 'manager_change', severity: 'info', detail: '现任基金经理任职 4.2 年，任职回报跑赢基准 12.6%。', evidence: '任职起始 2022-06' },
+          { kind: 'style_drift', severity: 'info', detail: '持仓风格稳定，大盘成长占比 72%。' },
+          { kind: 'fee_level', severity: 'warn', detail: '管理费 1.50%/年，高于同类中位数 1.20%。', evidence: '同类中位数 1.20%' },
+        ],
+      },
+      {
+        code: '005911', name: '广发双擎升级混合',
+        findings: [
+          { kind: 'scale_change', severity: 'critical', detail: '规模连续两季度低于 5000 万元清盘线，存在清盘风险。', evidence: '2026Q3: 0.42亿' },
+          { kind: 'manager_change', severity: 'warn', detail: '基金经理 2026-08 发生变更，新任经理尚无完整年度业绩。', evidence: '变更公告 2026-08-15' },
+          { kind: 'style_drift', severity: 'warn', detail: '前十大重仓中新能源占比由 10% 升至 35%，偏离契约约定的均衡风格。' },
+          { kind: 'fee_level', severity: 'info', detail: '管理费 1.50%/年，与同类持平。' },
+        ],
+      },
+      {
+        code: '270002', name: '广发稳健增长混合',
+        findings: [
+          { kind: 'scale_change', severity: 'info', detail: '数据不足：该基金近两季度规模数据缺失，无法评估规模变化。', insufficient: true },
+          { kind: 'manager_change', severity: 'info', detail: '基金经理任职 6.8 年，无变更记录。' },
+          { kind: 'style_drift', severity: 'info', detail: '数据不足：缺少持仓明细，无法判断风格漂移。', insufficient: true },
+          { kind: 'fee_level', severity: 'info', detail: '管理费 1.50%/年。' },
+        ],
+      },
     ],
   }
 }
