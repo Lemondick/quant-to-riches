@@ -121,6 +121,6 @@ public sealed class AuthController(AuthService auth, IWebHostEnvironment environ
         StatusCode(AuthErrors.Status(code), new ErrorResponse(code, AuthErrors.Message(code), HttpContext.GetRequestId()));
 
     private static object PublicUser(Account account) =>
-        new { id = account.Id, username = account.Username, role = account.Role == AccountRole.Admin ? "admin" : "user", status = account.Status == AccountStatus.Active ? "active" : "disabled",
+        new { id = account.Id, username = account.Username, role = account.Role switch { AccountRole.Admin => "admin", AccountRole.ReadOnly => "readonly", _ => "user" }, status = account.Status == AccountStatus.Active ? "active" : "disabled",
             created_at=account.CreatedAt,last_login_at=account.LastLoginAt };
 }

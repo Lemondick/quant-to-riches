@@ -30,6 +30,8 @@ public interface IAccountRepository
     // 管理员操作（P2 账号域）
     IReadOnlyList<Account> ListUsers(string? search);
     bool SetUserStatus(string actorId, string userId, AccountStatus status, DateTime now);
+    /// <summary>F6：在 user ↔ readonly 之间调整用户角色。</summary>
+    bool SetUserRole(string actorId, string userId, AccountRole role, DateTime now);
     void AdminRevokeSessions(string actorId, string userId, DateTime now);
     (IReadOnlyList<AuditEntry> Items, int Total) ListAudit(int page, int limit);
 }

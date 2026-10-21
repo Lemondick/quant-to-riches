@@ -84,7 +84,9 @@ if (args.Length > 0 && args[0] == "--migrate")
         DryRun: args.Contains("--dry-run"),
         RollbackTo: rollbackTo,
         NoTransaction: args.Contains("--no-transaction"));
-    var label = migrateOptions.RollbackTo is not null ? "Rolled back" : migrateOptions.DryRun ? "Pending" : "Applied";
+    var label = migrateOptions.RollbackTo is not null
+        ? (migrateOptions.DryRun ? "Would roll back" : "Rolled back")
+        : migrateOptions.DryRun ? "Pending" : "Applied";
     foreach (var migration in new MigrationRunner(connectionString).Apply(args[1], migrateOptions))
         Console.WriteLine($"{label} {migration}");
     return;
@@ -179,6 +181,7 @@ builder.Services.AddHostedService(provider => new QuantAssistant.Api.Services.Co
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AutomaticAttributionService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.LinkedAttributionService>();
 builder.Services.AddSingleton<AdminDataRepository>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Runtime.UserOperationAuditWriter>();
 builder.Services.AddSingleton<TradingCalendarRepository>();
 var keyProtection = builder.Services.AddDataProtection().SetApplicationName("QuantAssistant.Native");
 if (options.SecretRoot is { Length: > 0 })

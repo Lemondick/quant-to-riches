@@ -216,6 +216,28 @@ public sealed class AuthService(
 
     public void AdminRevokeSessions(string actorId, string userId) => repository.AdminRevokeSessions(actorId, userId, Now());
 
+    /// <summary>F6：管理者在 user ↔ readonly 之间调整用户角色。</summary>
+    public AuthResult SetUserRole(string actorId, string userId, AccountRole role)
+    {
+        try
+        {
+            repository.SetUserRole(actorId, userId, role, Now());
+            return new AuthResult(true);
+        }
+        catch (AccountNotFound)
+        {
+            return new AuthResult(false, "account_not_found");
+        }
+        catch (AccountConflict)
+        {
+            return new AuthResult(false, "admin_protected");
+        }
+        catch (ArgumentException)
+        {
+            return new AuthResult(false, "invalid_request");
+        }
+    }
+
     public void SetRegistrationEnabled(string actorId, bool enabled) => repository.SetRegistrationEnabled(enabled, actorId, Now());
 
     public (IReadOnlyList<AuditEntry> Items, int Total) ListAudit(int page, int limit) => repository.ListAudit(page, limit);

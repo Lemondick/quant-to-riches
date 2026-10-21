@@ -132,7 +132,7 @@ public sealed class AccountRepository(string connectionString) : IAccountReposit
         cmd.Parameters.AddWithValue(id);
         cmd.Parameters.AddWithValue(username);
         cmd.Parameters.AddWithValue(passwordHash);
-        cmd.Parameters.AddWithValue(role == AccountRole.Admin ? "admin" : "user");
+        cmd.Parameters.AddWithValue(ToRoleText(role));
         cmd.Parameters.AddWithValue(now);
         try
         {
@@ -172,9 +172,59 @@ public sealed class AccountRepository(string connectionString) : IAccountReposit
             reader.GetString(0),
             reader.GetString(1),
             reader.GetString(2),
-            reader.GetString(3) == "admin" ? AccountRole.Admin : AccountRole.User,
+            ParseRole(reader.GetString(3)),
             reader.GetString(4) == "active" ? AccountStatus.Active : AccountStatus.Disabled,
             reader.GetDateTime(5),reader.IsDBNull(6)?null:reader.GetDateTime(6));
+
+    private static string ToRoleText(AccountRole role) => role switch
+    {
+        AccountRole.Admin => "admin",
+        AccountRole.ReadOnly => "readonly",
+        _ => "user",
+    };
+
+    private static AccountRole ParseRole(string value) => value switch
+    {
+        "admin" => AccountRole.Admin,
+        "readonly" => AccountRole.ReadOnly,
+        _ => AccountRole.User,
+    };
+
+    /// <summary>F6：管理者调整用户角色（仅 user ↔ readonly；admin 身份不受此路径变更）。</summary>
+    public bool SetUserRole(string actorId, string userId, AccountRole role, DateTime now)
+    {
+        if (role == AccountRole.Admin) throw new ArgumentException("不能通过此接口授予管理者身份。");
+        using var conn = Open();
+        using var tx = conn.BeginTransaction();
+        using (var check = conn.CreateCommand())
+        {
+            check.Transaction = tx;
+            check.CommandText = "SELECT role FROM users WHERE id = $1 FOR UPDATE";
+            check.Parameters.AddWithValue(userId);
+            var current = check.ExecuteScalar() as string;
+            if (current is null)
+            {
+                tx.Rollback();
+                throw new AccountNotFound(userId);
+            }
+            if (current == "admin" || actorId == userId)
+            {
+                tx.Rollback();
+                throw new AccountConflict("admin_protected");
+            }
+        }
+        using (var update = conn.CreateCommand())
+        {
+            update.Transaction = tx;
+            update.CommandText = "UPDATE users SET role = $1 WHERE id = $2";
+            update.Parameters.AddWithValue(ToRoleText(role));
+            update.Parameters.AddWithValue(userId);
+            update.ExecuteNonQuery();
+        }
+        InsertAudit(conn, tx, actorId, "user_role_change", userId, ToRoleText(role), now);
+        tx.Commit();
+        return true;
+    }
 
     public void CreateSession(string tokenHash, string sessionId, string userId, string csrf, string device, DateTime now, DateTime expires)
     {

@@ -43,6 +43,9 @@ public sealed class SessionAuthenticationMiddleware(RequestDelegate next, IConfi
             context.Items[typeof(AuthSession)] = session;
             if (context.Request.Path.StartsWithSegments("/api/v1/admin") && account.Role != AccountRole.Admin)
                 throw new AuthFailure("admin_required");
+            // F6：只读角色禁止一切写操作（先于 CSRF 校验）。
+            if (write && account.Role == AccountRole.ReadOnly)
+                throw new AuthFailure("readonly_forbidden");
             if (write)
             {
                 var expected = session.Csrf;
@@ -56,7 +59,7 @@ public sealed class SessionAuthenticationMiddleware(RequestDelegate next, IConfi
                 new Claim("sub", account.Id),
                 new Claim(ClaimTypes.NameIdentifier, account.Id),
                 new Claim("username", account.Username),
-                new Claim("role", account.Role == AccountRole.Admin ? "admin" : "user"),
+                new Claim("role", account.Role switch { AccountRole.Admin => "admin", AccountRole.ReadOnly => "readonly", _ => "user" }),
             }, "quant_session"));
         }
 

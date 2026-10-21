@@ -19,6 +19,7 @@ public sealed class AdminController(AuthService auth, AdminDataRepository data) 
 {
     public sealed record UserStatusBody(string Status);
     public sealed record RegistrationBody(bool Enabled);
+    public sealed record UserRoleBody(string Role);
 
     private Account? Admin => Request.Cookies.TryGetValue(AuthErrors.CookieName, out var token) ? auth.RequireAdmin(token) : null;
 
@@ -54,6 +55,26 @@ public sealed class AdminController(AuthService auth, AdminDataRepository data) 
 
         var target = body.Status == "active" ? AccountStatus.Active : AccountStatus.Disabled;
         var result = auth.SetUserStatus(admin.Id, userId, target);
+        return result.Ok ? Ok(new { status = "updated" }) : MapError(result.ErrorCode!);
+    }
+
+    /// <summary>F6：在 user ↔ readonly 之间调整用户角色（管理者身份不受此路径变更）。</summary>
+    [HttpPost("users/{userId}/role")]
+    public IActionResult Role(string userId, [FromBody] UserRoleBody body)
+    {
+        var admin = Admin;
+        if (admin is null)
+        {
+            return NotAdmin();
+        }
+
+        var role = body.Role switch { "user" => AccountRole.User, "readonly" => AccountRole.ReadOnly, _ => (AccountRole?)null };
+        if (role is null)
+        {
+            return UnprocessableEntity(new ErrorResponse("invalid_request", "role 须为 user 或 readonly。", HttpContext.GetRequestId()));
+        }
+
+        var result = auth.SetUserRole(admin.Id, userId, role.Value);
         return result.Ok ? Ok(new { status = "updated" }) : MapError(result.ErrorCode!);
     }
 

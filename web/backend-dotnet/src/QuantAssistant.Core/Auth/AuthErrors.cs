@@ -21,6 +21,7 @@ public static class AuthErrors
             ["invalid_credentials"] = (401, "账号或密码错误。"),
             ["authentication_required"] = (401, "请登录后继续使用。"),
             ["admin_required"] = (403, "此功能仅限管理者使用。"),
+            ["readonly_forbidden"] = (403, "只读账号不能执行写操作。"),
             ["csrf_invalid"] = (403, "请求校验失败，请刷新页面后重试。"),
             ["origin_forbidden"] = (403, "请求来源不被允许。"),
             ["rate_limited"] = (429, "请求过于频繁，请稍后重试。"),

@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using QuantAssistant.Core.Abstractions;
 using QuantAssistant.Core.Errors;
 using QuantAssistant.Core.Portfolio;
+using QuantAssistant.Infrastructure.Runtime;
 using Action = QuantAssistant.Core.Portfolio.Action;
 
 namespace QuantAssistant.Api.Controllers;
@@ -10,8 +13,10 @@ namespace QuantAssistant.Api.Controllers;
 /// <summary>账本写接口（对应旧站点 routes.py 的 ledger 域），复用 P3 TransactionService。</summary>
 [ApiController]
 [Route("api/v1/ledger")]
-public sealed class LedgerController(TransactionService transactions, ILedgerRepository ledger) : ControllerBase
+public sealed class LedgerController(TransactionService transactions, ILedgerRepository ledger, UserOperationAuditWriter audit) : ControllerBase
 {
+    private static JsonNode? AuditSummary(object response) => JsonSerializer.SerializeToNode(response);
+
     [HttpGet]
     public async Task<IActionResult> GetLedger([FromQuery] int limit = 200, CancellationToken cancellation = default)
     {
@@ -44,7 +49,9 @@ public sealed class LedgerController(TransactionService transactions, ILedgerRep
 
         var userId = CurrentUserId();
         var id = transactions.RecordTransaction(userId, input, body.Name);
-        return Created($"/api/v1/ledger/transactions/{id}", EntryResponse(ledger.FindLedgerEntry(userId, id, false)!));
+        var created = EntryResponse(ledger.FindLedgerEntry(userId, id, false)!);
+        audit.Record(userId, "ledger.transaction.record", "transaction", id.ToString(), null, AuditSummary(created));
+        return Created($"/api/v1/ledger/transactions/{id}", created);
     }
 
     [HttpPost("dividends")]
@@ -64,7 +71,9 @@ public sealed class LedgerController(TransactionService transactions, ILedgerRep
 
         var userId = CurrentUserId();
         var id = transactions.RecordDividend(userId, input);
-        return Created($"/api/v1/ledger/dividends/{id}", EntryResponse(ledger.FindLedgerEntry(userId, id, true)!));
+        var created = EntryResponse(ledger.FindLedgerEntry(userId, id, true)!);
+        audit.Record(userId, "ledger.dividend.record", "dividend", id.ToString(), null, AuditSummary(created));
+        return Created($"/api/v1/ledger/dividends/{id}", created);
     }
 
     [HttpPost("actions")]
@@ -91,7 +100,10 @@ public sealed class LedgerController(TransactionService transactions, ILedgerRep
             body.ToAccount,
             body.Note);
 
-        var id = transactions.RecordCorporateAction(CurrentUserId(), input);
+        var userId = CurrentUserId();
+        var id = transactions.RecordCorporateAction(userId, input);
+        audit.Record(userId, "ledger.corporate_action.record", "corporate_action", id.ToString(), null,
+            AuditSummary(new { id, body.ActionType, body.Symbol, body.EffectiveAt }));
         return Created($"/api/v1/ledger/actions/{id}", new { id });
     }
 
@@ -107,7 +119,10 @@ public sealed class LedgerController(TransactionService transactions, ILedgerRep
             "manual-api",
             body.Note);
 
-        var id = transactions.CorrectLedgerEntry(CurrentUserId(), input);
+        var userId = CurrentUserId();
+        var id = transactions.CorrectLedgerEntry(userId, input);
+        audit.Record(userId, "ledger.correction.record", "ledger_correction", id.ToString(), null,
+            AuditSummary(new { id, body.TargetType, body.TargetId, body.Reason }));
         return Created($"/api/v1/ledger/corrections/{id}", new { id });
     }
 

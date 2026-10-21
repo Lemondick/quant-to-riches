@@ -34,6 +34,8 @@ public enum AccountRole
 {
     User,
     Admin,
+    /// <summary>F6：只读角色。可读所有本人数据，写请求一律 403（readonly_forbidden）。</summary>
+    ReadOnly,
 }
 
 public enum AccountStatus
