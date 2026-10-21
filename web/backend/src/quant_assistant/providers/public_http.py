@@ -24,16 +24,43 @@ class PublicHttpError(ProviderUnavailable):
 
 
 class PublicHttp:
-    def __init__(self, http_get=requests.get, *, sleep=time.sleep, clock=time.monotonic, now=None):
+    # Process-wide failure tracker (F3). The worker installs a persistent
+    # PublicSourceFailureTracker here at startup; other hosts leave it None.
+    _default_failure_tracker = None
+
+    @classmethod
+    def set_default_failure_tracker(cls, tracker):
+        cls._default_failure_tracker = tracker
+
+    def __init__(
+        self,
+        http_get=requests.get,
+        *,
+        sleep=time.sleep,
+        clock=time.monotonic,
+        now=None,
+        failure_tracker=None,
+    ):
         self._get, self._sleep, self._clock = http_get, sleep, clock
         self._states, self._lock = OrderedDict(), RLock()
         self._now = now or (lambda: datetime.now(UTC))
+        self._failure_tracker = failure_tracker
+
+    def _tracker(self):
+        return (
+            self._failure_tracker
+            if self._failure_tracker is not None
+            else PublicHttp._default_failure_tracker
+        )
 
     def get(self, url, *, expected="data", module="public_market", **kwargs):
         host = urlsplit(url).hostname or "unknown"
         with self._lock:
             failures, until = self._states.get(host, (0, 0))
             if self._clock() < until:
+                tracker = self._tracker()
+                if tracker is not None:
+                    tracker.record(host, ok=False, error="circuit_open")
                 raise PublicHttpError("circuit_open")
         kwargs["allow_redirects"] = False
         kwargs["stream"] = True
@@ -90,6 +117,9 @@ class PublicHttp:
                     while len(self._states) > 64:
                         self._states.popitem(last=False)
                 response.public_fetched_at = self._now()
+                tracker = self._tracker()
+                if tracker is not None:
+                    tracker.record(host, ok=True)
                 logger.info(
                     "public_http module=%s source=%s elapsed_ms=%.2f http_status=%s "
                     "fetched_at=%s cache=false transport=valid",
@@ -119,6 +149,9 @@ class PublicHttp:
                 if not transient or attempt == 1:
                     break
                 self._sleep(0.2 * (2**attempt))
+        tracker = self._tracker()
+        if tracker is not None:
+            tracker.record(host, ok=False, error=error)
         with self._lock:
             failures = self._states.get(host, (0, 0))[0] + 1
             # Respect refusals immediately; never retry 403/429 inside a request.

@@ -259,12 +259,38 @@ class Worker:
             self.resident.shutdown(wait=True, cancel_futures=True)
 
 
+def _init_public_source_failure_tracker():
+    """Install the persistent public-source failure tracker (F3).
+
+    Counts consecutive per-host public fetch failures across restarts;
+    stream A consumes the state file for the critical alert at
+    QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS (default 3).
+    """
+    from pathlib import Path
+
+    from public_source_failures import (
+        PublicSourceFailureTracker,
+        alert_rounds_from_env,
+    )
+    from quant_assistant.providers.public_http import PublicHttp
+
+    site_root = os.environ.get("QUANT_SITE_ROOT")
+    if not site_root:
+        return
+    tracker = PublicSourceFailureTracker(
+        Path(site_root) / ".public-source-failures.json",
+        alert_rounds=alert_rounds_from_env(),
+    )
+    PublicHttp.set_default_failure_tracker(tracker)
+
+
 def main():
     from worker_environment import worker_environment
 
     filtered = worker_environment(os.environ)
     os.environ.clear()
     os.environ.update(filtered)
+    _init_public_source_failure_tracker()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--api",
