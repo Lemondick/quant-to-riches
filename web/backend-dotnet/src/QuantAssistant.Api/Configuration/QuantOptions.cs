@@ -58,6 +58,9 @@ public sealed class QuantOptions
     /// 由 quant-snapshot-cleanup timer 经 GUC 传入 quant_snapshot_maintenance()；日线及以上快照永久保留。</summary>
     public int SnapshotRetentionTickDays { get; init; } = 90;
 
+    /// <summary>batch3 流 A：风险指标缓存分钟数（QUANT_RISK_METRICS_CACHE_TTL_MIN），默认 60。</summary>
+    public int RiskMetricsCacheTtlMinutes { get; init; } = 60;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -91,6 +94,7 @@ public sealed class QuantOptions
             TotpIssuer = configuration["QUANT_TOTP_ISSUER"] ?? "观澜",
             AuditHashAlgo = configuration["QUANT_AUDIT_HASH_ALGO"] ?? "SHA256",
             SnapshotRetentionTickDays = Int(configuration["QUANT_SNAPSHOT_RETENTION_TICK_DAYS"], 90, 1, 3650),
+            RiskMetricsCacheTtlMinutes = Int(configuration["QUANT_RISK_METRICS_CACHE_TTL_MIN"], 60, 1, 1440),
         };
     }
 
