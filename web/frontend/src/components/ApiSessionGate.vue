@@ -9,14 +9,14 @@
 </template>
 <script setup lang="ts">
 import { ref } from 'vue'
-import { createDataApi } from '../services/dataApi'
+import { createDataApi, clearEtagCache } from '../services/dataApi'
 import { apiCache } from '../services/apiCache'
 const emit = defineEmits<{ 'signed-in': [] }>()
 const username = ref(''), password = ref(''), busy = ref(false), error = ref('')
 const api = createDataApi(import.meta.env.VITE_API_BASE_URL ?? '')
 async function login() {
   busy.value = true; error.value = ''
-  try { await api.login(username.value, password.value); apiCache.invalidate(); window.dispatchEvent(new Event('focus')); emit('signed-in') }
+  try { await api.login(username.value, password.value); apiCache.invalidate(); clearEtagCache(); window.dispatchEvent(new Event('focus')); emit('signed-in') }
   catch (failure) { error.value = failure instanceof Error ? failure.message : '登录失败，请重试。' }
   finally { password.value = ''; busy.value = false }
 }

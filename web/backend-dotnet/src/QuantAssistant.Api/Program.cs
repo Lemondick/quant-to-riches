@@ -276,6 +276,7 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseMiddleware<SessionAuthenticationMiddleware>();
 app.UseMiddleware<RateLimitMiddleware>(); // batch3-A：API 限流（用户+IP 双维度；登录接口走既有更严策略）。
+app.UseMiddleware<ETagMiddleware>(); // batch4-B#8：公开 GET 接口 ETag/Last-Modified（行情/估值/日历/指数等），QUANT_ETAG_ENABLED 开关。
 app.UseMiddleware<AccountUsageMiddleware>();
 app.UseDefaultFiles();
 app.UseStaticFiles();

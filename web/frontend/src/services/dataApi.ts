@@ -3,6 +3,25 @@ export class ApiError extends Error {
   code?: string
   constructor(status: number, message: string, code?: string) { super(message); this.status = status; this.code = code }
 }
+
+/**
+ * batch4 流 B（#8）：ETag 条件请求缓存。
+ * 后端对公开数据类 GET 接口返回 ETag（QUANT_ETAG_ENABLED，默认开）；
+ * 这里在 GET 时自动带 If-None-Match，304 到达时直接用缓存数据，避免重复下行。
+ * key 为完整请求 URL；只缓存 GET；容量 200，FIFO 淘汰。
+ */
+type ETagEntry = { etag: string; data: unknown }
+const etagCache = new Map<string, ETagEntry>()
+const ETAG_CACHE_CAPACITY = 200
+function etagRemember(url: string, etag: string, data: unknown) {
+  if (etagCache.size >= ETAG_CACHE_CAPACITY) {
+    const oldest = etagCache.keys().next()
+    if (!oldest.done) etagCache.delete(oldest.value)
+  }
+  etagCache.set(url, { etag, data })
+}
+/** 登录/会话切换时调用，避免跨会话复用条件缓存。 */
+export function clearEtagCache() { etagCache.clear() }
 export function apiRoot(base: string) {
   const value = base.trim().replace(/\/+$/, '')
   if (!value) return ''
@@ -19,14 +38,33 @@ export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
     // Strategy validation/preview runs within the gateway's 60-second job lease.
     const timeoutMs = /^\/research\/strategy-settings(?:\/preview)?$/.test(path) ? 65000 : 15000
     const timeout = setTimeout(abort, timeoutMs)
-    try {
-      const response = await fetcher(`${root}${path}`, { signal: controller.signal, credentials: 'same-origin', redirect: 'error', method, headers: { Accept: 'application/json', 'X-Trace-Id': crypto.randomUUID().replaceAll('-', ''), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(csrf ? { 'X-CSRF-Token': csrf } : {}), ...(scope ? { 'X-Session-Scope': scope } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+    const url = `${root}${path}`
+    const isGet = body === undefined
+    const conditional = isGet ? etagCache.get(url) : undefined
+    async function perform(allowConditional: boolean): Promise<T> {
+      const entry = allowConditional ? conditional : undefined
+      const response = await fetcher(url, { signal: controller.signal, credentials: 'same-origin', redirect: 'error', method, headers: { Accept: 'application/json', 'X-Trace-Id': crypto.randomUUID().replaceAll('-', ''), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(csrf ? { 'X-CSRF-Token': csrf } : {}), ...(scope ? { 'X-Session-Scope': scope } : {}), ...(entry ? { 'If-None-Match': entry.etag } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) })
+      if (response.status === 304) {
+        // 后端确认数据未变：用缓存。理论上不会无缓存收到 304，防御性地去掉条件头重试一次。
+        if (entry) return structuredClone(entry.data) as T
+        if (allowConditional) return perform(false)
+        throw new ApiError(304, '数据未变化但本地无缓存，请重试。')
+      }
       if (!response.ok) {
         const failure = await response.json().catch(() => undefined)
         const code = failure?.error_code ?? failure?.error?.code ?? failure?.code
         throw new ApiError(response.status, response.status === 401 ? path === '/auth/login' ? '账号或密码无效。' : '请先登录后端账户。' : response.status === 403 ? '当前账户没有访问权限。' : response.status === 503 ? '数据暂不可用，后台准备完成后可再次刷新。' : `读取失败（HTTP ${response.status}），请重试。`, typeof code === 'string' ? code : undefined)
       }
-      return await response.json() as T
+      const data = await response.json() as T
+      if (isGet) {
+        const etag = response.headers.get('ETag')
+        if (etag) etagRemember(url, etag, data)
+        else etagCache.delete(url)
+      }
+      return data
+    }
+    try {
+      return await perform(true)
     } catch (error) {
       if (controller.signal.aborted) throw new ApiError(0, signal?.aborted ? '读取已取消。' : '读取超时，请稍后重试。')
       throw error
