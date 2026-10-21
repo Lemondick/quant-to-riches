@@ -13,7 +13,7 @@ public sealed class RuntimeController(AccountDatabase database,NativeBackupEvide
     public IActionResult Runtime()
     {
       var archives = backups.Read();
-      return Ok(database.Write(User.FindFirst("sub")!.Value,sql=>
+      return Ok(database.WriteNonLedger(User.FindFirst("sub")!.Value,sql=>
     {
         var workers=sql.Query("SELECT worker_id,capabilities,last_seen_at,stopping FROM worker_heartbeats ORDER BY worker_id");
         var operations=monitor.Read(sql, archives);

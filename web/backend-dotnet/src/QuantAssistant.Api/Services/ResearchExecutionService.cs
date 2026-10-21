@@ -34,7 +34,7 @@ public sealed partial class ResearchExecutionService(AccountDatabase database,Mo
         var snapshot=database.Read(sql=>Snapshot(sql,user,snapshotId));Eligible(snapshot,symbol);
         var current=(await compute.Run(user,"strategy.preview",new {parameters=snapshot["payload_json"]!["parameters"]},cancellation,accountSnapshot:true))!.AsObject();
         if(current["_evidence"]?["content_hash"]?.GetValue<string>()!=snapshot["content_hash"]!.GetValue<string>()) throw Failure("preview_changed");
-        var (jobId,reused)=database.Write(user,sql=>
+        var (jobId,reused)=database.WriteNonLedger(user,sql=>
         {
             snapshot=Snapshot(sql,user,snapshotId);Eligible(snapshot,symbol);
             if(retryId is not null)
@@ -71,7 +71,7 @@ public sealed partial class ResearchExecutionService(AccountDatabase database,Mo
     });
     public JsonObject Cancel(string user,string id)
     {
-        database.Write(user,sql=>
+        database.WriteNonLedger(user,sql=>
         {
             var job=sql.Query("SELECT status,attempt_no FROM agent_research_jobs WHERE user_id=$1 AND job_id=$2 FOR UPDATE",user,id).FirstOrDefault()??throw Failure("job_not_found",404);
             var status=job["status"]!.GetValue<string>();if(status is not("queued" or "running")) return 0;

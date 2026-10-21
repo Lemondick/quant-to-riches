@@ -16,7 +16,7 @@ public sealed class LinkedAttributionService(AccountDatabase database, IAttribut
             throw new ArgumentException("请选择2至60份不同的有效报告。");
         reportId = reportId.ToLowerInvariant();
         var ids = reportIds.Select(id => id.ToLowerInvariant()).Order(StringComparer.Ordinal).ToArray();
-        database.Write(user, sql =>
+        database.WriteNonLedger(user, sql =>
         {
             // Serialize same-ID requests across accounts as well as within an account.
             sql.Execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "attribution:" + reportId);

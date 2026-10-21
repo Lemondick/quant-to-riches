@@ -56,7 +56,7 @@ public sealed class ModelConnectionService(AccountDatabase database, PrivateSecr
     public JsonObject SaveModels(string userId, SaveModelsBody body)
     {
         if (body.Revision < 0 || new[] { body.Models.News, body.Models.Strategy, body.Models.Reviewer, body.Models.Decision }.Any(m => !ModelCostRepository.ValidModel(m))) throw new ArgumentException("模型选择无效");
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             Idle(sql, userId); if (Revision(sql, userId) != body.Revision) throw new AdvisorSettingsConflictError();
             var provider = Connection(sql, userId, "model-provider");
@@ -83,7 +83,7 @@ public sealed class ModelConnectionService(AccountDatabase database, PrivateSecr
         if (key.Length is < 1 or > 4096 || key.Any(char.IsWhiteSpace)) throw new ArgumentException("API Key无效");
         // No DB transaction or lock is held during the bounded network request.
         var models = await catalog.Discover(endpoint, key, cancellation);
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             Idle(sql, userId); if (Connection(sql, userId, "model-provider")["revision"]!.GetValue<long>() != body.Revision) throw new AdvisorSettingsConflictError();
             var reference = secrets.Save(userId, key);
@@ -97,7 +97,7 @@ public sealed class ModelConnectionService(AccountDatabase database, PrivateSecr
     {
         var key = body.ApiKey.Trim();
         if (body.Revision < 0 || key.Length is < 1 or > 4096 || key.Any(char.IsWhiteSpace)) throw new ArgumentException("Jev连接参数无效");
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             Idle(sql, userId); if (Connection(sql, userId, "model-jev")["revision"]!.GetValue<long>() != body.Revision) throw new AdvisorSettingsConflictError();
             Store(sql, userId, "model-jev", new() { ["revision"] = body.Revision + 1, ["key_reference"] = secrets.Save(userId, key) });
@@ -122,7 +122,7 @@ public sealed class ModelConnectionService(AccountDatabase database, PrivateSecr
         }
         if (key.Length is < 1 or > 4096 || key.Any(char.IsWhiteSpace)) throw new ArgumentException("Jev API Key无效");
         var models = await catalog.Discover("https://api.typesafe.ai/v1", key, cancellation);
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             Idle(sql, userId);
             if (Connection(sql, userId, "model-jev")["revision"]!.GetValue<long>() != body.Revision) throw new AdvisorSettingsConflictError();

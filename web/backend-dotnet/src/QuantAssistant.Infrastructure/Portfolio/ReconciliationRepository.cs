@@ -27,7 +27,7 @@ public sealed class ReconciliationRepository(AccountDatabase database)
     public JsonObject Compare(string user,CompareAccounts body)
     {
         if(body.AccountIds.Length is <1 or >30 || body.AccountIds.Distinct().Count()!=body.AccountIds.Length || body.AccountIds.Any(id=>string.IsNullOrWhiteSpace(id)||id.Length>200) || body.Start>body.End || body.ExpectedFees<0 || body.Evidence.Length>500 || body.ExpectedFees is not null && (body.Start is null || body.End is null || string.IsNullOrWhiteSpace(body.Evidence))) throw new ArgumentException("对账范围或费用依据无效");
-        return database.Write(user,sql=>
+        return database.WriteNonLedger(user,sql=>
         {
             var source=Source(sql,user,body.AccountIds);
             var accounts=source["accounts"]!.AsArray();if(accounts.Count!=body.AccountIds.Length || accounts.Any(a=>a!["status"]!.GetValue<string>()!="active"||a["currency"]!.GetValue<string>()!="CNY")) throw Conflict("只可对比已保存且启用的人民币账户。");
@@ -76,7 +76,7 @@ public sealed class ReconciliationRepository(AccountDatabase database)
     public JsonObject Resolve(string user,string id,string resolution,string note)
     {
         if(resolution is not("explained" or "follow_up" or "matched")||string.IsNullOrWhiteSpace(note)||note.Length>1000)throw new ArgumentException("处理结论或说明无效");
-        return database.Write(user,sql=>
+        return database.WriteNonLedger(user,sql=>
         {
             var row=sql.Query("SELECT source_fingerprint,result_json FROM ledger_reconciliations WHERE user_id=$1 AND reconciliation_id=$2",user,id).FirstOrDefault()??throw Conflict("对账记录不存在。");
             var result=row["result_json"]!.AsObject();var accounts=result["account_ids"]!.AsArray().Select(n=>n!.GetValue<string>()).ToArray();

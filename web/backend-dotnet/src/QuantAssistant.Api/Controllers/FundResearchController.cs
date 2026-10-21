@@ -28,7 +28,7 @@ public sealed partial class FundResearchController(AccountDatabase database,Comp
         if(body.Symbols.Length is <1 or >6)throw new ArgumentException("每次更新1至6只基金");
         var symbols=body.Symbols.Select(FundFeeRepository.Symbol).Distinct().ToArray();
         var result=(await compute.Run(Id,"fund.public_observations",new{symbols},cancellation,accountSnapshot:true,seconds:90))!.AsObject();
-        if(result.Remove("_snapshots",out var rows)&&rows is JsonArray snapshots) database.Write(Id,sql=>
+        if(result.Remove("_snapshots",out var rows)&&rows is JsonArray snapshots) database.WriteNonLedger(Id,sql=>
         {
             foreach(var row in snapshots.OfType<JsonObject>())
             {
@@ -51,7 +51,7 @@ public sealed partial class FundResearchController(AccountDatabase database,Comp
         row["status"]=row["status"]!.GetValue<string>() is "queued" or "running"?"running":"failed";row.Remove("result_json");row["model_calls"]=0;row["message"]=row["status"]!.GetValue<string>()=="running"?"更新已开始；完成校验前继续展示旧版。":"更新未完成，旧版保留；请显式重试。";return row.AsObject();
     }));
     [HttpPost("cost-study/update")]
-    public IActionResult Update()=>Accepted(database.Write(Id,sql=>
+    public IActionResult Update()=>Accepted(database.WriteNonLedger(Id,sql=>
     {
         var active=sql.Scalar("SELECT job_id FROM compute_jobs WHERE user_id=$1 AND kind='fund.study_update' AND status IN('queued','running') LIMIT 1",Id) as string;
         var id=active;

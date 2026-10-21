@@ -54,7 +54,7 @@ public sealed class FundNavMigrationService(AccountDatabase database,ComputeServ
         if(confirmed)
         {
             if(previewId!=hash)return Blocked(day,new("账户或净值已变更，请重新预览并核对"),sources.DeepClone().AsArray());
-            database.Write(user,sql=>
+            database.WriteNonLedger(user,sql=>
             {
                 if(FinancialSnapshot.Hash(FinancialSnapshot.Read(sql,user))!=FinancialSnapshot.Hash(state))throw new ApplicationFailure("nav_preview_changed",409,"账户已变化，请重新预览。");
                 long snapshotId=0;

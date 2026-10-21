@@ -73,7 +73,7 @@ public sealed class PhotoMigrationService(AccountDatabase database,ComputeServic
     {
         if(day>FundFeeRepository.Today())throw new ArgumentException("日期不能晚于今天");
         var id=Guid.NewGuid().ToString("N");var result=new JsonObject{["preview_id"]=id,["as_of_date"]=day.ToString("yyyy-MM-dd"),["positions"]=new JsonArray(),["cash"]="",["warnings"]=new JsonArray("请录入同一账户的全部基金与现金；基金代码将在差异预览时核验。"),["provider"]="人工录入",["inferred"]=false,["requires_cash"]=true,["expires_in_seconds"]=900,["image_sha256"]=Guid.NewGuid().ToString("N")};
-        database.Write(user,sql=>{Store(sql,user,id,"photo-preview",result);return 0;});return result;
+        database.WriteNonLedger(user,sql=>{Store(sql,user,id,"photo-preview",result);return 0;});return result;
     }
     public async Task<JsonObject> Recognize(string user,string image,DateOnly? day,bool consent,bool holdings,CancellationToken cancellation)
     {
@@ -81,9 +81,9 @@ public sealed class PhotoMigrationService(AccountDatabase database,ComputeServic
         byte[] decoded;try{decoded=Convert.FromBase64String(image);}catch(FormatException){throw new ArgumentException("图片编码无效");}
         if(decoded.Length is <12 or >6*1024*1024||!(decoded.AsSpan(0,8).SequenceEqual(new byte[]{137,80,78,71,13,10,26,10})||decoded[0]==255&&decoded[1]==216&&decoded[2]==255||Encoding.ASCII.GetString(decoded,0,4)=="RIFF"&&Encoding.ASCII.GetString(decoded,8,4)=="WEBP"))throw new ArgumentException("仅支持不超过6MiB的PNG、JPEG或WebP图片");
         var result=(await compute.Run(user,"photo.recognize",new{image_base64=image,as_of_date=day,holdings_only=holdings},cancellation,accountSnapshot:true,seconds:120))!.AsObject();
-        var id=result["preview_id"]!.GetValue<string>();database.Write(user,sql=>{Store(sql,user,id,"photo-preview",result);return 0;});return result;
+        var id=result["preview_id"]!.GetValue<string>();database.WriteNonLedger(user,sql=>{Store(sql,user,id,"photo-preview",result);return 0;});return result;
     }
-    public JsonObject Merge(string user,string[] ids)=>database.Write(user,sql=>
+    public JsonObject Merge(string user,string[] ids)=>database.WriteNonLedger(user,sql=>
     {
         if(ids.Length is <1 or >6)throw new ArgumentException("每次合并1至6张截图");
         var previews=ids.Select(id=>Session(sql,user,id,"photo-preview")["payload"]!.AsObject()).ToArray();
@@ -109,7 +109,7 @@ public sealed class PhotoMigrationService(AccountDatabase database,ComputeServic
         if(body.Any(r=>names[r.Symbol.Trim()] is null))throw Conflict("基金名称和代码未能核验，请重新核对。");
         var flow=holdings?0:ReadSigned(externalFlow);if(mode=="initial"&&flow!=0)throw new ArgumentException("首次建档净入金必须为0");
         if(!holdings){var balance=Read(cash??"",4,true);positions.Add(new JsonObject{["symbol"]="CASH.CNY",["asset_type"]="cash",["quantity"]=Money(balance),["average_cost"]="1",["market_value"]=Money(balance),["as_of_date"]=day.ToString("yyyy-MM-dd")});names["CASH.CNY"]="人民币现金";}
-        return database.Write(user,sql=>
+        return database.WriteNonLedger(user,sql=>
         {
             Session(sql,user,previewId,"photo-preview");var state=State(sql,user,holdings);var before=state["positions"]!.AsArray().OfType<JsonObject>().ToDictionary(row=>row["symbol"]!.GetValue<string>());
             ValidateState(state,day,mode,holdings);
@@ -141,7 +141,7 @@ public sealed class PhotoMigrationService(AccountDatabase database,ComputeServic
     public JsonObject Commit(string user,string id,bool confirmed,bool holdings)
     {
         if(!confirmed)throw new ArgumentException("请核对差异并明确确认");
-        return database.Write(user,sql=>
+        return database.WriteNonLedger(user,sql=>
         {
             var session=Session(sql,user,id,holdings?"photo-holdings-review":"photo-account-review");if(session["result"] is JsonObject existing)return existing;
             var record=session["payload"]!.AsObject();var positions=record["positions"]!.AsArray();var day=DateOnly.Parse(positions[0]!["as_of_date"]!.GetValue<string>());var mode=record["mode"]!.GetValue<string>();var state=State(sql,user,holdings);

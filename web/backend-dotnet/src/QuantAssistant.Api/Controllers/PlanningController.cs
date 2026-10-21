@@ -39,7 +39,7 @@ public sealed class PlanningController(AccountDatabase database) : ControllerBas
     {
         body = Validate(body);
         var id = body.PlanId ?? Guid.NewGuid().ToString("N");
-        var row = database.Write(UserId, sql =>
+        var row = database.WriteNonLedger(UserId, sql =>
         {
             var existing = sql.Query($"SELECT {Columns} FROM cash_flow_plans WHERE user_id=$1 AND plan_id=$2", UserId, id).FirstOrDefault()?.AsObject();
             if (existing is not null)
@@ -66,7 +66,7 @@ public sealed class PlanningController(AccountDatabase database) : ControllerBas
     {
         var plan = Validate(new PlanBody(body.Name, body.Direction, body.Amount, body.Frequency, body.StartDate, body.EndDate, body.Note));
         ValidateStatus(body.Status);
-        return Ok(database.Write(UserId, sql =>
+        return Ok(database.WriteNonLedger(UserId, sql =>
         {
             RequireCurrent(sql, plan_id, body.ExpectedUpdatedAt);
             return Preview(sql.Query($"""
@@ -81,7 +81,7 @@ public sealed class PlanningController(AccountDatabase database) : ControllerBas
     public IActionResult SetStatus(string plan_id, [FromBody] StatusBody body)
     {
         ValidateStatus(body.Status);
-        return Ok(database.Write(UserId, sql =>
+        return Ok(database.WriteNonLedger(UserId, sql =>
         {
             RequireCurrent(sql, plan_id, body.ExpectedUpdatedAt);
             return Preview(sql.Query($"""

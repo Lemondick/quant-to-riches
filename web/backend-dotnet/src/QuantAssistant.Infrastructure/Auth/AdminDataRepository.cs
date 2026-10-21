@@ -85,7 +85,7 @@ public sealed class AdminDataRepository(AccountDatabase database)
     {
         if (section is not ("holdings" or "ledger" or "watchlist" or "reports" or "tasks") || page is < 1 or > 100000 || limit is < 1 or > 100 || symbol.Length > 32 || end < start)
             throw new ArgumentException("账户查询参数无效");
-        return database.Write(actor, sql =>
+        return database.WriteNonLedger(actor, sql =>
         {
             var user = User(sql, userId); var overview = Summary(sql, userId);
             var totals = sql.Query("SELECT coalesce(sum(market_value),0) AS local_market_value,coalesce(sum(market_value) FILTER(WHERE asset_type='cash'),0) AS local_cash FROM positions WHERE user_id=$1 AND quantity>0", userId)[0]!.AsObject();
@@ -121,7 +121,7 @@ public sealed class AdminDataRepository(AccountDatabase database)
     public JsonObject Report(string actor, string userId, string source, string reportId, int attempt)
     {
         if (source is not ("advisor" or "research") || string.IsNullOrWhiteSpace(reportId) || reportId.Length > 128 || attempt is < 1 or > 100000) throw new ArgumentException("报告查询参数无效");
-        return database.Write(actor, sql =>
+        return database.WriteNonLedger(actor, sql =>
         {
             User(sql, userId);
             var rows = source == "advisor" ? sql.Query("SELECT report_id,kind,status,report_date,created_at,updated_at,report_json AS report FROM market_advisor_reports WHERE user_id=$1 AND report_id=$2", userId, reportId)
@@ -133,7 +133,7 @@ public sealed class AdminDataRepository(AccountDatabase database)
         });
     }
 
-    public JsonObject Usage(string actor, string userId) => database.Write(actor, sql =>
+    public JsonObject Usage(string actor, string userId) => database.WriteNonLedger(actor, sql =>
     {
         User(sql, userId);
         var rows = sql.Query("SELECT day,category,requests,errors,duration_ms FROM usage_daily WHERE user_id=$1 AND day>=$2 ORDER BY day DESC,category", userId, DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8)).AddDays(-6).ToString("yyyy-MM-dd"));
@@ -158,7 +158,7 @@ public sealed class AdminDataRepository(AccountDatabase database)
     public JsonObject Timeline(string actor, string userId, string category, int page, int limit, DateOnly? start, DateOnly? end)
     {
         if (category is not ("all" or "business" or "account" or "imports" or "trades" or "nav" or "reports" or "tasks" or "portfolio" or "data") || page is < 1 or > 100000 || limit is < 1 or > 100 || end < start) throw new ArgumentException("事件查询参数无效");
-        return database.Write(actor, sql =>
+        return database.WriteNonLedger(actor, sql =>
         {
             var user = User(sql, userId); var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8)); var first = today.AddDays(-29);
             var projection = category == "account" ? AccountEvents : category == "all" ? BusinessEvents + " UNION ALL " + AccountEvents : BusinessEvents;

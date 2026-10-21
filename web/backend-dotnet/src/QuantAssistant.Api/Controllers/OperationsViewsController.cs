@@ -22,7 +22,7 @@ public sealed class OperationsViewsController(AccountDatabase database, IReadine
         if (string.IsNullOrWhiteSpace(body.JobName) || body.JobName.Length > 100 || body.ExpectedIntervalMinutes is < 1 or > 525600
             || body.Status is not ("running" or "completed" or "failed" or "blocked") || body.StartedAt > now || body.CompletedAt > now
             || body.CompletedAt < body.StartedAt || body.Error?.Length > 500) throw new ArgumentException("任务心跳参数无效");
-        database.Write(UserId, sql => sql.Execute("""
+        database.WriteNonLedger(UserId, sql => sql.Execute("""
             INSERT INTO job_heartbeats(user_id,job_name,expected_interval_minutes,last_started_at,last_completed_at,last_status,last_error,updated_at)
             VALUES($1,$2,$3,$4,$5,$6,$7,now()) ON CONFLICT(user_id,job_name) DO UPDATE SET
             expected_interval_minutes=EXCLUDED.expected_interval_minutes,
@@ -35,7 +35,7 @@ public sealed class OperationsViewsController(AccountDatabase database, IReadine
     }
 
     [HttpGet("operations/watchdog")]
-    public IActionResult Watchdog() => Ok(new { items = database.Write(UserId, sql =>
+    public IActionResult Watchdog() => Ok(new { items = database.WriteNonLedger(UserId, sql =>
     {
         var rows = sql.Query("""
             SELECT job_name,expected_interval_minutes,last_started_at,last_completed_at,last_status AS status,last_error,

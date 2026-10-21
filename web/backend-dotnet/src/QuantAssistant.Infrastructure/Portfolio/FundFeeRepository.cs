@@ -52,7 +52,7 @@ public sealed partial class FundFeeRepository(AccountDatabase database)
         schedule = FundFeeRules.Validate(schedule, Today());
         if (Symbol(schedule.Symbol) != schedule.Symbol || decimal.Round(schedule.PurchaseRate, 10) != schedule.PurchaseRate || decimal.Round(schedule.AnnualServiceRate, 10) != schedule.AnnualServiceRate)
             throw new ArgumentException("费率代码或小数精度无效");
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             var before = sql.Query("SELECT effective_from,effective_to,purchase_fee_rate,service_fee_rate_annual,redemption_tiers_json,terms_json FROM fund_fee_schedules WHERE user_id=$1 AND symbol=$2 AND effective_from=$3", userId, schedule.Symbol, schedule.EffectiveFrom).FirstOrDefault();
             var terms = JsonSerializer.Serialize(new { version = 1, share_class = schedule.ShareClass, purchase_tiers = schedule.PurchaseTiers,

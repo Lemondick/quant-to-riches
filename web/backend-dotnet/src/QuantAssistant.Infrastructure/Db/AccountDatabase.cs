@@ -26,6 +26,11 @@ public sealed class AccountDatabase(string connectionString)
         return result;
     }
 
+    /// <summary>
+    /// 账本写：取 pg_advisory_xact_lock("ledger:"+userId) 将同一用户的账本变更串行化。
+    /// 仅用于 transactions/positions/dividend_events/corporate_action_events/ledger_corrections
+    /// 等账本事实表的变更；其余写操作请用 <see cref="WriteNonLedgerAsync"/>（行级锁即可）。
+    /// </summary>
     public async Task<T> WriteAsync<T>(string userId, Func<AccountSql, Task<T>> write, CancellationToken cancellation = default)
     {
         using var timing = PerformanceTrace.Measure("db");
@@ -34,16 +39,42 @@ public sealed class AccountDatabase(string connectionString)
         await using var transaction = await connection.BeginTransactionAsync(cancellation);
         var session = new AccountSql(connection, transaction, cancellation);
         await session.ExecuteAsync("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "ledger:" + userId);
-        if (userId != "compute:reaper" && await session.ScalarAsync("SELECT 1 FROM users WHERE id=$1 AND status='active' FOR SHARE", userId) is null)
-            throw new QuantAssistant.Core.Auth.AuthFailure("authentication_required");
+        await RequireActiveUserAsync(session, userId);
         var result = await write(session);
         await transaction.CommitAsync(cancellation);
         return result;
     }
 
+    /// <summary>
+    /// 普通写：不行级串行化，仅事务 + 行级锁 + 活跃用户校验。
+    /// 账本事实表之外的所有写操作（设置、计划、告警、任务、快照等）都应走这里，
+    /// 缩小临界区，避免同一用户的所有写被全局串行化（E15）。
+    /// </summary>
+    public async Task<T> WriteNonLedgerAsync<T>(string userId, Func<AccountSql, Task<T>> write, CancellationToken cancellation = default)
+    {
+        using var timing = PerformanceTrace.Measure("db");
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(cancellation);
+        await using var transaction = await connection.BeginTransactionAsync(cancellation);
+        var session = new AccountSql(connection, transaction, cancellation);
+        await RequireActiveUserAsync(session, userId);
+        var result = await write(session);
+        await transaction.CommitAsync(cancellation);
+        return result;
+    }
+
+    private static async Task RequireActiveUserAsync(AccountSql session, string userId)
+    {
+        if (userId != "compute:reaper" && await session.ScalarAsync("SELECT 1 FROM users WHERE id=$1 AND status='active' FOR SHARE", userId) is null)
+            throw new QuantAssistant.Core.Auth.AuthFailure("authentication_required");
+    }
+
     public T Read<T>(Func<AccountSql, T> read) => ReadAsync(sql => Task.FromResult(read(sql))).GetAwaiter().GetResult();
 
     public T Write<T>(string userId, Func<AccountSql, T> write) => WriteAsync(userId, sql => Task.FromResult(write(sql))).GetAwaiter().GetResult();
+
+    /// <summary>同步普通写（供 CLI/低频流程）。</summary>
+    public T WriteNonLedger<T>(string userId, Func<AccountSql, T> write) => WriteNonLedgerAsync(userId, sql => Task.FromResult(write(sql))).GetAwaiter().GetResult();
 }
 
 public sealed class AccountSql(NpgsqlConnection connection, NpgsqlTransaction? transaction, CancellationToken cancellation = default)

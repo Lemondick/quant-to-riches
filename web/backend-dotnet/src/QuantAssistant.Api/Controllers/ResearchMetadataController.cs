@@ -29,7 +29,7 @@ public sealed class ResearchMetadataController(AccountDatabase database) : Contr
         Text(body.Factor, 80); Text(body.Source, 200);
         if (body.SampleCount < 0 || body.Ic is { } ic && (!double.IsFinite(ic) || ic is < -1 or > 1)
             || body.Ir is { } ir && !double.IsFinite(ir)) throw new ArgumentException("因子观测无效");
-        return Ok(database.Write(UserId, sql =>
+        return Ok(database.WriteNonLedger(UserId, sql =>
         {
             var row = sql.Query($"""
                 INSERT INTO factor_observations(user_id,factor,as_of_date,ic,ir,sample_count,source,created_at)
@@ -100,7 +100,7 @@ public sealed class ResearchMetadataController(AccountDatabase database) : Contr
     {
         if (!Indicators.Contains(body.Indicator) || !double.IsFinite(body.Value)) throw new ArgumentException("宏观观测无效");
         Text(body.Unit, 30); Text(body.Source, 200);
-        return Ok(database.Write(UserId, sql => sql.Query($"""
+        return Ok(database.WriteNonLedger(UserId, sql => sql.Query($"""
             INSERT INTO macro_observations(user_id,indicator,observed_on,value,unit,source,created_at)
             VALUES($1,$2,$3,$4,$5,$6,now()) ON CONFLICT(user_id,indicator,observed_on,source) DO UPDATE SET
             value=EXCLUDED.value,unit=EXCLUDED.unit,created_at=EXCLUDED.created_at RETURNING {MacroColumns}
@@ -140,7 +140,7 @@ public sealed class ResearchMetadataController(AccountDatabase database) : Contr
                 throw new ArgumentException("基准代码不能含空白或重复，现金代码使用CASH");
         }
         var id = body.BenchmarkId?.Trim() ?? Guid.NewGuid().ToString("N");
-        return Ok(database.Write(UserId, sql =>
+        return Ok(database.WriteNonLedger(UserId, sql =>
         {
             if (body.IsDefault) sql.Execute("UPDATE benchmark_configs SET is_default=false,updated_at=now() WHERE user_id=$1 AND is_default", UserId);
             return sql.Query($"""

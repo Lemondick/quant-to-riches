@@ -58,7 +58,7 @@ public sealed class FundLotRepository(AccountDatabase database, FundFeeRepositor
                 || l.ConfirmedOn > verifiedOn || l.RemainingUnits <= 0 || l.RemainingUnits >= 100000000000000000000m || decimal.Round(l.RemainingUnits, 8) != l.RemainingUnits)
             || items.Select(l => l.LotId).Distinct().Count() != items.Length || string.IsNullOrWhiteSpace(reference) || reference.Length > 1000
             || fingerprint.Length != 64 || verifiedOn > FundFeeRepository.Today()) throw new ArgumentException("基金批次核对参数无效");
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             var current = View(sql, userId, symbol);
             if (current["position_fingerprint"]?.GetValue<string>() != fingerprint || current["position_quantity"] is null)
@@ -83,7 +83,7 @@ public sealed class FundLotRepository(AccountDatabase database, FundFeeRepositor
         symbol = FundFeeRepository.Symbol(symbol);
         if (selections.Length is < 1 or > 100 || selections.Any(s => s is null) || assumedNav <= 0 || decimal.Round(assumedNav, 8) != assumedNav
             || assumedNav >= 10000000000m || confirmedOn < FundFeeRepository.Today()) throw new ArgumentException("赎回规划参数无效");
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             var current = View(sql, userId, symbol);
             if (current["status"]!.GetValue<string>() != "reconciled" || current["snapshot_id"]!.GetValue<long>() != snapshotId) throw new LedgerStateError(ErrorCodes.FundLotsStale);

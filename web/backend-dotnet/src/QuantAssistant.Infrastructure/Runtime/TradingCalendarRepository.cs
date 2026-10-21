@@ -36,7 +36,7 @@ public sealed class TradingCalendarRepository(AccountDatabase database, TimeProv
             || body.Holidays.Any(d => !DateOnly.TryParseExact(d, "yyyy-MM-dd", out var date) || date.Year != body.Year))
             throw new ArgumentException("请提供交易所官方公告和属于所选年份的休市日期");
         body = body with { Holidays = body.Holidays.Distinct().Order().ToArray() };
-        var result = database.Write(actor, sql =>
+        var result = database.WriteNonLedger(actor, sql =>
         {
             sql.Execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", Key(body.Market, body.Year));
             var existing = View(sql, body.Year, body.Market);

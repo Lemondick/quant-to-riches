@@ -76,7 +76,7 @@ public sealed partial class FundExecutionReplayController(AccountDatabase databa
         result["ready_for_trading"] = false;
         var record = new JsonObject { ["id"] = id, ["created_at"] = DateTimeOffset.UtcNow.ToString("O"), ["bundle"] = body.Bundle.DeepClone(), ["result"] = result };
         record["fingerprint"] = Fingerprint(record);
-        var committed = database.Write(UserId, sql =>
+        var committed = database.WriteNonLedger(UserId, sql =>
         {
             var saved = Existing(sql, id, body.Bundle);
             if (saved is not null) return saved;
@@ -115,7 +115,7 @@ public sealed partial class FundExecutionReplayController(AccountDatabase databa
     public IActionResult Delete(string id)
     {
         if (!Identifier().IsMatch(id)) throw new ApplicationFailure("replay_not_found", 404, "未找到执行回放。");
-        var changed = database.Write(UserId, sql =>
+        var changed = database.WriteNonLedger(UserId, sql =>
         {
             var count = sql.Execute("DELETE FROM user_documents WHERE user_id=$1 AND document_key=$2", UserId, Prefix + id);
             if (count > 0) sql.Execute("INSERT INTO audit_log(user_id,changed_at,entity_type,entity_id,after_json) VALUES($1,now(),'fund_execution_replay_deleted',$2,'{}'::json)", UserId, id);

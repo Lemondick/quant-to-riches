@@ -104,7 +104,7 @@ public sealed class AutomaticAttributionService(AccountDatabase database, Comput
         var heldFiles = new List<FileStream>();
         try
         {
-        database.Write(user, sql =>
+        database.WriteNonLedger(user, sql =>
         {
             if (FinancialSnapshot.Hash(State(sql, user, benchmark)) != fingerprint)
                 throw new ApplicationFailure("attribution_state_changed", 409, "计算期间账户、基准或快照已变化，请重新计算。");

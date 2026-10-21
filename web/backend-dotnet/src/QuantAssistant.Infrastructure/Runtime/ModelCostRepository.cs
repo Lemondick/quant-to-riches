@@ -48,7 +48,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
             || settings.DailyBudget is <= 0 or > 1000000 || settings.Prices?.Count > 100
             || settings.Prices?.Any(p => !ValidModel(p.Key) || p.Value.InputPerMillion is < 0 or > 1000000 || p.Value.OutputPerMillion is < 0 or > 1000000) == true)
             throw new ArgumentException("费用设置无效");
-        return database.Write(userId, sql =>
+        return database.WriteNonLedger(userId, sql =>
         {
             var current = Settings(sql, userId);
             var summary = Summary(sql, userId, current);
@@ -73,7 +73,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         if(!evidence.Confirmed || evidence.Amount is < 0 or > 1000000 || !CurrencyPattern().IsMatch(evidence.Currency)
             || string.IsNullOrWhiteSpace(evidence.Reference) || evidence.Reference.Length>500 || evidence.Reference.Any(char.IsControl))
             throw new ArgumentException("请确认账单金额、货币和可核对的账单依据。");
-        return database.Write(userId,sql=>
+        return database.WriteNonLedger(userId,sql=>
         {
             var row=sql.Query("SELECT status,cost,currency,unknown_reason,bill_evidence_json FROM model_call_costs WHERE user_id=$1 AND id=$2",userId,callId).FirstOrDefault()
                 ??throw new ApplicationFailure("model_call_not_found",404,"模型调用记录不存在。");
@@ -110,7 +110,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
             ["budget_blocker"] = budget is null ? null : unknown > 0 ? "unknown_usage_or_price" : known + reserved >= budget ? "daily_budget" : null };
     }
 
-    public string Reserve(string userId, string model, int? maxInputTokens, int? maxOutputTokens) => database.Write(userId, sql => Reserve(sql,userId,model,maxInputTokens,maxOutputTokens));
+    public string Reserve(string userId, string model, int? maxInputTokens, int? maxOutputTokens) => database.WriteNonLedger(userId, sql => Reserve(sql,userId,model,maxInputTokens,maxOutputTokens));
 
     private static string Reserve(AccountSql sql, string userId, string model, int? maxInputTokens, int? maxOutputTokens)
     {
@@ -128,7 +128,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         return id;
     }
 
-    public string ReserveOwned(string userId, string jobId, int attempt, string owner, string model, int? maxInput, int? maxOutput, string role = "unknown", string provider = "unknown") => database.Write(userId, sql =>
+    public string ReserveOwned(string userId, string jobId, int attempt, string owner, string model, int? maxInput, int? maxOutput, string role = "unknown", string provider = "unknown") => database.WriteNonLedger(userId, sql =>
     {
         if (role is not ("news" or "strategy" or "reviewer" or "jev" or "bull" or "bear" or "unknown") || provider is not ("compatible_api" or "jev" or "unknown"))
             throw new ArgumentException("模型调用角色无效");
@@ -148,7 +148,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
             throw new ApplicationFailure("worker_lease_expired",409,"任务已停止，不能继续模型调用。");
     }
 
-    public void FinishOwned(string userId,string jobId,int attempt,string owner,string callId,long? input,long? output,string stage="response",string? unknownReason=null) => database.Write(userId,sql=>
+    public void FinishOwned(string userId,string jobId,int attempt,string owner,string callId,long? input,long? output,string stage="response",string? unknownReason=null) => database.WriteNonLedger(userId,sql=>
     {
         RequireLease(sql,userId,jobId,attempt,owner);
         if (sql.Scalar("SELECT 1 FROM model_call_costs WHERE user_id=$1 AND id=$2 AND job_id=$3 AND job_attempt=$4 AND owner_token=$5",userId,callId,jobId,attempt,owner) is null)
@@ -156,7 +156,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         return Finish(sql,userId,callId,input,output,stage,unknownReason);
     });
 
-    public void Finish(string userId, string callId, long? inputTokens, long? outputTokens) => database.Write(userId, sql => Finish(sql,userId,callId,inputTokens,outputTokens));
+    public void Finish(string userId, string callId, long? inputTokens, long? outputTokens) => database.WriteNonLedger(userId, sql => Finish(sql,userId,callId,inputTokens,outputTokens));
     private static int Finish(AccountSql sql, string userId, string callId, long? inputTokens, long? outputTokens, string stage="response",string? unknownReason=null)
     {
         if (stage is not ("response" or "connect_timeout" or "read_timeout" or "timeout" or "http_error" or "invalid_response" or "interrupted" or "transport_error")

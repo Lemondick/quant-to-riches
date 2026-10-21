@@ -19,5 +19,5 @@ public sealed class AdvisorController(AdvisorExecutionService service,NativeSche
     [HttpPost("preflight")] public async Task<IActionResult> Preflight(CreateBody body, CancellationToken cancellation) => Ok(await service.Preflight(Id, body.Kind, cancellation));
     [HttpGet("notifications")] public IActionResult Notifications()=>Ok(new JsonObject { ["items"]=calendar.TradingDay(FundFeeRepository.Today())==true ? database.Read(sql=>sql.Query("SELECT id,kind,report_id,status,error_code,created_at,acknowledged FROM advisor_notifications WHERE user_id=$1 AND NOT acknowledged AND (created_at AT TIME ZONE 'Asia/Shanghai')::date=$2 ORDER BY created_at DESC LIMIT 10",Id,FundFeeRepository.Today())) : new JsonArray() });
     [HttpPost("notifications/{notice_id}/acknowledge")] public IActionResult Acknowledge(string notice_id)
-    { var changed=database.Write(Id,sql=>sql.Execute("UPDATE advisor_notifications SET acknowledged=true WHERE user_id=$1 AND id=$2",Id,notice_id));return changed==0?NotFound(new{error_code="notice_not_found",message="未找到通知"}):Ok(new{status="acknowledged"}); }
+    { var changed=database.WriteNonLedger(Id,sql=>sql.Execute("UPDATE advisor_notifications SET acknowledged=true WHERE user_id=$1 AND id=$2",Id,notice_id));return changed==0?NotFound(new{error_code="notice_not_found",message="未找到通知"}):Ok(new{status="acknowledged"}); }
 }

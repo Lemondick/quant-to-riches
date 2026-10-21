@@ -25,7 +25,7 @@ public sealed class AlertsController(AccountDatabase database, FundFeeRepository
     public IActionResult SaveSettings(AlertSettings body)
     {
         if (body.Revision < 0 || body.StaleAfterDays is < 0 or > 365 || !double.IsFinite(body.DrawdownThreshold) || body.DrawdownThreshold is <= 0 or > 1 || body.TaskFailureDays is < 1 or > 90) throw new ArgumentException("告警阈值无效");
-        return Ok(database.Write(Id, sql =>
+        return Ok(database.WriteNonLedger(Id, sql =>
         {
             var current = Settings(sql, Id);
             if (current.Revision != body.Revision) throw new ApplicationFailure("alert_settings_conflict", 409, "告警阈值已变化，请重新读取。");
@@ -36,7 +36,7 @@ public sealed class AlertsController(AccountDatabase database, FundFeeRepository
     }
 
     [HttpPost("{alert_id}/acknowledge")]
-    public IActionResult Acknowledge(string alert_id) => database.Write(Id, sql => sql.Execute("UPDATE user_alert_center SET acknowledged=true WHERE user_id=$1 AND id=$2", Id, alert_id)) == 1
+    public IActionResult Acknowledge(string alert_id) => database.WriteNonLedger(Id, sql => sql.Execute("UPDATE user_alert_center SET acknowledged=true WHERE user_id=$1 AND id=$2", Id, alert_id)) == 1
         ? Ok(new { status = "acknowledged" }) : NotFound(new { error_code = "alert_not_found", message = "未找到当前账户告警" });
 
     [HttpGet]
@@ -45,7 +45,7 @@ public sealed class AlertsController(AccountDatabase database, FundFeeRepository
         JsonObject priceDates;
         try { priceDates = (await compute.Run(Id, "analysis.price_dates", new { }, cancellation, accountSnapshot: true))!.AsObject(); }
         catch (ApplicationFailure) { priceDates = new(); } // Missing evidence raises an alert; it never implies fresh data.
-        return Ok(database.Write(Id, sql =>
+        return Ok(database.WriteNonLedger(Id, sql =>
         {
             var settings = Settings(sql, Id); var today = FundFeeRepository.Today(); var found = new List<(string Kind, string Subject, JsonObject Detail)>();
             void Add(string kind, string subject, string message, JsonObject? detail = null)

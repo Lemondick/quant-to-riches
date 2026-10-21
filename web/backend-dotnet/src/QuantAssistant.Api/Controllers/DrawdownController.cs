@@ -44,7 +44,7 @@ public sealed class DrawdownController(AccountDatabase database) : ControllerBas
         var report = new JsonObject { ["run_id"] = body.RunId.Trim(), ["threshold"] = body.Threshold, ["max_drawdown"] = maxDrawdown,
             ["observed_sessions"] = values.Count, ["breach_count"] = breaches, ["passed"] = reasons.Count == 0,
             ["reasons"] = JsonSerializer.SerializeToNode(reasons.Distinct().ToArray()), ["research_only"] = true };
-        return Ok(database.Write(UserId, sql =>
+        return Ok(database.WriteNonLedger(UserId, sql =>
         {
             var existing = sql.Query($"SELECT {Columns} FROM drawdown_validations WHERE user_id=$1 AND run_id=$2", UserId, body.RunId.Trim()).FirstOrDefault();
             if (existing is not null) { if (!JsonNode.DeepEquals(existing, report)) throw new ArgumentException("相同运行ID已有不同回撤结果"); return existing; }

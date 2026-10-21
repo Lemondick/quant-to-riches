@@ -74,7 +74,7 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
     public JsonObject Create(string user,string kind,bool force=false)
     {
         if(kind is not("morning" or "afternoon")) throw new ArgumentException("报告类型无效");
-        var id=database.Write(user,sql=>
+        var id=database.WriteNonLedger(user,sql=>
         {
             var config=connections.Config(user);
             if(!config["configured"]!.GetValue<bool>()) throw new ApplicationFailure("model_configuration",422,"模型或Jev服务尚未配置。");
@@ -103,7 +103,7 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
     public void Tick()
     {
         jobs.Recover();
-        database.Write("compute:reaper",sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='interrupted',error_code='schedule_interrupted' WHERE status='claimed' AND report_id IS NULL AND started_at<now()-interval '2 minutes'"));
+        database.WriteNonLedger("compute:reaper",sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='interrupted',error_code='schedule_interrupted' WHERE status='claimed' AND report_id IS NULL AND started_at<now()-interval '2 minutes'"));
         var now=DateTime.UtcNow.AddHours(8);var date=DateOnly.FromDateTime(now);
         if(calendar.TradingDay(date)!=true) return;
         var kind=now.Hour==9 && now.Minute is >=30 and <45 ? "morning" : now.Hour==14 && now.Minute is >=30 and <45 ? "afternoon" : null;
@@ -112,15 +112,15 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
         foreach(var user in users.OfType<JsonObject>())
         {
             var id=user["id"]!.GetValue<string>();
-            var claimed=database.Write(id,sql=>sql.Execute("INSERT INTO advisor_schedule_runs(user_id,run_date,kind,status,started_at) VALUES($1,$2,$3,'claimed',now()) ON CONFLICT(user_id,run_date,kind) DO NOTHING",id,date,kind));
+            var claimed=database.WriteNonLedger(id,sql=>sql.Execute("INSERT INTO advisor_schedule_runs(user_id,run_date,kind,status,started_at) VALUES($1,$2,$3,'claimed',now()) ON CONFLICT(user_id,run_date,kind) DO NOTHING",id,date,kind));
             if(claimed==0) continue;
             try
             {
                 var report=Create(id,kind);
-                database.Write(id,sql=>sql.Execute("UPDATE advisor_schedule_runs SET report_id=$4,status=$5,error_code=$6 WHERE user_id=$1 AND run_date=$2 AND kind=$3 AND status='claimed'",id,date,kind,report["report_id"]!.GetValue<string>(),report["status"]!.GetValue<string>(),report["error_code"]?.GetValue<string>()));
+                database.WriteNonLedger(id,sql=>sql.Execute("UPDATE advisor_schedule_runs SET report_id=$4,status=$5,error_code=$6 WHERE user_id=$1 AND run_date=$2 AND kind=$3 AND status='claimed'",id,date,kind,report["report_id"]!.GetValue<string>(),report["status"]!.GetValue<string>(),report["error_code"]?.GetValue<string>()));
             }
             catch(Exception error) when(error is BusinessError or ArgumentException)
-            { database.Write(id,sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='failed',error_code='schedule_failed' WHERE user_id=$1 AND run_date=$2 AND kind=$3 AND status='claimed'",id,date,kind)); }
+            { database.WriteNonLedger(id,sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='failed',error_code='schedule_failed' WHERE user_id=$1 AND run_date=$2 AND kind=$3 AND status='claimed'",id,date,kind)); }
         }
     }
 }

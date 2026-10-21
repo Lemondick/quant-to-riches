@@ -27,12 +27,12 @@ public sealed class NativeRuntimeMaintenance(AccountDatabase database, NativeMet
           stats_reset FROM pg_stat_database WHERE datname=current_database()
         """)[0]!.DeepClone().AsObject();
 
-    public void Sample() => database.Write("compute:reaper", sql => sql.Execute("""
+    public void Sample() => database.WriteNonLedger("compute:reaper", sql => sql.Execute("""
         INSERT INTO native_monitor_samples(captured_at,payload)
         VALUES(date_trunc('minute',now()),$1::jsonb) ON CONFLICT(captured_at) DO NOTHING
         """, new JsonObject { ["queue"] = Queue(sql), ["database"] = Database(sql), ["metrics"] = metrics.Snapshot() }.ToJsonString()));
 
-    public JsonObject Clean() => database.Write("compute:reaper", sql =>
+    public JsonObject Clean() => database.WriteNonLedger("compute:reaper", sql =>
     {
         // Consumed previews are durable idempotency receipts. They must survive expiry.
         var previews = sql.Execute("""
