@@ -5,6 +5,7 @@ from __future__ import annotations
 from advisor_preflight import execute_preflight
 from attribution_operations import ATTRIBUTION_CAPABILITIES, execute_attribution
 from calendar_generation import CALENDAR_CAPABILITIES, execute_calendar
+from smart_dca_backtest_operations import DCA_CAPABILITIES, execute_smart_dca
 from nav_operations import NAV_CAPABILITIES, execute_nav
 from paid_operations import PAID_CAPABILITIES, execute_paid
 from photo_operations import PHOTO_CAPABILITIES, execute_photo
@@ -31,6 +32,7 @@ CAPABILITIES = (
     *ATTRIBUTION_CAPABILITIES,
     *CALENDAR_CAPABILITIES,
     *REDEMPTION_CAPABILITIES,
+    *DCA_CAPABILITIES,
 )
 
 
@@ -63,4 +65,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_calendar(kind, payload)
     if kind in REDEMPTION_CAPABILITIES:
         return execute_redemption(kind, payload)
+    if kind in DCA_CAPABILITIES:
+        return execute_smart_dca(kind, payload)
     raise ValueError("unsupported_operation")
