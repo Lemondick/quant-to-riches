@@ -47,7 +47,7 @@ BEGIN
         IF to_regclass('public.' || part_name) IS NULL THEN
             EXECUTE format(
                 'CREATE TABLE public.%I PARTITION OF public.native_monitor_samples FOR VALUES FROM (%L) TO (%L)',
-                part_name, m, m + make_interval(months => 1));
+                part_name, m::timestamptz, (m + make_interval(months => 1))::timestamptz);
             created_count := created_count + 1;
         END IF;
     END LOOP;
@@ -166,7 +166,7 @@ BEGIN
                     part_name := 'native_monitor_samples_p' || to_char(m, 'YYYYMM');
                     EXECUTE format(
                         'CREATE TABLE IF NOT EXISTS public.%I PARTITION OF public.native_monitor_samples FOR VALUES FROM (%L) TO (%L)',
-                        part_name, m, m + make_interval(months => 1));
+                        part_name, m::timestamptz, (m + make_interval(months => 1))::timestamptz);
                     m := m + make_interval(months => 1);
                 END LOOP;
                 INSERT INTO public.native_monitor_samples
