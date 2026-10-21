@@ -65,9 +65,14 @@ public sealed class SessionAuthenticationMiddleware(RequestDelegate next, IConfi
 
     private bool AllowedOrigin(HttpRequest request)
     {
-        if (!request.Headers.TryGetValue("Origin", out var header)) return true;
-        if (!Uri.TryCreate(header.ToString(), UriKind.Absolute, out var origin) || origin.AbsolutePath != "/"
-            || origin.Query.Length > 0 || origin.Fragment.Length > 0 || origin.UserInfo.Length > 0) return false;
+        // E22：缺失 Origin 头不再直接放行。退化检查 Referer；二者皆无或与本站不一致 → 403。
+        // （api.md 早已约定“写请求需要允许的 Origin”，此处使代码与文档一致。）
+        var header = request.Headers["Origin"].FirstOrDefault() ?? request.Headers["Referer"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(header)) return false;
+        if (!Uri.TryCreate(header, UriKind.Absolute, out var origin) || origin.UserInfo.Length > 0) return false;
+        // Origin 头按旧有严格口径校验（无路径/查询/片段）；Referer 带路径，只比对 authority。
+        if (request.Headers.ContainsKey("Origin") && (origin.AbsolutePath != "/" || origin.Query.Length > 0 || origin.Fragment.Length > 0))
+            return false;
         var domain = configuration["QUANT_DOMAIN"];
         var allowed = string.IsNullOrWhiteSpace(domain) ? $"{request.Scheme}://{request.Host}"
             : domain.Contains("://", StringComparison.Ordinal) ? domain : "https://" + domain;
