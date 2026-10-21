@@ -63,7 +63,7 @@ public class ETagMiddlewareTests
         var etag = firstContext.Response.Headers.ETag.ToString();
         Assert.NotEmpty(etag);
 
-        var second = new ETagMiddleware(JsonWriter("{\"a\":2}"), Options());
+        var second = new ETagMiddleware(JsonWriter(json), Options());
         var context = CreateContext("GET", "/api/v1/valuation");
         context.Request.Headers.IfNoneMatch = etag;
         await second.InvokeAsync(context);
