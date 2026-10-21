@@ -141,7 +141,7 @@ def business_checks(config, dbname):
     connection = psycopg2.connect(**connect_kwargs)
     try:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT status, database_fingerprint FROM site_restore_runs ORDER BY id DESC LIMIT 1")
+            cursor.execute("SELECT status, database_fingerprint FROM site_restore_runs ORDER BY restored_at DESC LIMIT 1")
             row = cursor.fetchone()
             if not row or row[0] != "published":
                 raise RuntimeError(f"site_restore_runs status is {row[0] if row else None!r}, expected 'published'")
