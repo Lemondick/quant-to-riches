@@ -20,6 +20,7 @@ from goal_operations import GOAL_CAPABILITIES, execute_goal
 from research_fetch_operations import RESEARCH_FETCH_CAPABILITIES, execute_research_fetch
 from research_operations import RESEARCH_CAPABILITIES, execute_research
 from risk_operations import RISK_CAPABILITIES, execute_risk
+from sentiment_operations import SENTIMENT_CAPABILITIES, execute_sentiment
 from strategy_operations import STRATEGY_CAPABILITIES, execute_strategy
 
 from quant_assistant.reporting.fund_execution_study import replay as replay_fund_orders
@@ -45,6 +46,7 @@ CAPABILITIES = (
     *COST_CAPABILITIES,
     *RESEARCH_FETCH_CAPABILITIES,
     *GOAL_CAPABILITIES,
+    *SENTIMENT_CAPABILITIES,
 )
 
 
@@ -91,4 +93,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_research_fetch(kind, payload)
     if kind in GOAL_CAPABILITIES:
         return execute_goal(kind, payload)
+    if kind in SENTIMENT_CAPABILITIES:
+        return execute_sentiment(kind, payload)
     raise ValueError("unsupported_operation")
