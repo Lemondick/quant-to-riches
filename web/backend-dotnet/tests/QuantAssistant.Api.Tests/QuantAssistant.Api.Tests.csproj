@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\QuantAssistant.Api\QuantAssistant.Api.csproj" />
     <Content Include="../../../../tests/fixtures/public-quality-cases.json" Link="public-quality-cases.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../../../tests/fixtures/global-market-sessions.json" Link="global-market-sessions.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../../../tests/fixtures/fee-drawdown-caliber-vectors.json" Link="fee-drawdown-caliber-vectors.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

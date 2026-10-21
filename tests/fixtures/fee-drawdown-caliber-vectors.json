@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "note": "E4 cross-language caliber lock: Python quant_assistant.funds.fees/drawdown_control vs C# FundFeeRules/DrawdownController must agree on these vectors.",
+  "schedule": {
+    "symbol": "000001",
+    "share_class": "A",
+    "purchase_rate": "0.012",
+    "annual_service_rate": "0.006",
+    "redemption_tiers": [
+      {
+        "min_days": 0,
+        "max_days": 6,
+        "rate": "0.015"
+      },
+      {
+        "min_days": 7,
+        "max_days": 29,
+        "rate": "0.005"
+      },
+      {
+        "min_days": 30,
+        "max_days": 364,
+        "rate": "0.0025"
+      },
+      {
+        "min_days": 365,
+        "max_days": null,
+        "rate": "0"
+      }
+    ],
+    "purchase_tiers": [
+      {
+        "min_amount": "0",
+        "max_amount": "1000000",
+        "rate": "0.012",
+        "fixed_amount": null
+      },
+      {
+        "min_amount": "1000000",
+        "max_amount": null,
+        "rate": null,
+        "fixed_amount": "1000"
+      }
+    ],
+    "verified_on": "2026-10-01",
+    "effective_from": "2026-01-01",
+    "channel": null,
+    "evidence_reference": "evidence-ref",
+    "service_refund_rule": {
+      "effective_from": "2026-01-01",
+      "after_holding_days": 30,
+      "evidence_reference": "refund-evidence"
+    }
+  },
+  "fee_cases": [
+    {
+      "amount": "10000",
+      "holding_days": 3,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "118.58",
+        "redemption_fee": "150.00",
+        "service_fee_estimate": "0.49",
+        "expected_service_refund": "0.00",
+        "net_cost_estimate": "269.07"
+      }
+    },
+    {
+      "amount": "10000",
+      "holding_days": 3,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": true,
+      "expected": {
+        "purchase_fee": "118.58",
+        "redemption_fee": "150.00",
+        "service_fee_estimate": "0.49",
+        "expected_service_refund": "0.00",
+        "net_cost_estimate": "268.58"
+      }
+    },
+    {
+      "amount": "10000",
+      "holding_days": 10,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "118.58",
+        "redemption_fee": "50.00",
+        "service_fee_estimate": "1.64",
+        "expected_service_refund": "0.00",
+        "net_cost_estimate": "170.22"
+      }
+    },
+    {
+      "amount": "500000",
+      "holding_days": 100,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "5928.85",
+        "redemption_fee": "1250.00",
+        "service_fee_estimate": "821.92",
+        "expected_service_refund": "575.34",
+        "net_cost_estimate": "7425.43"
+      }
+    },
+    {
+      "amount": "1500000",
+      "holding_days": 100,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "1000.00",
+        "redemption_fee": "3750.00",
+        "service_fee_estimate": "2465.75",
+        "expected_service_refund": "1726.03",
+        "net_cost_estimate": "5489.73"
+      }
+    },
+    {
+      "amount": "1500000",
+      "holding_days": 400,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "1000.00",
+        "redemption_fee": "0.00",
+        "service_fee_estimate": "9863.01",
+        "expected_service_refund": "9123.29",
+        "net_cost_estimate": "1739.73"
+      }
+    },
+    {
+      "amount": "999999.99",
+      "holding_days": 29,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "11857.71",
+        "redemption_fee": "5000.00",
+        "service_fee_estimate": "476.71",
+        "expected_service_refund": "0.00",
+        "net_cost_estimate": "17334.42"
+      }
+    },
+    {
+      "amount": "1000000",
+      "holding_days": 30,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": false,
+      "expected": {
+        "purchase_fee": "1000.00",
+        "redemption_fee": "2500.00",
+        "service_fee_estimate": "493.15",
+        "expected_service_refund": "0.00",
+        "net_cost_estimate": "3993.15"
+      }
+    },
+    {
+      "amount": "25000.55",
+      "holding_days": 365,
+      "confirmed_on": "2026-10-01",
+      "nav_includes_service_fee": true,
+      "expected": {
+        "purchase_fee": "296.45",
+        "redemption_fee": "0.00",
+        "service_fee_estimate": "150.00",
+        "expected_service_refund": "137.67",
+        "net_cost_estimate": "296.45"
+      }
+    }
+  ],
+  "drawdown_cases": [
+    {
+      "nav": [
+        1.0,
+        1.1,
+        0.99,
+        1.2,
+        0.9
+      ],
+      "threshold": 0.2,
+      "expected": {
+        "max_drawdown": "0.25",
+        "breach_count": 1,
+        "passed": false,
+        "reasons": [
+          "drawdown_control_line_breached"
+        ]
+      }
+    },
+    {
+      "nav": [
+        1.0,
+        0.95,
+        0.9,
+        0.85
+      ],
+      "threshold": 0.1,
+      "expected": {
+        "max_drawdown": "0.15000000000000002",
+        "breach_count": 1,
+        "passed": false,
+        "reasons": [
+          "drawdown_control_line_breached"
+        ]
+      }
+    },
+    {
+      "nav": [
+        1.0,
+        1.01,
+        1.02,
+        1.03
+      ],
+      "threshold": 0.2,
+      "expected": {
+        "max_drawdown": "0.0",
+        "breach_count": 0,
+        "passed": true,
+        "reasons": []
+      }
+    },
+    {
+      "nav": [
+        2.5,
+        2.0,
+        2.2,
+        1.5,
+        1.8,
+        1.2
+      ],
+      "threshold": 0.25,
+      "expected": {
+        "max_drawdown": "0.52",
+        "breach_count": 3,
+        "passed": false,
+        "reasons": [
+          "drawdown_control_line_breached"
+        ]
+      }
+    }
+  ]
+}
