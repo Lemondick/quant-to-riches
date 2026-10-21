@@ -7,4 +7,14 @@
     @internal path /internal/* /openapi.json
     respond @internal 404
     reverse_proxy 127.0.0.1:8765
+
+    # 安全响应头（与生产 Caddyfile 同步；HSTS 仅生产 TLS 文件启用，避免本机/非 HTTPS 被锁定）。
+    # CSP report-only 违规上报 POST /api/v1/csp-report 由流 A 后端实现。
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; report-uri /api/v1/csp-report"
+        -Server
+    }
 }

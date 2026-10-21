@@ -14,18 +14,23 @@
     handle {
         root * /srv/quant-web
         header {
-            X-Content-Type-Options nosniff
-            X-Frame-Options DENY
-            Referrer-Policy no-referrer
             Cache-Control no-store
         }
         try_files {path} /index.html
         file_server
     }
 
-    # 安全响应头（后端 SecurityHeadersMiddleware 之外再兜底一层）
+    # 安全响应头（后端 SecurityHeadersMiddleware 之外再兜底一层；站点级生效，含后端接口响应）。
+    # batch3 流 D：新增 X-Frame-Options / X-Content-Type-Options / Referrer-Policy /
+    # Content-Security-Policy-Report-Only。CSP 采用 report-only 模式（不阻断），
+    # 违规上报到 POST /api/v1/csp-report（由流 A 后端实现，只收不存 PII，记 metrics）。
+    # HSTS 仅本生产 TLS 文件启用（native/既有证书文件不同步，避免非 HTTPS 环境被锁定）。
     header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Content-Security-Policy-Report-Only "default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; report-uri /api/v1/csp-report"
         -Server
     }
 }

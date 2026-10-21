@@ -202,6 +202,46 @@ jobs:
       - run: pip install pglast
       - run: python3 .github/scripts/check_migration_syntax.py
 
+  # 归属: D 流 batch3 任务2 —— 生产 Caddyfile 安全响应头静态检查。
+  # 要求：HSTS（max-age=31536000; includeSubDomains）只在生产 Caddyfile；
+  # X-Frame-Options DENY / X-Content-Type-Options nosniff /
+  # Referrer-Policy strict-origin-when-cross-origin 三文件同步；
+  # CSP 只允许 Report-Only 模式，上报指令 report-uri /api/v1/csp-report（后端由流 A 实现）。
+  security-headers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check security headers and CSP report-only in Caddyfiles
+        shell: bash
+        run: |
+          set -u
+          missing=0
+          prod=web/backend-dotnet/deploy/Caddyfile
+          for h in \
+            'Strict-Transport-Security "max-age=31536000; includeSubDomains"' \
+            'X-Content-Type-Options nosniff' \
+            'X-Frame-Options DENY' \
+            'Referrer-Policy strict-origin-when-cross-origin' \
+            'Content-Security-Policy-Report-Only' \
+            'report-uri /api/v1/csp-report'; do
+            if ! grep -qF -- "$h" "$prod"; then echo "生产 Caddyfile 缺失: $h" >&2; missing=1; fi
+          done
+          # 强制版 CSP 头不应出现（只允许 report-only）
+          if grep -qE '^[[:space:]]*Content-Security-Policy[[:space:]]' "$prod"; then
+            echo "生产 Caddyfile 不应出现强制 CSP 头（只允许 Report-Only）" >&2; missing=1
+          fi
+          for g in web/backend-dotnet/deploy/Caddyfile.native web/backend-dotnet/deploy/Caddyfile.existing-cert; do
+            if grep -q 'Strict-Transport-Security' "$g"; then
+              echo "HSTS 只允许出现在生产 Caddyfile，$g 不应包含" >&2; missing=1
+            fi
+            for h in 'X-Frame-Options DENY' 'X-Content-Type-Options nosniff' \
+                     'Content-Security-Policy-Report-Only' 'report-uri /api/v1/csp-report'; do
+              if ! grep -qF -- "$h" "$g"; then echo "$g 缺失同步项: $h" >&2; missing=1; fi
+            done
+          done
+          exit $missing
+
   # 归属: D 流 batch2 任务12 —— 审计哈希链独立验证脚本端到端检查。
   # 有 PG 时：安装 PG18 → 全部迁移 → 按 0036 标准口径造链 → verify 脚本正/反向验证。
   # 无 PG 时：跳过，不阻断。
