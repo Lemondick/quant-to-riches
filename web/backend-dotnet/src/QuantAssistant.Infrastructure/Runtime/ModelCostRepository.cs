@@ -130,7 +130,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
 
     public string ReserveOwned(string userId, string jobId, int attempt, string owner, string model, int? maxInput, int? maxOutput, string role = "unknown", string provider = "unknown") => database.Write(userId, sql =>
     {
-        if (role is not ("news" or "strategy" or "reviewer" or "jev" or "bull" or "bear" or "unknown") || provider is not ("compatible_api" or "jev" or "unknown"))
+        if (role is not ("news" or "strategy" or "reviewer" or "jev" or "bull" or "bear" or "tradingagents" or "unknown") || provider is not ("compatible_api" or "jev" or "unknown"))
             throw new ArgumentException("模型调用角色无效");
         RequireLease(sql,userId,jobId,attempt,owner);
         sql.Execute("SELECT pg_advisory_xact_lock(hashtextextended('model:calls',0))");
