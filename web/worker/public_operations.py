@@ -2,9 +2,11 @@
 
 import json
 import logging
-from functools import lru_cache
+import os
 
 from pydantic import ValidationError
+
+from worker_cache import cache_get, cache_invalidate, cache_key, cache_set
 
 _public_logger = logging.getLogger("quant_assistant.providers")
 if not _public_logger.handlers:
@@ -22,36 +24,77 @@ PUBLIC_CAPABILITIES = (
 IN_PROCESS_CAPABILITIES = (*PUBLIC_CAPABILITIES, "fund.valuations")
 
 
-@lru_cache(maxsize=1)
+# Provider instances are cached in the unified worker cache (contract section 4).
+# Keys are "{namespace}:{version}:{sha256}" strings; the old @lru_cache keyed on
+# the unbounded snapshot-JSON key space with no TTL and mixed refresh semantics.
+_PROVIDER_CACHE_VERSION = "1"
+
+
+def _provider_cache_ttl():
+    try:
+        return max(60, int(os.environ.get("QUANT_WORKER_PROVIDER_CACHE_TTL_S", "21600")))
+    except (TypeError, ValueError):
+        return 21600
+
+
+_PROVIDER_CACHE_TTL_S = _provider_cache_ttl()
+
+
+def _provider_key(namespace, snapshot):
+    return cache_key(namespace, _PROVIDER_CACHE_VERSION, snapshot or "default")
+
+
+def _cached_provider(namespace, snapshot, build):
+    key = _provider_key(namespace, snapshot)
+    provider = cache_get(key)
+    if provider is None:
+        provider = build()
+        cache_set(key, provider, ttl_s=_PROVIDER_CACHE_TTL_S)
+    return provider
+
+
 def _catalog_provider():
     from quant_assistant.common.performance import traced_get
     from quant_assistant.providers.fund_catalog import FundCatalogProvider
 
-    return FundCatalogProvider(http_get=traced_get)
+    return _cached_provider(
+        "provider.fund_catalog", None, lambda: FundCatalogProvider(http_get=traced_get)
+    )
 
 
-@lru_cache(maxsize=4)
 def _detail_provider(snapshot=None):
     from quant_assistant.common.performance import traced_get
     from quant_assistant.providers.fund_detail import PublicFundDetailProvider
 
-    return PublicFundDetailProvider(http_get=traced_get, calendar=_calendar(snapshot))
+    return _cached_provider(
+        "provider.fund_detail",
+        snapshot,
+        lambda: PublicFundDetailProvider(http_get=traced_get, calendar=_calendar(snapshot)),
+    )
 
 
-@lru_cache(maxsize=4)
 def _market_provider(snapshot=None):
     from quant_assistant.common.performance import traced_get
     from quant_assistant.providers.market_feed import AkshareMarketFeedProvider
 
-    return AkshareMarketFeedProvider(http_get=traced_get, calendar=_calendar(snapshot))
+    return _cached_provider(
+        "provider.market_feed",
+        snapshot,
+        lambda: AkshareMarketFeedProvider(http_get=traced_get, calendar=_calendar(snapshot)),
+    )
 
 
-@lru_cache(maxsize=4)
 def _valuation_provider(snapshot=None):
     from quant_assistant.providers.fund_valuation import EastmoneyFundValuationProvider
     from quant_assistant.services.runtime_limits import PublicReadCache
 
-    return PublicReadCache(EastmoneyFundValuationProvider(calendar=_calendar(snapshot)), 60)
+    return _cached_provider(
+        "provider.fund_valuation",
+        snapshot,
+        lambda: PublicReadCache(
+            EastmoneyFundValuationProvider(calendar=_calendar(snapshot)), 60
+        ),
+    )
 
 
 def _calendar(snapshot):
@@ -109,7 +152,8 @@ def execute_public(kind: str, payload: dict) -> dict:
         from quant_assistant.services.api_queries.views import FundValuationsView
 
         if payload.get("_refresh"):
-            _valuation_provider.cache_clear()
+            # Drop the cached provider instance (old: _valuation_provider.cache_clear()).
+            cache_invalidate("provider.fund_valuation")
         query = _PortfolioMixin()
         query._fund_valuation_provider = FallbackFundValuationProvider(
             primary=get(_valuation_provider),

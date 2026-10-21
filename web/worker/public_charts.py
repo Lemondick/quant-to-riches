@@ -2,11 +2,12 @@
 
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from functools import lru_cache
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import requests
+
+from worker_cache import cache_get, cache_key, cache_set
 
 from quant_assistant.providers.data_quality import metadata
 from quant_assistant.providers.index_registry import definitions, get_index, resolve_legacy_index
@@ -18,9 +19,27 @@ from quant_assistant.providers.market_calendar import (
 from quant_assistant.providers.public_http import PublicHttp
 
 
-@lru_cache(maxsize=4)
+def _transport_key(http_get):
+    module = getattr(http_get, "__module__", None)
+    qualname = getattr(http_get, "__qualname__", None)
+    if isinstance(module, str) and isinstance(qualname, str):
+        return cache_key("public_http_transport", "1", module + "." + qualname)
+    return None
+
+
 def _transport(http_get):
-    return PublicHttp(http_get)
+    # The old @lru_cache keyed on the http_get *function object*: every fresh
+    # closure or mock minted a new entry and evicted a useful one, so the cache
+    # never hit in practice. Key on a stable string identity instead; callables
+    # without one (mocks, partials) bypass the cache: no leak, no wrong sharing.
+    key = _transport_key(http_get)
+    if key is None:
+        return PublicHttp(http_get)
+    transport = cache_get(key)
+    if transport is None:
+        transport = PublicHttp(http_get)
+        cache_set(key, transport)
+    return transport
 
 
 INDICES = {

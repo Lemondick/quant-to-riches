@@ -15,8 +15,8 @@ from quant_assistant.providers.market_feed import AkshareMarketFeedProvider  # n
 
 class WorkerCalendarContextTests(unittest.TestCase):
     def test_parallel_public_jobs_use_their_own_authoritative_calendar(self):
-        public_operations._market_provider.cache_clear()
-        self.addCleanup(public_operations._market_provider.cache_clear)
+        public_operations.cache_invalidate("provider.market_feed")
+        self.addCleanup(public_operations.cache_invalidate, "provider.market_feed")
         seen = []
 
         def quotes(provider, *args):
