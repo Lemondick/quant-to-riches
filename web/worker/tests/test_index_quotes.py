@@ -58,7 +58,7 @@ class IndexContractTests(unittest.TestCase):
                 ],
             }
         ).model_dump(mode="json")
-        self.assertEqual(len(data["index_registry"]), 16)
+        self.assertEqual(len(data["index_registry"]), 15)
         self.assertEqual(data["index_statuses"][0]["quality_status"], "unknown_time")
         self.assertEqual(data["indices"][0]["id"], "cn.sse.composite")
         self.assertIsNone(data["indices"][0]["observed_at"])
@@ -132,8 +132,8 @@ class IndexContractTests(unittest.TestCase):
         ):
             result = source.market_snapshot("indices")
         self.assertEqual(len(result.indices), 1)
-        self.assertEqual(len(result.index_statuses), 16)
-        self.assertEqual(len(result.index_registry), 16)
+        self.assertEqual(len(result.index_statuses), 15)
+        self.assertEqual(len(result.index_registry), 15)
         self.assertEqual(result.registry_version, registry_version())
         self.assertFalse(result.stale)
 

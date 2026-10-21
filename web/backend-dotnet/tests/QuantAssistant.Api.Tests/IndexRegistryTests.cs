@@ -7,12 +7,12 @@ namespace QuantAssistant.Api.Tests;
 public sealed class IndexRegistryTests
 {
     [Fact]
-    public void EmbeddedAuthority_HasSixteenUniqueOrderedDefinitions()
+    public void EmbeddedAuthority_HasFifteenUniqueOrderedDefinitions()
     {
         var rows = IndexRegistry.All;
-        Assert.Equal(16, rows.Count);
-        Assert.Equal(16, rows.Select(row => row.Id).Distinct().Count());
-        Assert.Equal(Enumerable.Range(1, 16), rows.Select(row => row.DisplayOrder));
+        Assert.Equal(15, rows.Count);
+        Assert.Equal(15, rows.Select(row => row.Id).Distinct().Count());
+        Assert.Equal(Enumerable.Range(1, 15), rows.Select(row => row.DisplayOrder));
         Assert.All(rows, row =>
         {
             Assert.Equal(row.Market, row.CalendarId);
@@ -25,14 +25,15 @@ public sealed class IndexRegistryTests
         using var resource = typeof(IndexRegistry).Assembly.GetManifestResourceStream("QuantAssistant.IndexRegistry");
         Assert.NotNull(resource);
         using var json = JsonDocument.Parse(resource!);
-        Assert.Equal(16, json.RootElement.GetProperty("definitions").GetArrayLength());
+        Assert.Equal(15, json.RootElement.GetProperty("definitions").GetArrayLength());
     }
 
     [Fact]
-    public void ProductProvisionalAndQuoteIdentityVerification_AreIndependent()
+    public void OnlyConfirmedProductsRemainAndTheRemovedCandidateIsUnknown()
     {
-        Assert.Equal(new[] { "cn.csi.1000" }, IndexRegistry.All.Where(row => row.ProductStatus == "provisional").Select(row => row.Id));
-        Assert.Equal("verified", IndexRegistry.Get("cn.csi.1000").Quote.VerificationStatus);
+        Assert.All(IndexRegistry.All, row => Assert.Equal("confirmed", row.ProductStatus));
+        Assert.Throws<ArgumentException>(() => IndexRegistry.Get("cn.csi.1000"));
+        Assert.Throws<ArgumentException>(() => IndexRegistry.ResolveLegacy("000852"));
         Assert.Equal("000888", IndexRegistry.Get("cn.sse.return").ExchangeCode);
         var nikkei = IndexRegistry.Get("jp.nikkei225");
         Assert.Equal("JPY", nikkei.Currency);
@@ -49,7 +50,7 @@ public sealed class IndexRegistryTests
             Assert.Equal(symbol, row.LegacyHistorySymbol);
             Assert.Equal("verified", row.History!.VerificationStatus);
         }
-        Assert.Equal(16, IndexRegistry.All.Count(row => row.History is not null));
+        Assert.Equal(15, IndexRegistry.All.Count(row => row.History is not null));
         Assert.Equal("tencent", IndexRegistry.ResolveLegacy("000888").History!.Provider);
         Assert.Equal("eastmoney", IndexRegistry.ResolveLegacy("899050").History!.Provider);
         Assert.Equal(4, IndexRegistry.All.Count(row => row.LegacyHistorySymbol is not null));

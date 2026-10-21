@@ -100,11 +100,11 @@ def provider(http, **kwargs):
 
 
 class IndexQuoteTests(unittest.TestCase):
-    def test_all_sixteen_are_associated_by_identity_in_registry_order(self):
+    def test_all_fifteen_are_associated_by_identity_in_registry_order(self):
         http = SyntheticHttp()
         batch = provider(http).fetch()
         self.assertEqual([row.id for row in batch.items], [row.id for row in definitions()])
-        self.assertEqual(len(batch.statuses), 16)
+        self.assertEqual(len(batch.statuses), 15)
         self.assertEqual(len(http.calls), 4)
         zero = next(row for row in batch.items if row.id == "cn.sse.composite")
         self.assertEqual(
@@ -145,7 +145,7 @@ class IndexQuoteTests(unittest.TestCase):
                     get_index("cn.sse.composite"), **changes
                 )
                 batch = provider(http).fetch()
-                self.assertEqual(len(batch.items), 15)
+                self.assertEqual(len(batch.items), 14)
                 self.assertNotIn("cn.sse.composite", {row.id for row in batch.items})
                 status = next(row for row in batch.statuses if row.id == "cn.sse.composite")
                 self.assertEqual(status.quality_status, "invalid")
@@ -155,7 +155,7 @@ class IndexQuoteTests(unittest.TestCase):
         http = SyntheticHttp()
         http.extra = [http.lines["cn.sse.composite"]]
         batch = provider(http).fetch()
-        self.assertEqual(len(batch.items), 15)
+        self.assertEqual(len(batch.items), 14)
         self.assertEqual(
             next(row for row in batch.statuses if row.id == "cn.sse.composite").quality_reason,
             "duplicate_provider_identity",
@@ -165,7 +165,7 @@ class IndexQuoteTests(unittest.TestCase):
         http = SyntheticHttp()
         http.extra = ['v_sh600000="1~synthetic stock~600000~100~100";']
         batch = provider(http).fetch()
-        self.assertEqual(len(batch.items), 16)
+        self.assertEqual(len(batch.items), 15)
         self.assertNotIn("600000", {row.symbol for row in batch.items})
 
     def test_nonfinite_or_inconsistent_numbers_are_not_successful_quotes(self):
@@ -183,7 +183,7 @@ class IndexQuoteTests(unittest.TestCase):
                     get_index("cn.sse.composite"), **changes
                 )
                 batch = provider(http).fetch()
-                self.assertEqual(len(batch.items), 15)
+                self.assertEqual(len(batch.items), 14)
                 self.assertEqual(
                     next(
                         row for row in batch.statuses if row.id == "cn.sse.composite"
@@ -224,7 +224,7 @@ class IndexQuoteTests(unittest.TestCase):
                     get_index("cn.sse.composite"), f30=stamp
                 )
                 batch = provider(http).fetch()
-                self.assertEqual(len(batch.items), 15)
+                self.assertEqual(len(batch.items), 14)
                 self.assertEqual(
                     next(
                         row for row in batch.statuses if row.id == "cn.sse.composite"
@@ -245,14 +245,14 @@ class IndexQuoteTests(unittest.TestCase):
                 http = SyntheticHttp()
                 http.yahoo["chart"]["result"][0]["meta"][key] = value
                 batch = provider(http).fetch()
-                self.assertEqual(len(batch.items), 15)
+                self.assertEqual(len(batch.items), 14)
                 self.assertNotIn("jp.nikkei225", {row.id for row in batch.items})
 
-    def test_one_provider_failure_keeps_the_other_fifteen(self):
+    def test_one_provider_failure_keeps_the_other_fourteen(self):
         http = SyntheticHttp()
         http.failed.add("yahoo")
         batch = provider(http).fetch()
-        self.assertEqual(len(batch.items), 15)
+        self.assertEqual(len(batch.items), 14)
         self.assertEqual(
             next(row for row in batch.statuses if row.id == "jp.nikkei225").quality_status,
             "unavailable",
@@ -270,7 +270,7 @@ class IndexQuoteTests(unittest.TestCase):
 
         http.get = malformed
         batch = provider(http).fetch()
-        self.assertEqual(len(batch.items), 15)
+        self.assertEqual(len(batch.items), 14)
         self.assertEqual(
             next(row for row in batch.statuses if row.id == "jp.nikkei225").quality_status,
             "invalid",
@@ -339,7 +339,7 @@ class IndexQuoteTests(unittest.TestCase):
 
         http.get = fail_us
         result = provider(http).fetch()
-        self.assertEqual(len(result.items), 13)
+        self.assertEqual(len(result.items), 12)
         self.assertEqual(
             {row.id for row in result.statuses if row.quality_status == "unavailable"},
             {"us.dowjones", "us.nasdaq.composite", "us.sp500"},

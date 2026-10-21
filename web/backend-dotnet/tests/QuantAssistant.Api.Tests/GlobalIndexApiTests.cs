@@ -114,7 +114,7 @@ public sealed class GlobalIndexApiTests
                 Assert.Equal(row.Id, Assert.IsType<JsonObject>(legacy.Value)["id"]!.GetValue<string>());
             }
         }
-        Assert.Equal(12L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1", user.Id));
+        Assert.Equal(11L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1", user.Id));
     }
     [Fact]
     public void HistoryReadCannotPromoteProviderInvalidStatusOrOldDatesToValid()

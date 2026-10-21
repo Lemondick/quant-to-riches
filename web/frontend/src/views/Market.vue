@@ -53,11 +53,6 @@
           <span class="sub-index-delta up">+0.65%</span>
         </div>
         <div class="sub-index-item">
-          <span class="sub-index-name">中证1000</span>
-          <span class="sub-index-val">6,120.45</span>
-          <span class="sub-index-delta up">+1.04%</span>
-        </div>
-        <div class="sub-index-item">
           <span class="sub-index-name">恒生指数</span>
           <span class="sub-index-val">20,634.50</span>
           <span class="sub-index-delta up">+0.42%</span>

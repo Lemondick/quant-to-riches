@@ -28,7 +28,7 @@ function snapshot() {
     index_statuses: registry.map((d) => ({ id: d.id, quality_status: 'valid', quality_reason: null })),
   }
 }
-test('sixteen cards use registry order and stable IDs despite shuffled quotes', () => {
+test('fifteen cards use registry order and stable IDs despite shuffled quotes', () => {
   const data = snapshot()
   data.indices.reverse()
   data.index_registry.reverse()
@@ -37,17 +37,19 @@ test('sixteen cards use registry order and stable IDs despite shuffled quotes', 
     cards.map((c) => c.definition.id),
     registry.map((d) => d.id),
   )
-  assert.equal(cards[15].definition.product_status, 'provisional')
+  assert.equal(cards.length, 15)
+  assert.ok(cards.every((card) => card.definition.product_status === 'confirmed'))
+  assert.ok(cards.every((card) => card.definition.id !== 'cn.csi.1000'))
   assert.equal(cards[0].quote.id, registry[0].id)
 })
-test('one missing item preserves the other fifteen without inventing zero', () => {
+test('one missing item preserves the other fourteen without inventing zero', () => {
   const data = snapshot()
   data.indices.splice(4, 1)
   const cards = indexCards(data)
-  assert.equal(cards.length, 16)
+  assert.equal(cards.length, 15)
   assert.equal(cards[4].value, '—')
   assert.equal(cards[4].quality, 'unavailable')
-  assert.equal(cards.filter((c) => c.quote).length, 15)
+  assert.equal(cards.filter((c) => c.quote).length, 14)
 })
 test('conflicting identities and duplicate IDs never borrow a quote', () => {
   for (const [key, value] of [
@@ -110,7 +112,7 @@ test('source clock uses each market zone with DST and never receipt or browser c
   data.indices[0].source_time = '2026-10-20T10:00:00'
   assert.equal(indexCards(data)[0].sourceLabel, '来源时间未知')
 })
-test('missing registry never fabricates a sixteen item product list', () => {
+test('missing registry never fabricates a fifteen item product list', () => {
   assert.deepEqual(indexCards({ indices: snapshot().indices }), [])
 })
 test('a valid collection status cannot hide an invalid or stale quote row', () => {

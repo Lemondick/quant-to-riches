@@ -42,7 +42,7 @@ public static class IndexRegistry
         using var resource = typeof(IndexRegistry).Assembly.GetManifestResourceStream("QuantAssistant.IndexRegistry")
             ?? throw new InvalidOperationException("Index registry resource missing");
         var root = JsonSerializer.Deserialize<Root>(resource, Options) ?? throw new InvalidOperationException("Index registry missing");
-        if (root.FormatVersion != 1 || string.IsNullOrEmpty(root.RegistryVersion) || root.Definitions is not { Count: 16 })
+        if (root.FormatVersion != 1 || string.IsNullOrEmpty(root.RegistryVersion) || root.Definitions is not { Count: 15 })
             throw new InvalidOperationException("Invalid index registry format");
         var rows = root.Definitions.Select(row => row with { Quote = Freeze(row.Quote), History = row.History is null ? null : Freeze(row.History) }).OrderBy(row => row.DisplayOrder).ToArray();
         if (rows.Select(row => row.Id).Distinct().Count() != rows.Length || rows.Select(row => row.DisplayOrder).Distinct().Count() != rows.Length

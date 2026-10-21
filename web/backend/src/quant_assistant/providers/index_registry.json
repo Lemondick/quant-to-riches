@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "registry_version": "2026-10-20.3",
+  "registry_version": "2026-10-21.1",
   "definitions": [
     {
       "id": "cn.sse.composite",
@@ -770,57 +770,6 @@
         "verified_at": "2026-10-20T14:43:21+00:00",
         "evidence_urls": [
           "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=us.INX,day,,,640,qfq"
-        ]
-      },
-      "legacy_history_symbol": null
-    },
-    {
-      "id": "cn.csi.1000",
-      "name": "中证1000",
-      "official_name": "中证1000指数",
-      "market": "CN",
-      "currency": "CNY",
-      "timezone": "Asia/Shanghai",
-      "calendar_id": "CN",
-      "exchange_code": "000852",
-      "display_order": 16,
-      "enabled": true,
-      "product_status": "provisional",
-      "product_evidence": "user_doc02_candidate_not_original_screenshot",
-      "quote": {
-        "provider": "tencent",
-        "symbol": "sh000852",
-        "response_symbol": "000852",
-        "response_names": [
-          "中证1000"
-        ],
-        "response_type": "1",
-        "response_market": "sh",
-        "response_currency": null,
-        "currency_basis": "registry_definition_and_provider_namespace",
-        "source_timezone": "Asia/Shanghai",
-        "verification_status": "verified",
-        "verified_at": "2026-10-20T12:54:09.123013+00:00",
-        "evidence_urls": [
-          "https://qt.gtimg.cn/q=sh000852"
-        ]
-      },
-      "history": {
-        "provider": "tencent",
-        "symbol": "sh000852",
-        "response_symbol": "000852",
-        "response_names": [
-          "中证1000"
-        ],
-        "response_type": "1",
-        "response_market": "sh",
-        "response_currency": null,
-        "currency_basis": "registry_definition_and_provider_namespace",
-        "source_timezone": "Asia/Shanghai",
-        "verification_status": "verified",
-        "verified_at": "2026-10-20T14:43:21+00:00",
-        "evidence_urls": [
-          "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh000852,day,,,640,qfq"
         ]
       },
       "legacy_history_symbol": null

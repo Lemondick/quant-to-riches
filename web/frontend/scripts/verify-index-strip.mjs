@@ -85,7 +85,7 @@ try {
   await snapshotReady
   console.log('Connected snapshot received; legacy grid cards:', await page.locator('.stats-grid .stat-card').count())
   await page.locator('[data-index-id]').first().waitFor()
-  assert.equal(await page.locator('[data-index-id]').count(), 16)
+  assert.equal(await page.locator('[data-index-id]').count(), 15)
   assert.deepEqual(
     await page
       .locator('[data-index-id]')
@@ -93,10 +93,12 @@ try {
     indexRegistry.map((row) => row.id),
   )
   assert.equal(await page.locator('.sparkline').count(), 0)
-  assert.equal(await page.getByLabel('选择指数', { exact: true }).locator('option').count(), 16)
+  assert.equal(await page.getByLabel('选择指数', { exact: true }).locator('option').count(), 15)
   for (const [i, tone] of ['down', 'neutral', 'up'].entries())
     assert.ok((await page.locator('[data-index-id]').nth(i).getAttribute('class')).includes(tone))
-  assert.match(await page.locator('[data-index-id]').last().innerText(), /暂定/)
+  assert.equal(await page.locator('[data-index-id="cn.csi.1000"]').count(), 0)
+  assert.equal(await page.getByLabel('选择指数', { exact: true }).locator('option[value="cn.csi.1000"]').count(), 0)
+  assert.doesNotMatch(await page.locator('.index-strip').innerText(), /暂定|中证1000/)
   for (const width of [1440, 1920, 2560, 1024, 390, 320]) {
     await page.setViewportSize({ width, height: 960 })
     const layout = await page.locator('.index-strip').evaluate((track) => ({
@@ -142,7 +144,7 @@ try {
   mode = 'mixed'
   await page.reload()
   await page.locator('[data-index-id]').first().waitFor()
-  assert.equal(await page.locator('[data-index-id]').count(), 16)
+  assert.equal(await page.locator('[data-index-id]').count(), 15)
   assert.match(await page.locator('[data-index-id]').nth(0).innerText(), /最近有效快照/)
   assert.match(await page.locator('[data-index-id]').nth(1).innerText(), /时间待核验/)
   assert.match(await page.locator('[data-index-id]').nth(2).innerText(), /数据校验未通过/)
@@ -153,7 +155,7 @@ try {
   await page.locator('[data-index-id]').first().waitFor()
   assert.equal(
     (await page.locator('[data-index-id] .stat-value').allTextContents()).filter((value) => value !== '—').length,
-    15,
+    14,
   )
   mode = 'missing-clock'
   await page.reload()
@@ -206,7 +208,7 @@ try {
       2,
     ),
   )
-  console.log(`PASS sixteen index cards, colors, quality, registry history and ${checks.length} responsive widths`)
+  console.log(`PASS fifteen index cards, colors, quality, registry history and ${checks.length} responsive widths`)
 } finally {
   await browser.close()
   await server.close()

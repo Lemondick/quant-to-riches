@@ -111,7 +111,7 @@ try {
       .length,
   }
   if (stage !== 'before') {
-    assert.equal(partialState.cards, 16, 'Registry keeps independent unavailable slots')
+    assert.equal(partialState.cards, 15, 'Registry keeps independent unavailable slots')
     const values = await page.locator('[data-index-id] .stat-value').allTextContents()
     assert.equal(values.filter((value) => value !== '—').length, 3, 'Three actual quotes remain independently visible')
   }

@@ -6,7 +6,7 @@ namespace QuantAssistant.Core.Market;
 /// <summary>Auditable public-field rules. Fund names and account fee records are never inputs.</summary>
 public static class FundClassification
 {
-    public const string Version="public-fund-rules.2026-10-21.1";
+    public const string Version="public-fund-rules.2026-10-21.2";
     public static string? Text(JsonNode? node)=>node is JsonValue value&&value.TryGetValue<string>(out var text)?text:null;
     private static string? Asset(string? type)=>type switch
     {
@@ -52,8 +52,9 @@ public static class FundClassification
         if(rawType is "指数型-股票" or "指数型-海外股票" or "指数型-固收" or "指数型-其他")
         {tags.Add("指数策略");Proof("strategy_tags","指数策略","supplier-index-type");}
         if(rawType=="混合型-绝对收益"){tags.Add("绝对收益");Proof("strategy_tags","绝对收益","supplier-absolute-return-type");}
-        if(Fact("strategy_type") is "复制指数型" or "指数型" || Fact("fund_type")=="股票型-标准指数")
-        {tags.Add("指数策略");Proof("strategy_tags","指数策略","profile-index-type",Fact("strategy_type") is null?"fund_type":"strategy_type");}
+        var indexFact=Fact("strategy_type") is "复制指数型" or "指数型"?"strategy_type":Fact("fund_type")=="股票型-标准指数"?"fund_type":null;
+        if(indexFact is not null)
+        {tags.Add("指数策略");Proof("strategy_tags","指数策略","profile-index-type",indexFact);}
         var description=Fact("product_description");
         string? described=description is null?null:
             Regex.IsMatch(description,@"^本基金(?:为|是)(?:一只)?ETF联接基金[，。,；;\s]",RegexOptions.CultureInvariant)?"ETF联接":

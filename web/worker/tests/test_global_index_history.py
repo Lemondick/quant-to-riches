@@ -129,7 +129,7 @@ class GlobalIndexHistoryTests(unittest.TestCase):
                 self.assertEqual(len(result["items"]), 2)
                 self.assertEqual(http.call_count, 1)
 
-    def test_all_sixteen_exact_identities_have_independent_real_history_capabilities(self):
+    def test_all_fifteen_exact_identities_have_independent_real_history_capabilities(self):
         for row in definitions():
             with self.subTest(id=row.id):
                 result = fetch(row)

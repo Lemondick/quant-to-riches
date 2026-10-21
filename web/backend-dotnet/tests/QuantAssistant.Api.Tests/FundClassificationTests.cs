@@ -45,6 +45,19 @@ public sealed class FundClassificationTests
         Assert.Null(result["benchmark_index_id"]);
         Assert.NotEmpty(result["classification_evidence"]!.AsArray());
     }
+    [Theory]
+    [InlineData("主动型","股票型-标准指数","fund_type","股票型-标准指数")]
+    [InlineData("","股票型-标准指数","fund_type","股票型-标准指数")]
+    [InlineData("复制指数型","股票型","strategy_type","复制指数型")]
+    [InlineData("指数型","股票型-标准指数","strategy_type","指数型")]
+    public void IndexStrategyEvidenceNamesTheFieldThatActuallyMatched(string strategy,string type,string sourceField,string sourceText)
+    {
+        var result=FundClassification.Classify(Entry("股票型"),Facts(("strategy_type",strategy),("fund_type",type)));
+        Assert.Contains("指数策略",result["strategy_tags"]!.AsArray().Select(item=>item!.GetValue<string>()));
+        var proof=Assert.Single(result["classification_evidence"]!.AsArray().OfType<JsonObject>(),item=>item["rule"]!.GetValue<string>()=="profile-index-type");
+        Assert.Equal(sourceField,proof["source_field"]!.GetValue<string>());
+        Assert.Equal(sourceText,proof["source_text"]!.GetValue<string>());
+    }
     [Fact]
     public void FormulaAssociationIsExplicitlyABenchmarkComponentNotAnAssumedTrackingRelationship()
     {

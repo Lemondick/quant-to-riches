@@ -33,12 +33,12 @@ public sealed class IndexApiTests
         return snapshot.Read(null).Data!.AsObject();
     }
     [Fact]
-    public void LegacySnapshotGetsDetachedRegistryAndSixteenIndependentStatuses()
+    public void LegacySnapshotGetsDetachedRegistryAndFifteenIndependentStatuses()
     {
         var data = Read(Snapshot(Quote()));
         Assert.Equal(IndexRegistry.Version, data["registry_version"]!.GetValue<string>());
-        Assert.Equal(16, data["index_registry"]!.AsArray().Count);
-        Assert.Equal(16, data["index_statuses"]!.AsArray().Count);
+        Assert.Equal(15, data["index_registry"]!.AsArray().Count);
+        Assert.Equal(15, data["index_statuses"]!.AsArray().Count);
         Assert.Equal("cn.sse.composite", data["indices"]![0]!["id"]!.GetValue<string>());
         Assert.Equal("CNY", data["indices"]![0]!["currency"]!.GetValue<string>());
         Assert.Equal("valid", data["index_statuses"]![0]!["quality_status"]!.GetValue<string>());
@@ -46,6 +46,15 @@ public sealed class IndexApiTests
         data["index_registry"]![0]!["name"] = "mutated";
         Assert.Equal("上证指数", IndexRegistry.Get("cn.sse.composite").Name);
         Assert.DoesNotContain("user_id", data["index_registry"]!.ToJsonString());
+    }
+    [Fact]
+    public void RemovedCandidateCannotReappearFromAnOlderPublicSnapshot()
+    {
+        var removed=Quote();removed["id"]="cn.csi.1000";removed["symbol"]="000852";removed["name"]="中证1000";
+        var data=Read(Snapshot(Quote(),removed));
+        Assert.Single(data["indices"]!.AsArray());
+        Assert.DoesNotContain(data["index_registry"]!.AsArray(),item=>item!["id"]!.GetValue<string>()=="cn.csi.1000");
+        Assert.DoesNotContain(data["index_statuses"]!.AsArray(),item=>item!["id"]!.GetValue<string>()=="cn.csi.1000");
     }
     [Theory]
     [InlineData("id", "us.sp500")]

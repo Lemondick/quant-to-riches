@@ -85,7 +85,7 @@ def _registry():
     )
     currencies = {"CN": "CNY", "HK": "HKD", "JP": "JPY", "US": "USD"}
     if (
-        len(rows) != 16
+        len(rows) != 15
         or len({row.id for row in rows}) != len(rows)
         or len({row.display_order for row in rows}) != len(rows)
         or len({row.exchange_code for row in rows if row.market == "CN"})

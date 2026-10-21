@@ -22,9 +22,9 @@ class IndexRegistryTests(unittest.TestCase):
         from quant_assistant.providers.index_registry import definitions
 
         rows = definitions()
-        self.assertEqual(len(rows), 16)
-        self.assertEqual(len({row.id for row in rows}), 16)
-        self.assertEqual([row.display_order for row in rows], list(range(1, 17)))
+        self.assertEqual(len(rows), 15)
+        self.assertEqual(len({row.id for row in rows}), 15)
+        self.assertEqual([row.display_order for row in rows], list(range(1, 16)))
         expected = {
             "CN": ("CNY", "Asia/Shanghai"),
             "HK": ("HKD", "Asia/Hong_Kong"),
@@ -44,14 +44,13 @@ class IndexRegistryTests(unittest.TestCase):
             files("quant_assistant.providers").joinpath("index_registry.json").is_file()
         )
 
-    def test_provisional_product_is_distinct_from_provider_verification(self):
+    def test_only_fifteen_confirmed_products_remain_and_removed_candidate_is_unknown(self):
         from quant_assistant.providers.index_registry import definitions, get_index
 
         rows = definitions()
-        self.assertEqual(
-            [row.id for row in rows if row.product_status == "provisional"], ["cn.csi.1000"]
-        )
-        self.assertEqual(get_index("cn.csi.1000").quote.verification_status, "verified")
+        self.assertTrue(all(row.product_status == "confirmed" for row in rows))
+        with self.assertRaises(ValueError):
+            get_index("cn.csi.1000")
         self.assertEqual(sum(row.id == "jp.nikkei225" for row in rows), 1)
         self.assertEqual(get_index("jp.nikkei225").quote.response_type, "INDEX")
         self.assertEqual(get_index("cn.sse.return").exchange_code, "000888")
@@ -64,11 +63,11 @@ class IndexRegistryTests(unittest.TestCase):
             row = resolve_legacy_index(symbol)
             self.assertEqual(row.legacy_history_symbol, symbol)
             self.assertEqual(row.history.verification_status, "verified")
-        self.assertEqual(sum(row.history is not None for row in definitions()), 16)
+        self.assertEqual(sum(row.history is not None for row in definitions()), 15)
         self.assertEqual(resolve_legacy_index("000888").history.provider, "tencent")
         self.assertEqual(resolve_legacy_index("899050").history.provider, "eastmoney")
         self.assertEqual(sum(row.legacy_history_symbol is not None for row in definitions()), 4)
-        for unknown in ("600000", "999999", "N225", "not-an-index"):
+        for unknown in ("600000", "999999", "000852", "N225", "not-an-index"):
             with self.subTest(unknown=unknown), self.assertRaises(ValueError):
                 resolve_legacy_index(unknown)
 
