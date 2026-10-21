@@ -58,9 +58,35 @@ builder.Services.AddRateLimiter(options =>
 });
 var connectionString = options.ConnectionString;
 
-if (args is ["--migrate", var directory])
+if (args.Length > 0 && args[0] == "--migrate")
 {
-    foreach (var migration in new MigrationRunner(connectionString).Apply(directory)) Console.WriteLine($"Applied {migration}");
+    // E2：--migrate <目录> [--dry-run] [--rollback-to <版本>] [--no-transaction]
+    if (args.Length < 2 || args[1].StartsWith("--", StringComparison.Ordinal))
+    {
+        Console.Error.WriteLine("用法：--migrate <目录> [--dry-run] [--rollback-to <版本>] [--no-transaction]");
+        Environment.ExitCode = 2;
+        return;
+    }
+    string? FlagValue(string name)
+    {
+        var index = Array.IndexOf(args, name);
+        return index >= 0 && index + 1 < args.Length && !args[index + 1].StartsWith("--", StringComparison.Ordinal)
+            ? args[index + 1] : null;
+    }
+    var rollbackTo = FlagValue("--rollback-to");
+    if (args.Contains("--rollback-to") && rollbackTo is null)
+    {
+        Console.Error.WriteLine("--rollback-to 需要一个版本号参数。");
+        Environment.ExitCode = 2;
+        return;
+    }
+    var migrateOptions = new MigrationRunner.MigrationOptions(
+        DryRun: args.Contains("--dry-run"),
+        RollbackTo: rollbackTo,
+        NoTransaction: args.Contains("--no-transaction"));
+    var label = migrateOptions.RollbackTo is not null ? "Rolled back" : migrateOptions.DryRun ? "Pending" : "Applied";
+    foreach (var migration in new MigrationRunner(connectionString).Apply(args[1], migrateOptions))
+        Console.WriteLine($"{label} {migration}");
     return;
 }
 if (QuantAssistant.Api.NativeCommands.Execute(args, connectionString)) return;

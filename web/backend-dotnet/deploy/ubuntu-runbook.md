@@ -144,6 +144,19 @@ curl --fail http://127.0.0.1:8765/readyz
 
 迁移成功后才启动新服务；迁移失败时保留现场，按所涉及迁移的兼容性决定恢复或回切。同结构且已经验证兼容的版本可用相同步骤切回已记录的旧版本。包含不向后兼容的数据库迁移时，不能只切程序链接；先将备份恢复到新空库和目录后再决定回切。当前迁移目录已至 0024，不能沿用旧版本“没有新增迁移”的结论；升级及恢复验收须对旧版→新版→恢复副本核对财务指纹，公开缓存保护迁移不替代该核验。
 
+迁移工具（E2）附加能力：
+
+```bash
+# 只列出待应用迁移，不执行
+.../QuantAssistant.Api.dll --migrate /opt/quant/current/migrations --dry-run
+# 回滚到指定版本（含）：按版本倒序执行同名 .down.sql；缺 down 文件直接拒绝
+.../QuantAssistant.Api.dll --migrate /opt/quant/current/migrations --rollback-to 0024_public_fund_catalog.sql
+# 事务外执行（预留：CREATE INDEX CONCURRENTLY 类语句；也可用迁移文件首行 "-- quant:no-transaction" 标记）
+.../QuantAssistant.Api.dll --migrate /opt/quant/current/migrations --no-transaction
+```
+
+已应用文件的 SHA256 记入 `schema_migrations.sha256`；文件被改过会直接报错拒绝执行（漂移检测）。0001–0024 老迁移原样保留，首次运行时回填校验和并打印提示，不改写文件内容。
+
 目标服务器仍需完成：实际域名 HTTPS、服务账号权限、数据库重启、API/worker 崩溃恢复、开机启动、日志和磁盘容量、备份恢复、证书续期及至少 24 小时观察。本包只交付部署准备，本机短时测试不替代这些结果。管理页的主机部署就绪和策略证据就绪分别评估，不完整的真实研究证据继续保持阻断。
 
 0024_public_fund_catalog.sql仅扩展派生公共目录/合格延迟历史的发布；原空行情保护保留。回滚新Worker之前需处理fund.catalog派生行并恢复旧发布函数/约束，不能自动降级业务数据库或删除财务记录。当前分支仍未部署。
