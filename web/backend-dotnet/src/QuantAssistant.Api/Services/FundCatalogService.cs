@@ -94,7 +94,7 @@ public sealed class FundCatalogService(PublicSnapshotRepository repository,Compu
     {
         row["unit_nav"]=null;row["nav_date"]=null;row["daily_return"]=null;row["nav_source"]=null;row["nav_fetched_at"]=null;
         row["nav_quality_status"]="unavailable";row["nav_reason"]="official_nav_not_cached";
-        if(FundClassification.Text(row["asset_class"])=="货币型") {row["nav_reason"]="money_fund_metric_not_verified";return;}
+        if(FundClassification.Text(row["asset_class"])=="货币型"||FundClassification.Text(row["fund_type"])?.StartsWith("货币型",StringComparison.Ordinal)==true) {row["nav_reason"]="money_fund_metric_not_verified";return;}
         var point=(detail?["points"] as JsonArray)?.OfType<JsonObject>().OrderBy(item=>FundClassification.Text(item["nav_date"]),StringComparer.Ordinal).LastOrDefault();
         if(point is null||!DateOnly.TryParseExact(FundClassification.Text(point["nav_date"]),"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var day)
             ||day>DateOnly.FromDateTime(now.ToOffset(TimeSpan.FromHours(8)).DateTime)

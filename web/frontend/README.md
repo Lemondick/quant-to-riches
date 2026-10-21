@@ -100,3 +100,6 @@ npm run verify:ui
 行情快照的可选 `breadth` 字段提供两市上涨、下跌、平盘及涨跌停家数；卡片显示原始统计日期，成交额采用同日期沪深指数口径合计，“较前日成交比”为该金额除以前一交易日金额，不称为盘中量比。广度缺失不影响指数或基金，真实 0 值正常显示；金额源缺项时保留家数并显示金额缺项。Worker 在 `QUANT_SITE_ROOT/public-data-cache/market-turnover.json` 原子保存已经结束的交易日金额，只使用与盘面日期匹配的记录，当前交易日仍重新读取上游。
 
 `node scripts/verify-market-breadth.mjs` 默认检查 `output/breadth-v16/ui/build`，覆盖 320、390、1440、2560px 下的完整、零值、部分缺项、旧统计和不可用状态，共 20 组，包含现有左右对齐和横向溢出检查。可用 `QUANT_BREADTH_BUILD`、`QUANT_BREADTH_STAGE` 指定构建和阶段；`QUANT_BREADTH_URL` 配合 `QUANT_BREADTH_DATA` 将真实接口的公开行情响应重放到线上实际静态资源。账户请求仅使用只读夹具；结果在 `output/playwright/market-breadth-20261018/`。
+
+
+基金目录增量：GET `/api/v1/funds/categories` 和 `/api/v1/funds/catalog` 使用独立公共目录与单一原生分类规则；分类与16指数/行业概念地域分开。查询维度、时钟、已知限制和非破坏迁移0024见 `web/docs/refactor/fund-catalog-decisions-20261021.md`。现有日涨幅榜、详情与账户关注接口保留。

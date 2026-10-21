@@ -6,6 +6,12 @@ namespace QuantAssistant.Api.Services;
 public sealed record FundCatalogFilter(string Query,int Page,int PageSize,Dictionary<string,string[]> Filters);
 public static class FundCatalogQuery
 {
+    private static string Label(string key,string value)=>value=="__unknown"?"未分类 / 待核验":key switch
+    {
+        "classification_status"=>value switch{"partial"=>"部分核验","conflict"=>"资料冲突","unknown"=>"待核验",_=>value},
+        "benchmark_index_id"=>IndexRegistry.All.SingleOrDefault(row=>row.Id==value)?.Name??value,
+        _=>value
+    };
     public static readonly string[] Dimensions=["fund_type","asset_class","investment_scope","strategy_tags","product_structure","benchmark_index_id","share_class","regulatory_category","classification_status"];
     public static string[] Values(JsonObject row,string key)
     {
@@ -32,5 +38,5 @@ public static class FundCatalogQuery
     }
     public static JsonObject Categories(JsonObject[] rows)=>new(Dimensions.Select(key=>KeyValuePair.Create<string,JsonNode?>(key,
         new JsonArray(rows.SelectMany(row=>Values(row,key).Distinct()).GroupBy(value=>value).OrderBy(group=>group.Key,StringComparer.Ordinal)
-            .Select(group=>(JsonNode?)new JsonObject{["value"]=group.Key,["label"]=group.Key=="__unknown"?"未分类 / 待核验":group.Key,["count"]=group.Count()}).ToArray()))));
+            .Select(group=>(JsonNode?)new JsonObject{["value"]=group.Key,["label"]=Label(key,group.Key),["count"]=group.Count()}).ToArray()))));
 }

@@ -3,7 +3,9 @@
     <PageHeader title="市场行情" subtitle="指数走势、基金净值与行业、概念、地域板块。"><span class="data-badge">公开行情</span><button class="btn" :disabled="refreshing" @click="refreshMarket()"><RefreshCw :size="15" :class="{ 'spin-anim': refreshing }" />刷新行情</button></PageHeader>
     <BackendState :error="error" :refreshing="refreshing" :has-data="!!data" @retry="refreshMarket()" />
     <div class="market-nav-tabs" role="group" aria-label="行情分类"><button v-for="tab in tabs" :key="tab.id" type="button" class="market-tab-btn" :class="{ active: currentTab === tab.id }" :aria-pressed="currentTab === tab.id" @click="currentTab = tab.id">{{ tab.label }}</button></div>
-    <template v-if="data">
+    <div v-if="currentTab === 'funds'" class="fund-context-line" role="group" aria-label="基金浏览方式"><button class="btn" :class="{ primary: fundView === 'ranking' }" :aria-pressed="fundView === 'ranking'" @click="fundView = 'ranking'">日涨幅榜</button><button class="btn" :class="{ primary: fundView === 'catalog' }" :aria-pressed="fundView === 'catalog'" @click="fundView = 'catalog'">分类目录</button></div>
+    <FundCatalog v-if="currentTab === 'funds' && fundView === 'catalog'" :followed="account.data.value?.preferences.watchlist.map(item => item.symbol) ?? []" :busy="account.mutating.value" :can-follow="!!account.session.value" @select="selected = $event" @follow="toggleFollow" />
+    <template v-if="data && !(currentTab === 'funds' && fundView === 'catalog')">
       <p class="market-observation" role="status">{{ sessionLabel }} · 页面每 15 秒检查更新，各市场按本地时段采集（后台间隔 {{ data.refresh_interval_seconds ?? 30 }} 秒）；公开源可能延迟，以各项来源时间为准。</p>
       <div v-if="currentTab === 'index'" class="tab-content-fade">
         <IndexQuoteStrip :snapshot="data" />
@@ -49,7 +51,7 @@
 <script setup lang="ts">
 import { updateTime, oldestUpdate } from '../utils/dataQuality'
 
-import { computed, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { RefreshCw } from 'lucide-vue-next'
 import PageHeader from './PageHeader.vue'
@@ -65,6 +67,8 @@ import { createDataApi, type MarketSnapshot } from '../services/dataApi'
 import { number, percent } from '../utils/format'
 import IndexHistory from './IndexHistory.vue'
 import { prepareFundDetail } from '../services/fundData'
+const FundCatalog = defineAsyncComponent(() => import('./FundCatalog.vue'))
+const fundView = ref('ranking')
 const base = import.meta.env.VITE_API_BASE_URL ?? '', api = createDataApi(base)
 let requestUpdate = false
 const { data, error, refreshing, stale, refresh } = useApiLoader(base + ':public:market', async signal => {

@@ -29,6 +29,7 @@ public sealed class FundCatalogApiTests
         Assert.Equal("2026-10-19",normal["nav_date"]!.GetValue<string>());
         var money=Row("货币型");FundCatalogService.ApplyNav(money,detail,now,MarketCalendars.Empty);
         Assert.Null(money["unit_nav"]);Assert.Equal("money_fund_metric_not_verified",money["nav_reason"]!.GetValue<string>());
+        var conflict=Row("未知");conflict["fund_type"]="货币型-普通货币";FundCatalogService.ApplyNav(conflict,detail,now,MarketCalendars.Empty);Assert.Null(conflict["unit_nav"]);
         var missing=Row("股票型");FundCatalogService.ApplyNav(missing,null,now,MarketCalendars.Empty);Assert.Null(missing["unit_nav"]);Assert.Null(missing["daily_return"]);
     }
     [PgFact]
@@ -45,6 +46,8 @@ public sealed class FundCatalogApiTests
             user.Execute("INSERT INTO public_compute_snapshots(kind,input_hash,input_json,result_json,completed_at,expires_at) VALUES('fund.catalog',$1,'{}',$2::jsonb,now(),now()+interval '6 hours')",key,directory.ToJsonString());
             using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(builder=>builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?>{["QUANT_PUBLIC_REFRESH_ENABLED"]="false"})));
             using var client=factory.CreateClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
+            foreach(var initial in new[]{"/api/v1/funds/catalog","/api/v1/funds/catalog?q=","/api/v1/funds/catalog?q=%20%20"})
+                Assert.Equal(HttpStatusCode.OK,(await client.GetAsync(initial)).StatusCode);
             var path="/api/v1/funds/catalog?q=023&asset_class="+Uri.EscapeDataString("股票型")+"&strategy_tags="+Uri.EscapeDataString("指数策略")+"&share_class=__unknown&page_size=1";
             var result=await client.GetFromJsonAsync<JsonObject>(path);
             Assert.Equal(1,result!["total"]!.GetValue<int>());Assert.Equal("023530",result["items"]![0]!["symbol"]!.GetValue<string>());

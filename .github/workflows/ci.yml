@@ -73,6 +73,10 @@ jobs:
         run: node scripts/verify-index-strip.mjs
         env:
           QUANT_WEB_OUTPUT_DIR: ../../output/index-strip-ui
+      - name: Verify connected fund catalog, combined filters and account action boundaries
+        run: node scripts/verify-fund-catalog.mjs
+        env:
+          QUANT_WEB_OUTPUT_DIR: ../../output/index-strip-ui
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -80,6 +84,7 @@ jobs:
           path: |
             web/frontend/browser-results
             output/playwright/index-strip
+            output/playwright/fund-catalog
           retention-days: 7
 
   dotnet-build:
