@@ -134,6 +134,32 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
     public async Task<bool> AcknowledgeNotificationAsync(string userId, string noticeId, CancellationToken cancellation = default) =>
         await database.WriteNonLedgerAsync(userId,
             sql => sql.ExecuteAsync("UPDATE advisor_notifications SET acknowledged=true WHERE user_id=$1 AND id=$2", userId, noticeId), cancellation) > 0;
+
+    /// <summary>
+    /// F9：管理者手动重跑定时报告。定时窗口（北京时间 09:30–09:44 / 14:30–14:44）外
+    /// 需要 confirm=true 二次确认，否则 409。重跑生成当日新报告并回写 advisor_schedule_runs。
+    /// </summary>
+    public JsonObject RerunSchedule(string userId, DateOnly runDate, string kind, bool confirm)
+    {
+        if (kind is not ("morning" or "afternoon")) throw new ArgumentException("报告类型无效");
+        var now = DateTime.UtcNow.AddHours(8);
+        var inWindow = now.Hour == 9 && now.Minute is >= 30 and < 45 || now.Hour == 14 && now.Minute is >= 30 and < 45;
+        if (!inWindow && !confirm)
+            throw new ApplicationFailure("rerun_confirm_required", 409, "当前不在定时窗口（09:30–09:44 / 14:30–14:44，北京时间）内，手动重跑需要二次确认（confirm=true）。");
+        if (database.Read(sql => sql.Scalar("SELECT 1 FROM users WHERE id=$1 AND status='active'", userId)) is null)
+            throw new ApplicationFailure("user_not_found", 404, "用户不存在或已停用。");
+        var report = Create(userId, kind, force: true);
+        database.WriteNonLedger(userId, sql =>
+        {
+            var changed = sql.Execute("UPDATE advisor_schedule_runs SET report_id=$4,status=$5,error_code=$6,started_at=now() WHERE user_id=$1 AND run_date=$2 AND kind=$3",
+                userId, runDate, kind, report["report_id"]!.GetValue<string>(), report["status"]!.GetValue<string>(), report["error_code"]?.GetValue<string>());
+            if (changed == 0)
+                sql.Execute("INSERT INTO advisor_schedule_runs(user_id,run_date,kind,status,started_at,report_id,error_code) VALUES($1,$2,$3,$4,now(),$5,$6)",
+                    userId, runDate, kind, report["status"]!.GetValue<string>(), report["report_id"]!.GetValue<string>(), report["error_code"]?.GetValue<string>());
+            return 0;
+        });
+        return report;
+    }
 }
 
 public sealed class NativeScheduler(AdvisorExecutionService service,IConfiguration configuration,ILogger<NativeScheduler> logger):BackgroundService

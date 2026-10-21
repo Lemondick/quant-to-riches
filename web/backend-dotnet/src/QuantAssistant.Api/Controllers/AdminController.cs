@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using QuantAssistant.Api.Contracts;
 using QuantAssistant.Api.Middleware;
+using QuantAssistant.Api.Services;
 using QuantAssistant.Core.Abstractions;
 using QuantAssistant.Core.Auth;
 using QuantAssistant.Infrastructure.Auth;
+using QuantAssistant.Infrastructure.Runtime;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -15,11 +17,12 @@ namespace QuantAssistant.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("/api/v1/admin")]
-public sealed class AdminController(AuthService auth, AdminDataRepository data) : ControllerBase
+public sealed class AdminController(AuthService auth, AdminDataRepository data, AdvisorExecutionService advisor, UserOperationAuditWriter audit) : ControllerBase
 {
     public sealed record UserStatusBody(string Status);
     public sealed record RegistrationBody(bool Enabled);
     public sealed record UserRoleBody(string Role);
+    public sealed record ScheduleRerunBody(string UserId, DateOnly RunDate, string Kind, bool Confirm = false);
 
     private Account? Admin => Request.Cookies.TryGetValue(AuthErrors.CookieName, out var token) ? auth.RequireAdmin(token) : null;
 
@@ -133,6 +136,24 @@ public sealed class AdminController(AuthService auth, AdminDataRepository data) 
 
         var (token, expiresAt) = auth.IssueRecovery(userId, admin.Id);
         return StatusCode(StatusCodes.Status201Created, new { user_id = userId, token, expires_at = expiresAt });
+    }
+
+    /// <summary>F9：管理者手动重跑定时报告。窗口外需 confirm=true 二次确认。</summary>
+    [HttpPost("advisor/schedule/rerun")]
+    public IActionResult RerunSchedule([FromBody] ScheduleRerunBody body)
+    {
+        var admin = Admin;
+        if (admin is null)
+        {
+            return NotAdmin();
+        }
+
+        if (string.IsNullOrWhiteSpace(body.UserId)) throw new ArgumentException("用户无效");
+        var report = advisor.RerunSchedule(body.UserId, body.RunDate, body.Kind, body.Confirm);
+        audit.Record(admin.Id, "advisor.schedule.rerun", "advisor_schedule",
+            $"{body.UserId}/{body.RunDate:yyyy-MM-dd}/{body.Kind}", null,
+            new JsonObject { ["report_id"] = report["report_id"]?.DeepClone(), ["status"] = report["status"]?.DeepClone() });
+        return Ok(report);
     }
 
     private IActionResult MapError(string code) =>
