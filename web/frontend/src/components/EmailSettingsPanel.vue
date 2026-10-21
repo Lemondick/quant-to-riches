@@ -42,8 +42,8 @@ import { ApiError } from '../services/dataApi'
 import { useAccountResource } from '../composables/useAccountResource'
 import { defaultEmailSettings, emailStatusName, validateEmailSettings, type EmailLogEntry, type EmailSettings } from '../services/batch3Api'
 
-/** 后端接口（流 A 并行开发）：GET/PUT api/v1/notify/email/settings（管理员）·
- *  GET api/v1/notify/email/log；测试发送走 POST api/v1/notify/email/test（假设，联调时确认）。 */
+/** 后端接口：GET/PUT api/v1/notify/email/settings（管理员）·
+ *  GET api/v1/notify/email/log；测试发送走 POST api/v1/notify/email/settings/test（与后端 NotifyEmailController 对齐）。 */
 const { error, refreshing, session, read, mutate, mutating } = useAccountResource('admin-email-settings',
   (api, signal) => api.read<unknown>('/auth/session', signal))
 
@@ -99,7 +99,7 @@ async function testSend() {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(testTo.value.trim())) { actionError.value = '测试收件地址格式无效。'; return }
   testing.value = true
   try {
-    await mutate<unknown>('/notify/email/test', { to_addr: testTo.value.trim() })
+    await mutate<unknown>('/notify/email/settings/test', { to_addr: testTo.value.trim() })
     notice.value = '测试邮件已提交发送，请查收并核对发送记录。'
     await loadLog()
   } catch (failure) {
