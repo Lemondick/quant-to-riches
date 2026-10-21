@@ -25,7 +25,7 @@ namespace QuantAssistant.Api.Services;
 /// 口径声明：凡无历史快照可依赖的指标，均在 data.basis 注明近似口径，不虚构精确值。
 /// 假设：worker op ask.answer 由流 B 实现（契约§2 未列出，A 端先占位透调）。
 /// </summary>
-public sealed class AskService(AccountDatabase database, ComputeService compute, ModelCostRepository costs)
+public sealed class AskService(AccountDatabase database, ComputeService compute, ModelCostRepository costs, ModelCallCacheService modelCache)
 {
     private const string Holdings = """
         SELECT p.symbol, p.asset_type, p.quantity, p.average_cost, p.market_value, i.industry, COALESCE(i.name, p.symbol) AS name
@@ -76,13 +76,26 @@ public sealed class AskService(AccountDatabase database, ComputeService compute,
             throw new ApplicationFailure("model_budget_exceeded", 409,
                 "费用额度不足或调用费用上限未知，未调用模型。日预算将于北京时间明日 00:00 重置；" +
                 "可改用更便宜的模型、调小 max tokens 后重试，或在费用设置中提高日预算。");
-        var result = await compute.Run(userId, "ask.answer", new JsonObject { ["question"] = question }, cancellation, seconds: 180);
+        // batch3-A：模型去重缓存。model_version 取 op 作用域版本（API 侧不知 worker 选用模型，见 ModelCallCacheService 注释）。
+        const string modelVersion = "ask.answer/v1";
+        var prompt = new JsonObject { ["question"] = question };
+        var (hit, cached) = await modelCache.TryGetAsync(modelVersion, prompt, cancellation);
+        if (hit && cached is JsonObject cachedObject)
+            return new JsonObject
+            {
+                ["matched"] = false, ["template"] = JsonValue.Create((string?)null), ["question"] = question,
+                ["answer"] = cachedObject["answer"]?.GetValue<string>() ?? cachedObject.ToJsonString(),
+                ["data"] = cachedObject.DeepClone(), ["model_calls"] = 0, ["cached"] = true,
+                ["budget_warn"] = summary["budget_warn"]?.GetValue<bool>() == true,
+            };
+        var result = await compute.Run(userId, "ask.answer", prompt.DeepClone(), cancellation, seconds: 180);
         if (result is null) throw new ApplicationFailure("worker_unavailable", 503, "问答服务暂不可用，请稍后重试。");
+        await modelCache.SetAsync(modelVersion, prompt, result, cancellation);
         return new JsonObject
         {
             ["matched"] = false, ["template"] = JsonValue.Create((string?)null), ["question"] = question,
             ["answer"] = result["answer"]?.GetValue<string>() ?? result.ToJsonString(),
-            ["data"] = result, ["model_calls"] = 1,
+            ["data"] = result, ["model_calls"] = 1, ["cached"] = false,
             ["budget_warn"] = summary["budget_warn"]?.GetValue<bool>() == true,
         };
     }

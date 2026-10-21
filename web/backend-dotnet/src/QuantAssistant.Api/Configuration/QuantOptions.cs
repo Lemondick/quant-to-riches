@@ -88,6 +88,12 @@ public sealed class QuantOptions
     /// <summary>batch3 流 A：慢查询聚合告警最小时次数（QUANT_SLOW_QUERY_ALERT_MIN_COUNT），默认 20/小时。</summary>
     public int SlowQueryAlertMinCount { get; init; } = 20;
 
+    /// <summary>batch3 流 A：模型去重缓存 TTL 分钟（QUANT_MODEL_CACHE_TTL_MIN），默认 60。</summary>
+    public int ModelCacheTtlMinutes { get; init; } = 60;
+
+    /// <summary>batch3 流 A：模型去重缓存开关（QUANT_MODEL_CACHE_ENABLED），默认 true。</summary>
+    public bool ModelCacheEnabled { get; init; } = true;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -131,6 +137,8 @@ public sealed class QuantOptions
             RateLimitPerMin = Int(configuration["QUANT_RATE_LIMIT_PER_MIN"], 100, 1, 100000),
             SlowQueryAlertP95Ms = Int(configuration["QUANT_SLOW_QUERY_ALERT_P95_MS"], 2000, 1, 600000),
             SlowQueryAlertMinCount = Int(configuration["QUANT_SLOW_QUERY_ALERT_MIN_COUNT"], 20, 1, 1000000),
+            ModelCacheTtlMinutes = Int(configuration["QUANT_MODEL_CACHE_TTL_MIN"], 60, 1, 1440),
+            ModelCacheEnabled = Bool(configuration["QUANT_MODEL_CACHE_ENABLED"], true),
         };
     }
 

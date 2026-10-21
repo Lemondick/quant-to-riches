@@ -189,6 +189,7 @@ builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.ResearchIt
 builder.Services.AddSingleton<QuantAssistant.Api.Services.ResearchItemService>(); // batch3-A：研报聚合
 builder.Services.AddSingleton<QuantAssistant.Api.Services.SlowRequestAggregator>(); // batch3-A：慢查询聚合
 builder.Services.AddSingleton<QuantAssistant.Api.Services.SlowQueryAlertService>(); // batch3-A：慢查询聚合告警
+builder.Services.AddSingleton<QuantAssistant.Api.Services.ModelCallCacheService>(); // batch3-A：模型去重缓存
 builder.Services.AddSingleton<QuantAssistant.Api.Services.FundMaintenanceService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
