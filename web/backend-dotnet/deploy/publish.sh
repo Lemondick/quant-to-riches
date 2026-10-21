@@ -8,7 +8,9 @@ case "$RELEASE_PATH" in "$REPO_PATH"|"$REPO_PATH"/*) printf 'Publish outside the
 [[ ! -e "$RELEASE_PATH" ]] || { printf 'A new release directory is required.\n' >&2; exit 2; }
 umask 077
 mkdir -p -- "$RELEASE_PATH"
-dotnet publish "$REPO_PATH/web/backend-dotnet/src/QuantAssistant.Api" -c Release -p:UseAppHost=false -o "$RELEASE_PATH/api"
+dotnet publish "$REPO_PATH/web/backend-dotnet/src/QuantAssistant.Api" -c Release -p:UseAppHost=false -p:ExportOpenApi=true -o "$RELEASE_PATH/api"
+# E13：把构建期导出的版本化 OpenAPI 产物一并带入发布包（D 的 API 控制台 / C 的 CI 校验入口）。
+cp -a -- "$REPO_PATH/web/backend-dotnet/artifacts" "$RELEASE_PATH/api/artifacts"
 (
   cd -- "$REPO_PATH/web/frontend"
   npm ci

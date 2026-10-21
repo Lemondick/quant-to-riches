@@ -233,7 +233,39 @@ foreach (var route in new[] { "/portfolio", "/ledger", "/watchlist", "/market", 
     app.MapFallbackToFile(route, "index.html");
 if (app.Environment.IsDevelopment()) app.MapOpenApi("/openapi.json");
 
+// E13：构建期导出版本化 OpenAPI 产物（web/backend-dotnet/artifacts/openapi.json），
+// 供 D 的 API 控制台与 C 的 CI 校验使用。不需要数据库：只生成路由表。
+if (args is ["--export-openapi", var openApiPath])
+{
+    await ExportOpenApiAsync(app, openApiPath);
+    return;
+}
+
 app.Run();
+
+// 构建期导出 openapi.json：直接在进程内调用 /openapi.json 端点的 RequestDelegate，
+// 不经过 TCP（沙箱/CI 环境可能禁止回环 socket），也不启动后台服务（无需数据库）。
+static async Task ExportOpenApiAsync(WebApplication app, string path)
+{
+    var full = Path.GetFullPath(path);
+    Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+    app.MapOpenApi("/openapi.json");
+    var endpoint = ((IEndpointRouteBuilder)app).DataSources.SelectMany(s => s.Endpoints).OfType<RouteEndpoint>()
+        .FirstOrDefault(e => string.Equals(e.RoutePattern.RawText, "/openapi.json", StringComparison.Ordinal))
+        ?? throw new InvalidOperationException("OpenAPI 导出：未找到 /openapi.json 端点。");
+    var context = new DefaultHttpContext();
+    context.RequestServices = app.Services;
+    context.Request.Method = HttpMethods.Get;
+    context.Request.Path = "/openapi.json";
+    context.Response.Body = new MemoryStream();
+    await endpoint.RequestDelegate!(context);
+    context.Response.Body.Seek(0, SeekOrigin.Begin);
+    var json = await new StreamReader(context.Response.Body).ReadToEndAsync();
+    if (context.Response.StatusCode != StatusCodes.Status200OK || string.IsNullOrWhiteSpace(json))
+        throw new InvalidOperationException($"OpenAPI 导出失败：HTTP {context.Response.StatusCode}。");
+    await File.WriteAllTextAsync(full, json);
+    Console.WriteLine($"Exported OpenAPI to {full} ({json.Length} chars)");
+}
 
 // 暴露给集成测试（WebApplicationFactory）。
 public partial class Program;

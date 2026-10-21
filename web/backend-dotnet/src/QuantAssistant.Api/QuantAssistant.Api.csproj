@@ -25,4 +25,13 @@
     <ProjectReference Include="..\QuantAssistant.Infrastructure\QuantAssistant.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    E13: build-time export of the versioned OpenAPI artifact to web/backend-dotnet/artifacts/openapi.json
+    (contract section 5: D's API console reads this file first; C's CI validates web/docs/api.md against it).
+    Trigger: dotnet build -p:ExportOpenApi=true; deploy/publish.sh triggers it on Release builds.
+  -->
+  <Target Name="ExportOpenApi" AfterTargets="Build" Condition="'$(ExportOpenApi)' == 'true'">
+    <Exec Command="dotnet &quot;$(TargetPath)&quot; --export-openapi &quot;$(ProjectDir)../../artifacts/openapi.json&quot;" ConsoleToMsBuild="true" />
+  </Target>
+
 </Project>

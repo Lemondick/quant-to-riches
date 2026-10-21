@@ -5,7 +5,7 @@
 默认服务地址：`http://127.0.0.1:8765`。业务接口必须携带登录Cookie；写请求还需要当前会话的`X-CSRF-Token`和允许的`Origin`。全局Bearer Token不能替代账号会话。
 
 日期字段使用`YYYY-MM-DD`；日期时间包含时区，业务以北京时间核对；金额/份额响应通常为十进制字符串。
-参数、枚举、必填字段及响应详情以同一服务的[OpenAPI契约](http://127.0.0.1:8765/openapi.json)为准。
+参数、枚举、必填字段及响应详情以同一服务的[OpenAPI契约](http://127.0.0.1:8765/openapi.json)为准（Development 环境可达；公网按运维手册要求返回404）。版本化产物：`web/backend-dotnet/artifacts/openapi.json`（构建期 `dotnet build -p:ExportOpenApi=true` 自动导出，D 的 API 控制台与 CI 校验入口）。
 
 写操作必须通过页面预览和确认流程。超时先读取已保存记录，避免重复录入或重复付费创建任务。
 模型发现保存兼容连接和Key到服务端；公开响应不回显Key。AI创建报告可能计费；读取列表及查询状态不会创建新报告。
