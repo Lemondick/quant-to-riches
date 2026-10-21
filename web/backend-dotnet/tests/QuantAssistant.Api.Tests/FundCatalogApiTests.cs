@@ -54,7 +54,7 @@ public sealed class FundCatalogApiTests
             user.Execute("DELETE FROM public_compute_snapshots WHERE input_hash=$1",key);
             using var otherClient=factory.CreateClient();PgTestUser.AttachSession(otherClient,user.Connection,other.Id);
             var same=await otherClient.GetFromJsonAsync<JsonObject>(path);Assert.True(JsonNode.DeepEquals(result["items"],same!["items"]));
-            Assert.Equal(0L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=ANY($1)",new[]{user.Id,other.Id}));
+            Assert.Equal(0L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id IN ($1,$2)",user.Id,other.Id));
             foreach(var invalid in new[]{"page=0","page_size=101","asset_class="+new string('x',101)})Assert.Equal(HttpStatusCode.UnprocessableEntity,(await client.GetAsync("/api/v1/funds/catalog?"+invalid)).StatusCode);
         }
         finally{user.Execute("DELETE FROM public_compute_snapshots WHERE input_hash=$1",key);Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",previous);}
