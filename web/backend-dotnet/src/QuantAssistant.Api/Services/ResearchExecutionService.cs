@@ -11,7 +11,7 @@ using QuantAssistant.Infrastructure.Portfolio;
 
 namespace QuantAssistant.Api.Services;
 
-public sealed partial class ResearchExecutionService(AccountDatabase database,ModelConnectionService connections,ComputeService compute)
+public sealed partial class ResearchExecutionService(AccountDatabase database,ModelConnectionService connections,ComputeService compute, IConfiguration configuration)
 {
     private const string Prompt="bull-bear-review-v1",Adapter="price-volume-review-v1",Upstream="926de6e6308047e02c4d8110838fd2d2125dceb6";
     [GeneratedRegex("^[a-f0-9]{32}$")] private static partial Regex IdPattern();
@@ -53,8 +53,12 @@ public sealed partial class ResearchExecutionService(AccountDatabase database,Mo
             sql.Execute("INSERT INTO agent_research_attempts(user_id,job_id,attempt_no,snapshot_id,quota_date,started_at,execution_status,provider,model,prompt_version,upstream_commit) VALUES($1,$2,$3,$4,$5,now(),'queued','compatible',$6,$7,$8)",user,id,attempt,snapshotId,FundFeeRepository.Today(),models["strategy"]!.GetValue<string>(),Prompt,Upstream);
             var evidence=snapshot["payload_json"]!.AsObject();
             var request=new JsonObject{["symbol"]=symbol,["data_date"]=evidence["data_date"]!.DeepClone(),["facts"]=evidence["facts"]![symbol]!.DeepClone(),["warnings"]=evidence["warnings"]!.DeepClone(),["screening_rules"]=new JsonObject{["min_amount_20"]=evidence["parameters"]!["min_amount_20"]!.DeepClone(),["top_candidate_count"]=evidence["parameters"]!["top_candidate_count"]!.DeepClone(),["min_listing_days"]=250}};
-            ComputeJobRepository.EnqueueOwned(sql,user,"agent.research",new JsonObject{["public_id"]=id,["public_attempt"]=attempt,["models"]=models.DeepClone(),["request"]=request,
-                ["snapshot"]=AnalysisSnapshotRepository.Create(sql,user),["preview_parameters"]=evidence["parameters"]!.DeepClone(),["preview_content_hash"]=snapshot["content_hash"]!.DeepClone(),["preview_expires_at"]=snapshot["expires_at"]!.DeepClone()}.ToJsonString(),DateTime.UtcNow.AddMinutes(3));
+            var jobInput = new JsonObject { ["public_id"]=id, ["public_attempt"]=attempt, ["models"]=models.DeepClone(), ["request"]=request,
+                ["snapshot"]=AnalysisSnapshotRepository.Create(sql,user), ["preview_parameters"]=evidence["parameters"]!.DeepClone(),
+                ["preview_content_hash"]=snapshot["content_hash"]!.DeepClone(), ["preview_expires_at"]=snapshot["expires_at"]!.DeepClone() };
+            if (string.Equals(configuration["QUANT_TRADINGAGENTS_ENGINE"], "full", StringComparison.OrdinalIgnoreCase))
+                jobInput["research_engine"] = "tradingagents_full";
+            ComputeJobRepository.EnqueueOwned(sql,user,"agent.research",jobInput.ToJsonString(),DateTime.UtcNow.AddMinutes(3));
             return (id,false);
         });
         var result=Get(user,jobId);result["cache_hit"]=reused;return(result,reused);
