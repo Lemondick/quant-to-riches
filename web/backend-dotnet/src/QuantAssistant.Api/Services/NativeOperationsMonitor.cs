@@ -8,7 +8,7 @@ using QuantAssistant.Infrastructure.Runtime;
 namespace QuantAssistant.Api.Services;
 
 /// <summary>Administrator operational evidence; does not start jobs or perform recovery.</summary>
-public sealed class NativeOperationsMonitor(IConfiguration configuration, TradingCalendarRepository calendars, NativeMetrics metrics, TimeProvider clock)
+public sealed class NativeOperationsMonitor(IConfiguration configuration, TradingCalendarRepository calendars, NativeMetrics metrics, TimeProvider clock, SlowRequestAggregator? slowRequests = null)
 {
     private int Setting(string key, int fallback, int maximum) => int.TryParse(configuration[key], out var value) && value > 0 && value <= maximum ? value : fallback;
 
@@ -79,9 +79,18 @@ public sealed class NativeOperationsMonitor(IConfiguration configuration, Tradin
         var sourceAlerts = sql.Query("SELECT DISTINCT ON(alert_key) alert_key,severity,message,first_seen_at,details_json FROM operational_alerts WHERE status='open' AND alert_key LIKE 'public_source:%' ORDER BY alert_key,first_seen_at DESC LIMIT 20");
         foreach (var row in sourceAlerts.OfType<JsonObject>())
             Alert("public_source_failed", row["message"]!.GetValue<string>(), "critical");
+        // batch3-A：慢查询聚合（当前小时 endpoint+次数+p95）与未关闭的 slow_query critical 告警。
+        var slowP95Ms = Setting("QUANT_SLOW_QUERY_ALERT_P95_MS", 2000, 600000);
+        var slowMinCount = Setting("QUANT_SLOW_QUERY_ALERT_MIN_COUNT", 20, 1000000);
+        var slowStats = slowRequests?.SnapshotCurrentHour() ?? [];
+        var slowAlerts = sql.Query("SELECT DISTINCT ON(alert_key) alert_key,severity,message,first_seen_at,details_json FROM operational_alerts WHERE status='open' AND alert_key LIKE 'slow_query:%' ORDER BY alert_key,first_seen_at DESC LIMIT 20");
+        foreach (var row in slowAlerts.OfType<JsonObject>())
+            Alert("slow_query_breach", row["message"]!.GetValue<string>(), "critical");
         return new JsonObject { ["checked_at"] = now.ToString("O"), ["status"] = alerts.Count == 0 ? "healthy" : "degraded",
             ["workers"] = workers, ["queue"] = queue, ["disks"] = disks, ["backup"] = backup, ["calendar"] = calendar,
             ["metrics"] = metrics.Snapshot(), ["database"] = database, ["public_source_alerts"] = sourceAlerts,
+            ["slow_requests"] = slowRequests?.ToJson(slowStats, slowMinCount, slowP95Ms) ?? new JsonArray(),
+            ["slow_query_alerts"] = slowAlerts,
             ["recent_failures"] = sql.Query("SELECT kind,status,error_code,completed_at FROM compute_jobs WHERE status IN('failed','interrupted') ORDER BY completed_at DESC NULLS LAST LIMIT 20"),
             ["trend"] = sql.Query("SELECT captured_at,payload FROM (SELECT captured_at,payload FROM native_monitor_samples ORDER BY captured_at DESC LIMIT 120) recent ORDER BY captured_at"),
             ["maintenance"] = sql.Query("SELECT * FROM native_maintenance_state WHERE id=1").FirstOrDefault()?.DeepClone(), ["alerts"] = alerts };

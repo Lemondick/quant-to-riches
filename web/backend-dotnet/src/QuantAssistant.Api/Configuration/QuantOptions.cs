@@ -82,6 +82,12 @@ public sealed class QuantOptions
     /// <summary>batch3 流 A：API 限流（QUANT_RATE_LIMIT_PER_MIN），用户+IP 双维度，默认 100 req/min。</summary>
     public int RateLimitPerMin { get; init; } = 100;
 
+    /// <summary>batch3 流 A：慢查询聚合告警 p95 阈值毫秒（QUANT_SLOW_QUERY_ALERT_P95_MS），默认 2000。</summary>
+    public int SlowQueryAlertP95Ms { get; init; } = 2000;
+
+    /// <summary>batch3 流 A：慢查询聚合告警最小时次数（QUANT_SLOW_QUERY_ALERT_MIN_COUNT），默认 20/小时。</summary>
+    public int SlowQueryAlertMinCount { get; init; } = 20;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -123,6 +129,8 @@ public sealed class QuantOptions
             SmtpFrom = configuration["QUANT_SMTP_FROM"],
             SmtpNotifyTo = configuration["QUANT_SMTP_NOTIFY_TO"],
             RateLimitPerMin = Int(configuration["QUANT_RATE_LIMIT_PER_MIN"], 100, 1, 100000),
+            SlowQueryAlertP95Ms = Int(configuration["QUANT_SLOW_QUERY_ALERT_P95_MS"], 2000, 1, 600000),
+            SlowQueryAlertMinCount = Int(configuration["QUANT_SLOW_QUERY_ALERT_MIN_COUNT"], 20, 1, 1000000),
         };
     }
 
