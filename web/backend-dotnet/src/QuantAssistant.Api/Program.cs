@@ -144,6 +144,7 @@ builder.Services.AddSingleton<ReconciliationRepository>();
 builder.Services.AddSingleton<AnalysisSnapshotRepository>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.ComputeService>();
 builder.Services.AddSingleton<PublicSnapshotRepository>();
+builder.Services.AddSingleton<QuantAssistant.Api.Services.FundCatalogService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.PublicMarketSnapshot>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.DashboardSummaryService>();
 builder.Services.AddHostedService<QuantAssistant.Api.Services.PublicSnapshotRefresher>();

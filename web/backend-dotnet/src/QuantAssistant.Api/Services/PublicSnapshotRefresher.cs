@@ -96,6 +96,7 @@ public sealed class PublicSnapshotRefresher(ComputeService compute, ComputeJobRe
         var quoteIndices=IndexRegistry.All.Where(row=>row.Enabled&&row.Market=="CN"&&row.Quote.VerificationStatus=="verified").Select(row=>row.ExchangeCode).ToArray();
         await Queue("market.quotes", new { stocks = input.Stocks.Take(Math.Max(0,20-quoteIndices.Length)).ToArray(), indices = quoteIndices });
         await Queue("market.news", new { limit = 50 });
+        await Queue("fund.catalog", new { });
         foreach (var batch in input.Funds.Chunk(20)) await Queue("fund.valuations", new { symbols = batch });
         // Bound detail warm-up work per cycle and rotate through observed funds.
         foreach (var symbol in input.Funds.Skip(detailOffset).Concat(input.Funds.Take(detailOffset)).Take(3))

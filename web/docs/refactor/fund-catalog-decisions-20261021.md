@@ -13,4 +13,13 @@
 
 ## 迁移与回滚边界
 
+## D2 分类和分页接口
+
+- D1提交1e8b63d343fac909f1d61fa9dd272ffe9a0d07af通过Linux CI 39518297447：Python527、真实PG18/.NET463、Worker149、工具15、报告5，全部通过零跳过；前端原有构建和连接模式检查通过。Windows完整Python525通过/1Linux专用跳过、Worker149通过；来源准入仍非生产准入。
+- 唯一原生分类器public-fund-rules.2026-10-21.1只用明确供应商类型、公开资料和保守规则。资产、QDII制度、结构、策略独立。FOF标基金组合型/FOF，REITs标不动产型/REITs；新类型不猜。无直接份额字段则未知，名称中的A/C/ETF不参与判断。资料与目录资产冲突保留证据并置空，不选方便的那一个。
+- 投资范围仅接受明确枚举列表，叙述文字和排除条款不推断地域；主题、红利低波、主动等无核验事实不添加。基准仅匹配实际业绩公式成分，关联标performance_benchmark_component，不代表跟踪。蛋卷通用对比列表不读。
+- 新GET /api/v1/funds/categories、/api/v1/funds/catalog，无等价原接口。搜索q、page/page_size(1..100)、fund_type/asset_class/investment_scope/strategy_tags/product_structure/benchmark_index_id/share_class/regulatory_category/classification_status支持重复参数。维度间AND，维度内OR，策略多标签全部满足，__unknown筛未知，代码稳定排序。
+- 共享完整目录最大50000条单飞加载、60秒重读，取消一个请求不取消共享加载；仅页内数据返回HTTP。分类资料来自既有公共详情投影，不读取私人基金族或费率。目录后台预热在核心行情完成之后、18项辅助限额之内、6小时复用任务结果。
+- 正式NAV仅在所选页一次公共快照查询，不逐基金请求爬虫。NAV日期、源和抓取时间独立；缺失为null，真实日收益0保留。货币产品口径未核验时不把万份收益当单位净值；QDII沿用T3质量策略。源不可用返回503并合并后台准备请求，不让HTTP等远程采集。
+
 0024仅修改派生公共缓存约束/发布函数；现有0023空市场快照守卫继续生效。回退代码前先清除kind=fund.catalog派生行，再恢复0022函数和原kind约束；保留0023守卫，不删除账本/NAV/交易数据。当前只在隔离CI数据库执行，不授权生产迁移。

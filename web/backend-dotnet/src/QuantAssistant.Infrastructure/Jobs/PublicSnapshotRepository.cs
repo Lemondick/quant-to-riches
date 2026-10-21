@@ -7,6 +7,18 @@ public sealed record PublicSnapshot(JsonObject Data, DateTime CompletedAt);
 
 public sealed class PublicSnapshotRepository(AccountDatabase database)
 {
+    public async Task<Dictionary<string,JsonObject>> FundClassificationFactsAsync(CancellationToken cancellation=default)
+    {
+        var rows=await database.QueryAsync("""
+            SELECT DISTINCT ON(input_json->>'symbol') input_json->>'symbol' AS symbol,
+                result_json->'classification_facts' AS classification_facts
+            FROM public_compute_snapshots WHERE kind='fund.detail' AND completed_at>now()-interval '7 days'
+                AND result_json->>'symbol'=input_json->>'symbol'
+            ORDER BY input_json->>'symbol',completed_at DESC LIMIT 50000
+            """,[],cancellation);
+        return rows.OfType<JsonObject>().Where(row=>row["classification_facts"] is JsonObject)
+            .ToDictionary(row=>row["symbol"]!.GetValue<string>(),row=>row,StringComparer.Ordinal);
+    }
     public static readonly TimeSpan MarketRetention=TimeSpan.FromDays(14);
     public async Task<JsonObject> OfficialNavAsync(string[] symbols, CancellationToken cancellation = default)
     {
