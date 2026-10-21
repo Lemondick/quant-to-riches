@@ -73,6 +73,48 @@
         }
       }
     },
+    "/api/v1/admin/users/{userId}/role": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleBody"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleBody"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/admin/users/{userId}/revoke-sessions": {
       "post": {
         "tags": [
@@ -182,6 +224,38 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/advisor/schedule/rerun": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRerunBody"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRerunBody"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleRerunBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -653,10 +727,10 @@
         }
       }
     },
-    "/api/v1/alerts/settings": {
+    "/api/v1/alerts/center/settings": {
       "get": {
         "tags": [
-          "Alerts"
+          "AlertCenter"
         ],
         "responses": {
           "200": {
@@ -666,7 +740,7 @@
       },
       "put": {
         "tags": [
-          "Alerts"
+          "AlertCenter"
         ],
         "requestBody": {
           "content": {
@@ -695,20 +769,10 @@
         }
       }
     },
-    "/api/v1/alerts/{alert_id}/acknowledge": {
-      "post": {
+    "/api/v1/alerts/center": {
+      "get": {
         "tags": [
-          "Alerts"
-        ],
-        "parameters": [
-          {
-            "name": "alert_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
+          "AlertCenter"
         ],
         "responses": {
           "200": {
@@ -717,10 +781,20 @@
         }
       }
     },
-    "/api/v1/alerts": {
-      "get": {
+    "/api/v1/alerts/center/{id}/acknowledge": {
+      "post": {
         "tags": [
-          "Alerts"
+          "AlertCenter"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -1275,6 +1349,73 @@
             "schema": {
               "type": "string",
               "default": "CN"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/calendar/auto-generate": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoGenerateBody"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoGenerateBody"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutoGenerateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/calendar/{market}/{year}/confirm": {
+      "post": {
+        "tags": [
+          "Calendar"
+        ],
+        "parameters": [
+          {
+            "name": "market",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
             }
           }
         ],
@@ -2562,31 +2703,6 @@
             "description": "OK"
           }
         }
-      },
-      "get": {
-        "tags": [
-          "LedgerRead"
-        ],
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32",
-              "default": 200
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
       }
     },
     "/api/v1/ledger/corrections": {
@@ -2635,7 +2751,7 @@
                 "string"
               ],
               "format": "int32",
-              "default": 200
+              "default": 100
             }
           }
         ],
@@ -2646,7 +2762,7 @@
         }
       }
     },
-    "/api/v1/portfolio/history": {
+    "/api/v1/ledger/corporate-actions": {
       "get": {
         "tags": [
           "LedgerRead"
@@ -2662,7 +2778,34 @@
                 "string"
               ],
               "format": "int32",
-              "default": 180
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/ledger/portfolio-history": {
+      "get": {
+        "tags": [
+          "LedgerRead"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32",
+              "default": 100
             }
           }
         ],
@@ -3217,19 +3360,7 @@
         }
       }
     },
-    "/api/v1/health": {
-      "get": {
-        "tags": [
-          "OperationsViews"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/operations/watchdog/heartbeat": {
+    "/api/v1/operations/heartbeats": {
       "post": {
         "tags": [
           "OperationsViews"
@@ -3289,7 +3420,7 @@
                 "string"
               ],
               "format": "int32",
-              "default": 180
+              "default": 365
             }
           }
         ],
@@ -3633,7 +3764,7 @@
         }
       }
     },
-    "/api/v1/planning/cash-flows": {
+    "/api/v1/plans": {
       "get": {
         "tags": [
           "Planning"
@@ -3687,17 +3818,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlanBody"
+                "$ref": "#/components/schemas/CashFlowPlanBody"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/PlanBody"
+                "$ref": "#/components/schemas/CashFlowPlanBody"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/PlanBody"
+                "$ref": "#/components/schemas/CashFlowPlanBody"
               }
             }
           },
@@ -3710,14 +3841,14 @@
         }
       }
     },
-    "/api/v1/planning/cash-flows/{plan_id}": {
+    "/api/v1/plans/{id}": {
       "put": {
         "tags": [
           "Planning"
         ],
         "parameters": [
           {
-            "name": "plan_id",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -3729,17 +3860,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateBody"
+                "$ref": "#/components/schemas/CashFlowPlanBody"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateBody"
+                "$ref": "#/components/schemas/CashFlowPlanBody"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateBody"
+                "$ref": "#/components/schemas/CashFlowPlanBody"
               }
             }
           },
@@ -3752,14 +3883,14 @@
         }
       }
     },
-    "/api/v1/planning/cash-flows/{plan_id}/status": {
-      "patch": {
+    "/api/v1/plans/{id}/status": {
+      "post": {
         "tags": [
           "Planning"
         ],
         "parameters": [
           {
-            "name": "plan_id",
+            "name": "id",
             "in": "path",
             "required": true,
             "schema": {
@@ -3771,17 +3902,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/StatusBody"
+                "$ref": "#/components/schemas/SetStatusBody"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/StatusBody"
+                "$ref": "#/components/schemas/SetStatusBody"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/StatusBody"
+                "$ref": "#/components/schemas/SetStatusBody"
               }
             }
           },
@@ -3794,7 +3925,7 @@
         }
       }
     },
-    "/api/v1/planning/cash-flows/due": {
+    "/api/v1/plans/due": {
       "get": {
         "tags": [
           "Planning"
@@ -4713,7 +4844,19 @@
         }
       }
     },
-    "/api/v1/admin/runtime": {
+    "/api/v1/runtime/status": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/runtime/workers/snapshot": {
       "get": {
         "tags": [
           "Runtime"
@@ -5076,6 +5219,24 @@
           }
         }
       },
+      "AutoGenerateBody": {
+        "type": "object",
+        "properties": {
+          "market": {
+            "type": "string",
+            "default": "CN"
+          },
+          "year": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "AutomaticAttributionBody": {
         "required": [
           "portfolioSymbol",
@@ -5218,6 +5379,71 @@
               "string"
             ],
             "format": "double"
+          }
+        }
+      },
+      "CashFlowPlanBody": {
+        "required": [
+          "name",
+          "direction",
+          "amount",
+          "frequency",
+          "startDate"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "frequency": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "planId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -5845,7 +6071,8 @@
       },
       "HeartbeatBody": {
         "required": [
-          "jobName"
+          "jobName",
+          "expectedIntervalMinutes"
         ],
         "type": "object",
         "properties": {
@@ -5858,12 +6085,13 @@
               "integer",
               "string"
             ],
-            "format": "int32",
-            "default": 1440
+            "format": "int32"
           },
           "status": {
-            "type": "string",
-            "default": "completed"
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "startedAt": {
             "type": [
@@ -6460,58 +6688,6 @@
           }
         }
       },
-      "PlanBody": {
-        "required": [
-          "name",
-          "direction",
-          "amount",
-          "frequency",
-          "startDate"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "direction": {
-            "type": "string"
-          },
-          "amount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "frequency": {
-            "type": "string"
-          },
-          "startDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "endDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date"
-          },
-          "note": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "planId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
       "PreviewBody": {
         "required": [
           "imageBase64"
@@ -6944,6 +7120,30 @@
           }
         }
       },
+      "ScheduleRerunBody": {
+        "required": [
+          "userId",
+          "runDate",
+          "kind"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "runDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "confirm": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
       "ScreenerRequestBody": {
         "type": "object",
         "properties": {
@@ -6996,7 +7196,7 @@
           }
         }
       },
-      "StatusBody": {
+      "SetStatusBody": {
         "required": [
           "status",
           "expectedUpdatedAt"
@@ -7072,58 +7272,14 @@
           }
         }
       },
-      "UpdateBody": {
+      "UserRoleBody": {
         "required": [
-          "name",
-          "direction",
-          "amount",
-          "frequency",
-          "startDate",
-          "expectedUpdatedAt"
+          "role"
         ],
         "type": "object",
         "properties": {
-          "name": {
+          "role": {
             "type": "string"
-          },
-          "direction": {
-            "type": "string"
-          },
-          "amount": {
-            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
-            "format": "double"
-          },
-          "frequency": {
-            "type": "string"
-          },
-          "startDate": {
-            "type": "string",
-            "format": "date"
-          },
-          "expectedUpdatedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "endDate": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date"
-          },
-          "note": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "default": "active"
           }
         }
       },
@@ -7184,7 +7340,7 @@
       "name": "Advisor"
     },
     {
-      "name": "Alerts"
+      "name": "AlertCenter"
     },
     {
       "name": "Attribution"
