@@ -10,14 +10,16 @@ UI盘点发现板块速览把零涨跌染上涨色，列表未单独显示invali
 
 ## Task 1：板块展示与读取边界
 
-- [ ] RED：相同名称不同源/类别不混合，真实0/缺值/invalid分开，目录覆盖未知与报价分页完整独立，目录旧+报价未知时间同时展示。
-- [ ] UI最小接入：速览中性0、列表质量列/原时钟、组合目录状态。后端既有身份、源失败、时钟与覆盖测试继续执行；真实公共接口只读探测并记录失败，不宣称实时/覆盖完整。
-- [ ] 浏览器六宽度、同名不同源/类别、单源不可用、目录旧/未知时间/缺报价/真实0；Node/type/lint/format/build、原11页/指数/目录/K线/两卡回归。
+- [x] RED：相同名称不同源/类别不混合，真实0/缺值/invalid分开，目录覆盖未知与报价分页完整独立，目录旧+报价未知时间同时展示。
+- [x] UI最小接入：速览中性0、列表质量列/原时钟、组合目录状态。后端既有身份、源失败、时钟与覆盖测试继续执行；真实公共接口只读探测并记录失败，不宣称实时/覆盖完整。
+- [x] 浏览器六宽度、同名不同源/类别、单源不可用、目录旧/未知时间/缺报价/真实0；Node/type/lint/format/build、原11页/指数/目录/K线/两卡回归。
 ## Task 2：完整回归和验收
 
-- [ ] Linux真实PG/Python/Worker全套零跳过、独立作者整体复核、需求指定八项验收归档；main/服务器不动。
+- [x] Linux真实PG/Python/Worker全套零跳过、一次独立整体审查、需求指定八项验收归档；main/服务器不动。
 
 
 Task1 Interfaces：消费既有MarketSector/SectorCatalog和PublicDataQuality；仅增加展示助手与质量列，原API/schema不新增。复核发现Stamp会覆盖上游拒绝状态并接受旧新浪抓取时钟，因此最小修复原生读取层并写5个失败复现。Expected：RED5/5失败，GREEN MarketFreshness14/14通过，前端60/60；后续完整本地套件无失败，PG跳过明确限制由Task2Linux补齐。
 
 Task2 Interfaces：消费Task1提交源码、连接模式构建与原CI，核对新板块/指数/基金目录和原页面。Expected：四个LinuxCI作业success；Python/Worker/真实PG.NET及工具/报告tests=passed且0失败/错误/跳过；最终审查无未处理Critical/Important，归档仅Markdown。保留旧审批拦截的临时目录，不再删除。
+
+最终源码32d31ad5bc6f11a253e5a5447cce0637ba3485fe，Linux39524121426四作业success：Python527/真实PG18.NET488/Worker149/原生工具15/报告5全部通过、0失败/错误/跳过；前端60及原页面/指数/目录/板块浏览器通过。最终独立审查1项Important以真实PG RED→GREEN修复，1项Minor证据字段归属延后。详见web/docs/refactor/sector-quality-acceptance-20261021.md。
