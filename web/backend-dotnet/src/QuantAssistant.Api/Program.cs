@@ -185,6 +185,8 @@ builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.Announceme
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AnnouncementService>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.EmailDeliveryService>(); // batch3-A：邮件推送统一入口
 builder.Services.AddSingleton<QuantAssistant.Api.Services.FundCostService>(); // batch3-A：持有成本
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.ResearchItemRepository>(); // batch3-A：研报聚合
+builder.Services.AddSingleton<QuantAssistant.Api.Services.ResearchItemService>(); // batch3-A：研报聚合
 builder.Services.AddSingleton<QuantAssistant.Api.Services.FundMaintenanceService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.DrawdownRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Research.ResearchMetadataRepository>();
