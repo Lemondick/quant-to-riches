@@ -98,6 +98,9 @@ public sealed class QuantOptions
     /// 排队超时的 normal 任务在 Claim 时自动提级为 high 一次（starvation 防护）。</summary>
     public int TaskQueueMaxLowWaitMin { get; init; } = 120;
 
+    /// <summary>batch4 流 B #8：公开数据类 GET 接口 ETag/Last-Modified 开关（QUANT_ETAG_ENABLED），默认 true。</summary>
+    public bool EtagEnabled { get; init; } = true;
+
     /// <summary>
     /// 从 IConfiguration + 环境变量绑定。连接串缺失直接抛错退出，
     /// 不再静默回退默认连接串（E7 fail-fast）。
@@ -144,6 +147,7 @@ public sealed class QuantOptions
             ModelCacheTtlMinutes = Int(configuration["QUANT_MODEL_CACHE_TTL_MIN"], 60, 1, 1440),
             ModelCacheEnabled = Bool(configuration["QUANT_MODEL_CACHE_ENABLED"], true),
             TaskQueueMaxLowWaitMin = Int(configuration["QUANT_TASK_QUEUE_MAX_LOW_WAIT_MIN"], 120, 1, 1440),
+            EtagEnabled = Bool(configuration["QUANT_ETAG_ENABLED"], true),
         };
     }
 

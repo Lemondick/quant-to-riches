@@ -1,6 +1,6 @@
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import { apiCache } from '../services/apiCache'
-import { ApiError, createDataApi, type BackendSession } from '../services/dataApi'
+import { ApiError, createDataApi, clearEtagCache, type BackendSession } from '../services/dataApi'
 import { useApiLoader } from './useApiLoader'
 
 const base = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -31,9 +31,9 @@ export function useAccountResource<T>(name: string, read: (api: ScopedReader, si
       if (disposed) return
       if (!current.user?.id || !current.cache_scope || !current.csrf_token) throw new Error('会话信息无效，请重新登录。')
       const next = `${current.user.id}:${current.cache_scope}`
-      if (previousScope && previousScope !== next) apiCache.invalidate()
+      if (previousScope && previousScope !== next) { apiCache.invalidate(); clearEtagCache() }
       previousScope = next; session.value = current; activeBackendSession.value = current; scope.value = next
-    } catch (error) { if (!disposed) { apiCache.invalidate(); session.value = undefined; activeBackendSession.value = undefined; sessionError.value = error } }
+    } catch (error) { if (!disposed) { apiCache.invalidate(); clearEtagCache(); session.value = undefined; activeBackendSession.value = undefined; sessionError.value = error } }
   }
   const recheck = () => { void verifySession() }
   const reload = () => { if (scope.value) void loader.refresh() }

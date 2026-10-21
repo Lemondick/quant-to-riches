@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { createRoutePreloader } from './services/routePreload'
-import LiveAssetOverview from './components/LiveAssetOverview.vue'
-const AssetOverview = import.meta.env.VITE_API_BASE_URL ? LiveAssetOverview : () => import('./views/AssetOverview.vue')
+// batch4-B#9：首页也懒加载——此前静态 import 把 LiveAssetOverview（含图表依赖）打进了首屏 entry chunk。
+const LiveAssetOverviewAsync = () => import('./components/LiveAssetOverview.vue')
+const AssetOverview = import.meta.env.VITE_API_BASE_URL ? LiveAssetOverviewAsync : () => import('./views/AssetOverview.vue')
 const PortfolioAnalysis = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LivePortfolioAnalysis.vue') : () => import('./views/PortfolioAnalysis.vue')
 const TradeLedger = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveTradeLedger.vue') : () => import('./views/TradeLedger.vue')
 const Watchlist = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveWatchlist.vue') : () => import('./views/Watchlist.vue')
@@ -26,7 +27,7 @@ const ResearchFeed = import.meta.env.VITE_API_BASE_URL ? () => import('./compone
 const VirtualScrollLab = () => import('./views/VirtualScrollLab.vue')
 
 const routePreloader = createRoutePreloader({
-  '/': () => import.meta.env.VITE_API_BASE_URL ? Promise.resolve(LiveAssetOverview) : import('./views/AssetOverview.vue'),
+  '/': () => import.meta.env.VITE_API_BASE_URL ? import('./components/LiveAssetOverview.vue') : import('./views/AssetOverview.vue'),
   '/portfolio': PortfolioAnalysis, '/ledger': TradeLedger, '/watchlist': Watchlist,
   '/market': Market, '/ai-stock': AIStock, '/fund-review': FundReview,
   '/quant': QuantStrategy, '/news': News, '/admin': Admin, '/settings': AccountSettings,
