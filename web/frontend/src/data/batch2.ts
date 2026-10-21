@@ -1,5 +1,6 @@
 /** Batch2 新页面的本地 mock 数据：后端联调前保证可构建、可演示。 */
 import type { RebalanceState, ValuationSnapshot, FundHealthSnapshot, BacktestRequest, BacktestResult } from '../services/batch2Api'
+import { ASK_QUICK_QUESTIONS } from '../services/batch2Api.ts'
 
 export function mockRebalanceState(): RebalanceState {
   return {
@@ -140,4 +141,24 @@ export function mockBacktestResult(request: BacktestRequest): BacktestResult {
     curve,
     rebalance_events: events,
   }
+}
+
+/** 演示模式问答：10 个高频问题的本地答案（明确标注为演示）。 */
+export function mockAskAnswer(question: string): string {
+  const answers: Record<string, string> = {
+    '今年收益': '【演示】今年以来组合累计收益 +8.42%，跑赢沪深300（+3.17%）5.25 个百分点。',
+    '盈亏排名': '【演示】盈利前三：易方达消费行业（+12,400元）、沪深300ETF（+8,210元）、招商银行（+5,930元）；亏损最大：某新能源基金（-6,120元）。',
+    '回撤贡献': '【演示】本轮最大回撤 -9.6% 中，新能源持仓贡献 -4.1pct，医药贡献 -2.3pct，为主要回撤来源。',
+    '定投统计': '【演示】今年定投 10 期，累计投入 20,000 元，当前市值 21,860 元，定投收益 +9.3%。',
+    '费率支出': '【演示】今年累计支出管理费/申赎费约 486 元，占资产 0.04%。',
+    '现金比例': '【演示】当前现金 163,750 元，占总资产 13.1%，低于目标 15%。',
+    '行业分布': '【演示】行业占比前三：白酒 18.5%、银行 12.2%、医药 9.8%，均未超过 20% 集中度上限。',
+    '近一月涨跌': '【演示】近一月组合 +2.35%，沪深300 +1.12%，超额 +1.23pct。',
+    '分红统计': '【演示】今年累计收到分红 3 笔，共 1,240 元（已再投入 2 笔）。',
+    '估值分位': '【演示】市场温度 42（偏低）；最低估指数为恒生（PE 18%/PB 15%）。详见估值仪表盘。',
+  }
+  for (const chip of ASK_QUICK_QUESTIONS) {
+    if (question.includes(chip)) return answers[chip]
+  }
+  return `【演示】已收到问题「${question}」。接入后端后将走 POST api/v1/ask，命中模板走确定性账本查询返回。`
 }

@@ -236,3 +236,17 @@ export function backtestCurveObservations(result: BacktestResult): { labels: str
     }],
   }
 }
+
+/* ---------------- 自然语言问答（任务7） ---------------- */
+
+export type AskResponse = {
+  answer: string
+  matched_template?: string | null
+  cost_note?: string | null
+}
+
+/** 10 个高频问题快捷 chips（与后端模板对齐，契约§5）。 */
+export const ASK_QUICK_QUESTIONS = [
+  '今年收益', '盈亏排名', '回撤贡献', '定投统计', '费率支出',
+  '现金比例', '行业分布', '近一月涨跌', '分红统计', '估值分位',
+]
