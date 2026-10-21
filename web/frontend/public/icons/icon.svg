@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 占位图标：batch5-C#5 PWA 基础。正式图标待设计后替换。 -->
+  <rect width="512" height="512" rx="96" fill="#0b1528"/>
+  <path d="M96 352 L216 352 L276 232 L336 352 L416 352" fill="none" stroke="#4d8dff" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="276" cy="152" r="44" fill="#38c172"/>
+</svg>

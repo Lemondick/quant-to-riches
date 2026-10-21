@@ -24,6 +24,12 @@ const Announcements = import.meta.env.VITE_API_BASE_URL ? () => import('./compon
 const Risk = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveRisk.vue') : () => import('./views/Risk.vue')
 const Cost = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveCost.vue') : () => import('./views/Cost.vue')
 const ResearchFeed = import.meta.env.VITE_API_BASE_URL ? () => import('./components/LiveResearchFeed.vue') : () => import('./views/ResearchFeed.vue')
+// batch5-C#1：目标规划页（Live 组件，路由懒加载沿用）。
+const Goals = () => import('./components/LiveGoals.vue')
+// batch5-C#2：净资产总览页（Live 组件，路由懒加载沿用）。
+const NetWorth = () => import('./components/LiveNetWorth.vue')
+// batch5-C#4：定投跟踪页（Live 组件，路由懒加载沿用；独立 /dca-tracking，全局统一）。
+const DcaTracking = () => import('./components/LiveDcaTracking.vue')
 const VirtualScrollLab = () => import('./views/VirtualScrollLab.vue')
 
 const routePreloader = createRoutePreloader({
@@ -42,6 +48,9 @@ const routePreloader = createRoutePreloader({
   '/risk': Risk,
   '/cost': Cost,
   '/research': ResearchFeed,
+  '/goals': Goals,
+  '/net-worth': NetWorth,
+  '/dca-tracking': DcaTracking,
   '/lab/virtual-scroll': VirtualScrollLab,
 })
 export const preloadRoute = routePreloader.preload
@@ -65,6 +74,9 @@ export const navItems = [
   { path: '/risk', label: '风险看板', group: '投资研究', icon: 'ShieldAlert' },
   { path: '/cost', label: '持有成本', group: '资产管理', icon: 'Receipt' },
   { path: '/research', label: '研报资讯', group: '投资研究', icon: 'Library' },
+  { path: '/goals', label: '目标规划', group: '资产管理', icon: 'Target' },
+  { path: '/net-worth', label: '净资产总览', group: '资产管理', icon: 'Wallet' },
+  { path: '/dca-tracking', label: '定投跟踪', group: '资产管理', icon: 'PiggyBank' },
   { path: '/admin', label: '管理者后台', group: '系统', icon: 'UsersRound' },
   { path: '/settings', label: '账号与设置', group: '系统', icon: 'Settings2' },
   { path: '/api-console', label: 'API 控制台', group: '高级工具', icon: 'TerminalSquare', badge: '171' },
@@ -97,6 +109,9 @@ export default createRouter({
     { path: '/risk', component: Risk },
     { path: '/cost', component: Cost },
     { path: '/research', component: ResearchFeed },
+    { path: '/goals', component: Goals },
+    { path: '/net-worth', component: NetWorth },
+    { path: '/dca-tracking', component: DcaTracking },
     { path: '/lab/virtual-scroll', component: VirtualScrollLab }
   ]
 })

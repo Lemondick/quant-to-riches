@@ -1,5 +1,9 @@
 <template>
-  <ValuationPanel v-if="snapshot" :snapshot="snapshot" />
+  <template v-if="snapshot">
+    <ValuationPanel :snapshot="snapshot" />
+    <!-- 情绪小组件放在估值面板旁；无数据时 warning 空态，不虚构 -->
+    <LiveSentimentWidget />
+  </template>
   <template v-else>
     <PageHeader title="估值仪表盘" subtitle="六大指数 PE/PB 历史百分位、ERP 与市场温度计。" />
     <BackendState :error="error" :refreshing="refreshing && !loadedOnce" :has-data="loadedOnce" @retry="load()" />
@@ -11,6 +15,7 @@ import { ref, watch } from 'vue'
 import PageHeader from './PageHeader.vue'
 import BackendState from './BackendState.vue'
 import ValuationPanel from './ValuationPanel.vue'
+import LiveSentimentWidget from './LiveSentimentWidget.vue'
 import { ApiError } from '../services/dataApi'
 import { useAccountResource } from '../composables/useAccountResource'
 import type { ValuationSnapshot } from '../services/batch2Api'
