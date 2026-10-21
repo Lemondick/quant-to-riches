@@ -41,9 +41,13 @@ SITE_ARCHIVE = DEPLOY_DIR / ".." / "tools" / "site_archive.py"
 BUSINESS_TABLES = ("users", "instruments", "positions", "portfolio_accounts")
 
 
+class DrillError(Exception):
+    pass
+
+
 def fail(message):
     print(f"restore-drill: {message}", file=sys.stderr)
-    raise SystemExit(1)
+    raise DrillError(message)
 
 
 def read_config():
@@ -129,13 +133,12 @@ def alert(config, archive, error):
 def business_checks(config, dbname):
     import psycopg2
 
-    env = dict(os.environ)
-    env.update({k: v for k, v in config.items() if k.startswith("PG") or k == "QUANT_PG_BIN"})
-    env["PGDATABASE"] = dbname
-    connection = psycopg2.connect(host=env.get("PGHOST", "127.0.0.1"),
-                                  port=env.get("PGPORT", "5432"),
-                                  user=env.get("PGUSER", "quant"),
-                                  dbname=dbname)
+    connect_kwargs = {"dbname": dbname}
+    for var, kwarg in (("PGHOST", "host"), ("PGPORT", "port"), ("PGUSER", "user"),
+                       ("PGPASSWORD", "password"), ("PGPASSFILE", "passfile")):
+        if config.get(var):
+            connect_kwargs[kwarg] = config[var]
+    connection = psycopg2.connect(**connect_kwargs)
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT status, database_fingerprint FROM site_restore_runs ORDER BY id DESC LIMIT 1")
@@ -162,19 +165,17 @@ def cleanup(config, dbname, tmpbase):
 
 
 def main():
-    config = read_config()
-    for key in ("QUANT_BACKUP_DIR",):
-        if not config.get(key):
-            fail(f"{key} is not set in {CONFIG_PATH}")
-    # placeholders filled by drill(); kept outside try so cleanup always runs
+    # placeholders filled by restore_into(); kept outside try so cleanup always runs
     dbname = None
     tmpbase = None
     archive = None
     try:
+        config = read_config()
+        for key in ("QUANT_BACKUP_DIR",):
+            if not config.get(key):
+                fail(f"{key} is not set in {CONFIG_PATH}")
         archive, fingerprint, dbname, tmpbase = restore_into(config)
         business_checks(config, dbname)
-    except SystemExit:
-        raise
     except Exception as exc:
         error = f"{type(exc).__name__}: {str(exc)[:300]}"
         if archive is not None:
