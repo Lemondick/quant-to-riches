@@ -6,6 +6,27 @@ namespace QuantAssistant.Api.Tests;
 
 public sealed class MarketFreshnessTests
 {
+    [Theory]
+    [InlineData("invalid","invalid")]
+    [InlineData("unavailable","unavailable")]
+    [InlineData("stale","stale")]
+    [InlineData("unrecognized","invalid")]
+    public void NativeSectorTimeRecalculationCannotPromoteRejectedOrFallbackQuotes(string prior,string expected)
+    {
+        var row=new JsonObject{["source"]="eastmoney",["category"]="industry",["code"]="BK0001",["change_rate"]="0",["quality_status"]=prior,["quality_reason"]="provider_validation_failed",["source_time"]="2026-10-20T10:00:00+08:00"};
+        var data=new JsonObject{["sector_rankings"]=new JsonArray(row)};
+        PublicDataQuality.Apply("market.snapshot",data,DateTimeOffset.Parse("2026-10-20T10:00:00+08:00"));
+        Assert.Equal(expected,row["quality_status"]!.GetValue<string>());
+    }
+    [Fact]
+    public void LegacySinaReceiptClockCannotBecomeAnObservationClock()
+    {
+        var fetched="2026-10-20T10:00:00+08:00";
+        var row=new JsonObject{["source"]="sina",["category"]="industry",["code"]="s1",["change_rate"]="0",["observed_at"]=fetched,["source_time"]=fetched,["fetched_at"]=fetched,["quality_status"]="valid"};
+        PublicDataQuality.Apply("market.snapshot",new JsonObject{["sector_rankings"]=new JsonArray(row)},DateTimeOffset.Parse(fetched));
+        Assert.Null(row["source_time"]);Assert.Null(row["observed_at"]);Assert.Null(row["updated_at"]);
+        Assert.Equal(fetched,row["fetched_at"]!.GetValue<string>());Assert.Equal("unknown_time",row["quality_status"]!.GetValue<string>());
+    }
     [Fact]
     public void LegacyCatalogRowCountsCannotBeAdvertisedAsAuthoritativeCoverage()
     {

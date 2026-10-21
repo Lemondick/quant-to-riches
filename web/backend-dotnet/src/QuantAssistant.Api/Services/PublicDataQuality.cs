@@ -149,9 +149,22 @@ public static class PublicDataQuality
             }
             foreach (var row in Rows("sector_rankings").Concat(Rows("sector_catalogs")))
             {
+                var prior=Text(row,"quality_status");var reason=Text(row,"quality_reason");
+                var old=row["is_stale"] is JsonValue staleFlag&&staleFlag.TryGetValue<bool>(out var stale)&&stale;
+                // The current Sina board endpoints have no observation clock. Earlier cache
+                // formats must not promote their receipt/collection clock to a market time.
+                if(Text(row,"source")=="sina")
+                {row["observed_at"]=null;row["source_time"]=null;if(!row.ContainsKey("code"))row["source_time_known"]=false;}
                 Stamp(row, "realtime_quote", "sector", Text(row, "source_time") ?? Text(row, "observed_at"), now, calendars);
+                if(prior is not null&&prior is not ("valid" or "stale" or "unknown_time" or "invalid" or "unavailable"))
+                {row["quality_status"]="invalid";row["quality_reason"]="unknown_sector_quality";}
+                else if(prior is "invalid" or "unavailable")
+                {row["quality_status"]=prior;row["quality_reason"]=reason;}
+                else if(prior=="stale"||old)
+                {row["is_stale"]=true;if(Text(row,"quality_status")=="valid")row["quality_status"]="stale";}
                 if (row.ContainsKey("code")) row["standard_id"] = $"{Text(row,"source")}:{Text(row,"category")}:{Text(row,"code")}";
-                if (row.ContainsKey("change_rate") && row["change_rate"] is null) row["quality_status"] = "unavailable";
+                if(Text(row,"quality_status")=="invalid")row["source_time"]=row["updated_at"]=row["observed_at"]=null;
+                else if (row.ContainsKey("change_rate") && row["change_rate"] is null) row["quality_status"] = "unavailable";
             }
             if (data["breadth"] is JsonObject breadth) Stamp(breadth, "historical_quote", "market_breadth", Text(breadth, "updated_at") ?? Text(breadth, "observed_at")?[..10], now, calendars);
         }
