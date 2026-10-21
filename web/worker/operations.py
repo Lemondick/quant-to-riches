@@ -8,6 +8,7 @@ from calendar_generation import CALENDAR_CAPABILITIES, execute_calendar
 from smart_dca_backtest_operations import DCA_CAPABILITIES, execute_smart_dca
 from portfolio_backtest_operations import PORTFOLIO_CAPABILITIES, execute_portfolio_backtest
 from catalog_validate_operations import CATALOG_VALIDATE_CAPABILITIES, execute_catalog_validate
+from cost_operations import COST_CAPABILITIES, execute_cost
 from nav_operations import NAV_CAPABILITIES, execute_nav
 from paid_operations import PAID_CAPABILITIES, execute_paid
 from photo_operations import PHOTO_CAPABILITIES, execute_photo
@@ -39,6 +40,7 @@ CAPABILITIES = (
     *PORTFOLIO_CAPABILITIES,
     *CATALOG_VALIDATE_CAPABILITIES,
     *RISK_CAPABILITIES,
+    *COST_CAPABILITIES,
 )
 
 
@@ -79,4 +81,6 @@ def execute(kind: str, payload: dict) -> dict:
         return execute_catalog_validate(kind, payload)
     if kind in RISK_CAPABILITIES:
         return execute_risk(kind, payload)
+    if kind in COST_CAPABILITIES:
+        return execute_cost(kind, payload)
     raise ValueError("unsupported_operation")
