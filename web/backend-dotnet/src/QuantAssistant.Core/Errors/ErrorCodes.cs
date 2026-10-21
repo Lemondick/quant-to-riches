@@ -30,4 +30,12 @@ public static class ErrorCodes
     public const string LedgerCorrectionCostMissing = "ledger_correction_cost_missing";
     public const string LedgerCorrectionDateInvalid = "ledger_correction_date_invalid";
     public const string LedgerCorrectionDependentEvents = "ledger_correction_dependent_events";
+
+    // batch2 新增错误码（任务1/5/7/11）。原注释称"不得新增"，batch2 经任务铁律授权新增：
+    // 新码先在 Core 注册，用户侧写操作仍走 user_operation_audit 审计。
+    public const string RebalanceTargetNotFound = "rebalance_target_not_found";
+    public const string SmartDcaPlanNotFound = "smart_dca_plan_not_found";
+    public const string TwoFactorRequired = "two_factor_required";
+    public const string InvalidTotpCode = "invalid_totp_code";
+    public const string AuditChainNotEnabled = "audit_chain_not_enabled";
 }
