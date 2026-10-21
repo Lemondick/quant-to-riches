@@ -193,6 +193,9 @@ if (siteLock.Held && builder.Configuration["QUANT_WORKER_SECRET"] is { Length: >
     app.Services.GetRequiredService<AccountDatabase>().Write("compute:reaper", sql => sql.Execute("UPDATE worker_heartbeats SET stopping=true"));
 
 app.UseForwardedHeaders();
+// E16：异常处理器必须在 NativeMetrics/RequestId/Performance 之前，
+// 否则三者内部抛出的异常会绕过统一错误契约返回裸 500。
+app.UseExceptionHandler();
 app.UseMiddleware<NativeMetricsMiddleware>();
 app.UseSerilogRequestLogging(options =>
 {
@@ -205,7 +208,6 @@ app.UseMiddleware<RequestIdMiddleware>();
 app.UseMiddleware<PerformanceMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseRouting();
-app.UseExceptionHandler();
 app.UseRateLimiter();
 app.UseMiddleware<SessionAuthenticationMiddleware>();
 app.UseMiddleware<AccountUsageMiddleware>();
