@@ -97,6 +97,85 @@ def execute_paid(kind, payload):
     )
     models = AdvisorModels(settings, post=public_post)
     models.costs = CostClient(payload["_execution"])
+    if kind == "agent.research" and payload.get("research_engine") == "tradingagents_full":
+        from tradingagents_operations import execute_full_tradingagents
+
+        expires = datetime.fromisoformat(payload["preview_expires_at"])
+        if expires <= datetime.now(SHANGHAI_TZ):
+            raise AdvisorModelError("preview_expired")
+        current = execute_strategy(
+            "strategy.preview",
+            {"snapshot": payload["snapshot"], "parameters": payload["preview_parameters"]},
+        )
+        if current.get("_evidence", {}).get("content_hash") != payload["preview_content_hash"]:
+            raise AdvisorModelError("preview_changed")
+        upstream = execute_full_tradingagents(payload)
+        facts = payload["request"].get("facts", [])
+        compact_state = {
+            "input": {
+                "kind": "morning",
+                "symbols": [payload["request"]["symbol"]],
+                "sources": [
+                    {"id": fact["fact_id"], "content": fact}
+                    for fact in facts
+                    if isinstance(fact, dict) and isinstance(fact.get("fact_id"), str)
+                ],
+                "blockers": list(payload["request"].get("warnings", [])),
+                "symbol_gates": {},
+                "observed_at": payload["request"].get("data_date"),
+                "tradingagents": {
+                    "data_quality_summary": upstream.get("data_quality_summary", ""),
+                    "missing_data_tasks": upstream.get("missing_data_tasks", []),
+                    "analysts": upstream.get("analysts", {}),
+                    "research_plan": upstream.get("research_plan", ""),
+                    "trader_proposal": upstream.get("trader_proposal", ""),
+                    "risk_debate": upstream.get("risk_debate", ""),
+                    "portfolio_decision": upstream.get("portfolio_decision", ""),
+                },
+            }
+        }
+        questions = {
+            "evidence": {
+                "type": "noul",
+                "instructions": "Determine whether the frozen facts and full TradingAgents report are fresh, consistent and sufficient. Missing facts or data-quality warnings mean insufficient evidence. This is not a profit probability.",
+            },
+            "candidate_0": {
+                "type": "choice",
+                "instructions": "Decide whether this stock should enter further research. Never issue an order and never override local hard blockers.",
+                "criteria": {
+                    "research_candidate": "Enter further research only.",
+                    "watch": "Evidence is incomplete, stale, conflicting or requires human review.",
+                    "exclude": "Current evidence supports excluding this candidate from further research.",
+                },
+            },
+        }
+        models.call_role = "jev"
+        verdict = models.decide(compact_state, questions, model=models_config["decision"])
+        answer = verdict["answers"]["candidate_0"]
+        evidence_ok = verdict["answers"]["evidence"]["noul"] >= 0.8
+        confidence = min(answer["confidence"], answer["probabilities"][answer["choice"]])
+        hard_blockers = list(payload["request"].get("warnings", []))
+        if upstream.get("missing_data_requires_reanalysis"):
+            hard_blockers.append("TradingAgents 标记缺失数据需要重新分析")
+        if not upstream.get("missing_data_complete", False):
+            hard_blockers.append("TradingAgents 的必需数据任务尚未全部完成")
+        if not evidence_ok:
+            hard_blockers.append("Jev 判定研究证据不足")
+        if confidence < 0.8:
+            hard_blockers.append("Jev 模型自报置信度不足，需要人工复核")
+        action = answer["choice"] if not hard_blockers else "watch"
+        return {
+            "engine": "tradingagents-astock-full",
+            "tradingagents": upstream,
+            "jev_review": verdict,
+            "final_status": action,
+            "confidence_is_model_reported": True,
+            "blockers": hard_blockers,
+            "research_only": True,
+            "strategy_validated": False,
+            "automatic_trading": False,
+        }
+
     if kind == "agent.research":
         # Recheck analytical sources at execution time before reserving a paid call.
         # The preview can expire or its source files can change while queued.
