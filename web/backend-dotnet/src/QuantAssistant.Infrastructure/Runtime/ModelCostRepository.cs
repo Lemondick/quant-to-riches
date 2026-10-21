@@ -19,8 +19,10 @@ public sealed record ModelBillEvidence(
     [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] decimal Amount,
     string Currency, string Reference, bool Confirmed = false);
 
-public sealed partial class ModelCostRepository(AccountDatabase database)
+public sealed partial class ModelCostRepository(AccountDatabase database, double warnRatio = 0.8)
 {
+    /// <summary>F4：预算预警比例（QUANT_MODEL_BUDGET_WARN_RATIO，默认 0.8，由 DI 传入）。</summary>
+    private double WarnRatio => warnRatio is > 0 and <= 1 ? warnRatio : 0.8;
     private static readonly JsonSerializerOptions Options = new(FinanceJson.Options);
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")]
     private static partial Regex ModelPattern();
@@ -33,7 +35,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         ? JsonSerializer.Deserialize<CostSettings>(json, Options)! : new(0, Prices: []);
 
     public JsonObject Read(string userId) => database.Read(sql => View(sql, userId, Settings(sql, userId)));
-    public static JsonObject SummaryFor(IAccountSql sql,string userId)=>Summary(sql,userId,Settings(sql,userId));
+    public JsonObject SummaryFor(IAccountSql sql, string userId) => Summary(sql, userId, Settings(sql, userId));
     public static JsonObject EvidenceReadinessFor(IAccountSql sql,string userId)
     {
         var unknown=Convert.ToInt64(sql.Scalar("SELECT count(*) FROM model_call_costs WHERE user_id=$1 AND cost IS NULL AND status<>'reserved'",userId));
@@ -62,7 +64,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         });
     }
 
-    private static JsonObject View(IAccountSql sql, string userId, CostSettings settings) => new()
+    private JsonObject View(IAccountSql sql, string userId, CostSettings settings) => new()
     {
         ["settings"] = JsonSerializer.SerializeToNode(settings, Options), ["today"] = Summary(sql, userId, settings),
         ["items"] = sql.Query("SELECT id,called_at,model,status,input_tokens,output_tokens,cost,currency,role,provider,stage,unknown_reason,bill_evidence_json FROM model_call_costs WHERE user_id=$1 ORDER BY called_at DESC,id DESC LIMIT 50", userId),
@@ -92,7 +94,7 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
         });
     }
 
-    private static JsonObject Summary(IAccountSql sql, string userId, CostSettings settings)
+    private JsonObject Summary(IAccountSql sql, string userId, CostSettings settings)
     {
         var rows = sql.Query("SELECT status,cost,reserved_cost FROM model_call_costs WHERE user_id=$1 AND (called_at AT TIME ZONE 'Asia/Shanghai')::date=$2", userId, Today());
         var known = 0m; var reserved = 0m; var unknown = 0; var pending = 0;
@@ -104,16 +106,19 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
             else if (row["cost"] is null) unknown++;
         }
         var budget = settings.DailyBudget;
+        // F4：达到预警比例即 budget_warn=true（仅预警，不拦截；拦截仍在 100%）。
+        var warn = budget is not null && budget.Value > 0 && unknown == 0 && (known + reserved) / budget.Value >= (decimal)WarnRatio;
         return new() { ["date"] = Today().ToString("yyyy-MM-dd"), ["currency"] = settings.Currency, ["calls"] = rows.Count,
             ["known_cost"] = Money(known), ["total_cost"] = unknown > 0 || pending > 0 ? null : Money(known),
             ["unknown_calls"] = unknown, ["pending_calls"] = pending, ["reserved_cost"] = Money(reserved),
             ["remaining_budget"] = budget is null || unknown > 0 ? null : Money(Math.Max(0, budget.Value - known - reserved)),
+            ["budget_warn"] = warn, ["warn_ratio"] = WarnRatio,
             ["budget_blocker"] = budget is null ? null : unknown > 0 ? "unknown_usage_or_price" : known + reserved >= budget ? "daily_budget" : null };
     }
 
     public string Reserve(string userId, string model, int? maxInputTokens, int? maxOutputTokens) => database.WriteNonLedger(userId, sql => Reserve(sql,userId,model,maxInputTokens,maxOutputTokens));
 
-    private static string Reserve(IAccountSql sql, string userId, string model, int? maxInputTokens, int? maxOutputTokens)
+    private string Reserve(IAccountSql sql, string userId, string model, int? maxInputTokens, int? maxOutputTokens)
     {
         if (!ValidModel(model) || maxInputTokens < 0 || maxOutputTokens < 0) throw new ArgumentException("模型预算参数无效");
         var settings = Settings(sql, userId); var summary = Summary(sql, userId, settings);
@@ -122,7 +127,13 @@ public sealed partial class ModelCostRepository(AccountDatabase database)
             : (price.InputPerMillion * maxInputTokens.Value + price.OutputPerMillion * maxOutputTokens.Value) / 1000000;
         if (settings.DailyBudget is not null && (summary["budget_blocker"] is not null || amount is null
             || amount > decimal.Parse(summary["remaining_budget"]!.GetValue<string>(), CultureInfo.InvariantCulture)))
-            throw new ApplicationFailure("model_budget_exceeded", 409, "费用额度不足或调用费用上限未知，未调用模型。");
+        {
+            // F4：耗尽时给出可操作提示（错误码保持 model_budget_exceeded）。
+            var reset = Today().AddDays(1).ToString("yyyy-MM-dd");
+            throw new ApplicationFailure("model_budget_exceeded", 409,
+                $"费用额度不足或调用费用上限未知，未调用模型。日预算将于北京时间 {reset} 00:00 重置；" +
+                "可改用更便宜的模型、调小 max tokens 后重试，或在费用设置中提高日预算。");
+        }
         var id = Guid.NewGuid().ToString("N");
         sql.Execute("INSERT INTO model_call_costs(user_id,id,called_at,model,status,prices_json,currency,reserved_cost) VALUES($1,$2,now(),$3,'reserved',$4::json,$5,$6)",
             userId, id, model, price is null ? null : JsonSerializer.Serialize(price, Options), settings.Currency, amount);

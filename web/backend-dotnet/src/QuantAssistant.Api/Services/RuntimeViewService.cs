@@ -10,7 +10,7 @@ namespace QuantAssistant.Api.Services;
 /// E5：运行时视图服务（原 RuntimeController 内嵌 SQL/监视器调用迁移至此，语义一致）。
 /// 放在 Api 层而非 Infrastructure，因为 NativeOperationsMonitor 是 Api 层类型。
 /// </summary>
-public sealed class RuntimeViewService(IAccountDatabase database, NativeOperationsMonitor monitor)
+public sealed class RuntimeViewService(IAccountDatabase database, NativeOperationsMonitor monitor, ModelCostRepository costs)
 {
     public async Task<JsonObject> StatusAsync(ClaimsPrincipal user, CancellationToken cancellation = default)
     {
@@ -19,7 +19,7 @@ public sealed class RuntimeViewService(IAccountDatabase database, NativeOperatio
         {
             var users = await sql.QueryAsync("SELECT id,role,display_name,timezone,status,created_at,last_login_at,last_active_at FROM users WHERE id=$1", id);
             var node = users[0]!.AsObject(); node.Remove("id");
-            node["costs"] = ModelCostRepository.SummaryFor(sql, id);
+            node["costs"] = costs.SummaryFor(sql, id);
             var archives = (await sql.QueryAsync("SELECT id,finished_at,status FROM site_archives ORDER BY finished_at DESC LIMIT 1"))[0];
             node["archive"] = archives is null ? new JsonObject { ["status"] = "none" } : new JsonObject { ["status"] = archives["status"]!.DeepClone(), ["finished_at"] = archives["finished_at"]!.DeepClone() };
             return node;
