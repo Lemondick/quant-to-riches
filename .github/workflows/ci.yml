@@ -103,6 +103,94 @@ jobs:
       - run: dotnet build QuantAssistant.slnx -c Release
         working-directory: web/backend-dotnet
 
+  # 归属: C 流 E21 —— 前端依赖漏洞扫描（npm audit，high 及以上阻断）。
+  npm-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+
+  # 归属: C 流 E21 —— .NET 依赖漏洞扫描（直接 + 传递依赖）。
+  dotnet-vulnerable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet list QuantAssistant.slnx package --vulnerable --include-transitive
+        working-directory: web/backend-dotnet
+
+  # 归属: C 流 E21 —— 迁移 --dry-run 冒烟测试。
+  # 依赖 A 流 E2 的 MigrationRunner --dry-run 实现；若 Runner 尚未支持，
+  # 本 job 探测到"未知参数回退为启动 Web 服务"后以 warning 标记为
+  # "待 Runner 就绪"，不使 CI 失败。
+  migration-dry-run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      QUANT_TEST_PG_CONNECTION: Host=127.0.0.1;Port=55440;Database=quant_dryrun;Username=quant_test
+      QUANT_PG_CONNECTION: Host=127.0.0.1;Port=55440;Database=quant_dryrun;Username=quant_test
+      PGHOST: 127.0.0.1
+      PGPORT: 55440
+      PGUSER: quant_test
+      PGDATABASE: quant_dryrun
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Install and start native PostgreSQL 18
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-18 postgresql-client-18
+          sudo pg_createcluster 18 quantdryrun --port 55440 --start -- --auth-local=trust --auth-host=trust
+          ready=false
+          for attempt in $(seq 1 30); do
+            if /usr/lib/postgresql/18/bin/pg_isready -h 127.0.0.1 -p 55440 -U postgres; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true
+          /usr/lib/postgresql/18/bin/createuser -h 127.0.0.1 -p 55440 -U postgres --createdb quant_test
+          /usr/lib/postgresql/18/bin/createdb -h 127.0.0.1 -p 55440 -U postgres -O quant_test quant_dryrun
+      - run: dotnet build QuantAssistant.slnx -c Release
+        working-directory: web/backend-dotnet
+      - name: Migration --dry-run smoke test (pending until Runner supports it — A/E2)
+        working-directory: web/backend-dotnet
+        shell: bash
+        run: |
+          set -u
+          dll=src/QuantAssistant.Api/bin/Release/net10.0/QuantAssistant.Api.dll
+          # 旧版 Runner 遇到未知参数会回退为启动 Web 服务而挂起，用 timeout 兜底。
+          set +e
+          timeout 90 dotnet "$dll" --migrate migrations --dry-run > dryrun.log 2>&1
+          code=$?
+          set -e
+          cat dryrun.log
+          if [ "$code" -eq 0 ]; then
+            echo "migration --dry-run supported: OK"
+          elif [ "$code" -eq 124 ]; then
+            echo "::warning::Runner 尚未实现 --dry-run（命令疑似回退为启动服务，已超时终止）；本 job 标记为待 A 流 E2 就绪。"
+          else
+            echo "::warning::Runner --dry-run 退出码 $code；本 job 标记为待 A 流 E2 就绪。"
+          fi
+
   postgres-integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 30

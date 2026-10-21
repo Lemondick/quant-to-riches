@@ -125,6 +125,43 @@ sudo systemd-run --wait --pipe --collect -p User=quant -p Group=quant -p Environ
 
 归档不包含模型密钥与 Data Protection 解密材料，独立私密目录另行加密备份。恢复后核实记录数、关键账本、文件哈希、重新登录、三个 worker 和归档绑定的 `.restore.json`；不要把恢复演练库自动切为正式库。
 
+### 月度自动恢复演练（F2）
+
+`deploy/restore-drill.py` + `quant-restore-drill.service`/`quant-restore-drill.timer` 每月 1 日 05:00（北京时间）自动执行：取 `QUANT_BACKUP_DIR` 下最新归档，先做指纹校验，再恢复到**临时库 + 临时目录**（生产库与站点目录不受影响），核验 `site_restore_runs` 状态与核心表行数。成功时 `site_archive.py` 会在归档旁写入 `.restore.json`，管理页"备份恢复"证据自动显示 `restore_verified=true`；失败时写入 `restored:false` 的证据、记 journal 错误日志并可通过 `QUANT_RESTORE_DRILL_ALERT_URL` webhook 告警，timer 单元显示 failed。
+
+```bash
+sudo install -o root -g root -m 0644 deploy/restore-drill.py /usr/local/lib/quant/restore-drill.py
+sudo install -o root -g root -m 0644 deploy/quant-restore-drill.service deploy/quant-restore-drill.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now quant-restore-drill.timer
+sudo systemctl list-timers quant-restore-drill.timer
+# 手动触发一次演练：
+sudo systemctl start quant-restore-drill.service
+sudo journalctl -u quant-restore-drill.service --no-pager -n 50
+```
+
+演练要求本机 PostgreSQL 的 `postgres` 超级用户可通过本地 peer socket 建库（Debian/Ubuntu 默认 root 可用）；演练库以 `quant` 为属主、演练结束自动删除。
+
+### 加密异地备份（F2）
+
+默认禁用。`deploy/offsite.example.sh` 是同步模板，只上传 **age/gpg 加密副本**，绝不上传明文 `quant-site-*.zip`。启用步骤：
+
+1. 安装并配置 rclone 远端：`rclone config`（S3/OSS/网盘/WebDAV 均可）。
+2. 生成 age 密钥并离线保管私钥：`age-keygen -o /root/.age-backup-key.txt`（加密只需公钥）。
+3. 复制模板并填好远端与公钥：
+   ```bash
+   sudo install -o root -g root -m 0700 deploy/offsite.example.sh /usr/local/lib/quant/offsite.sh
+   # 编辑 /usr/local/lib/quant/offsite.sh 的 REMOTE / AGE_RECIPIENT
+   ```
+4. 在 `/etc/quant/environment` 追加 `QUANT_BACKUP_OFFSITE_ENABLED=true`（默认 `false`，见跨流契约 §3）。
+5. 用 cron 或 systemd timer 定期执行（建议每周）：
+   ```bash
+   echo '0 6 * * 0 root /usr/local/lib/quant/offsite.sh' | sudo tee /etc/cron.d/quant-offsite
+   ```
+6. 每季度做一次异地恢复演练：从远端下载加密归档 → `age -d` 解密 → 在隔离环境执行 `site_archive.py restore`。
+
+另外 `deploy/backup.sh` 新增可选加密：设置 `QUANT_BACKUP_AGE_RECIPIENT`（或 `QUANT_BACKUP_GPG_RECIPIENT`）后，每次备份在归档目录内为新归档生成加密副本（`*.age`/`*.gpg`），本地 `*.zip` 保留不变（管理页证据只读 `*.zip`）。
+
 ## 7. 升级、回退与现场验收
 
 当前源码包含完整迁移 `0001`–`0024`，最近的 `0023_public_market_snapshot_guard.sql` 保护公开派生缓存。旧 FastAPI、`web/deploy/cloud_up.sh` 与容器/exchange 入口仅用于兼容和历史核验，不是本手册的生产入口。后台刷新在每轮结束后默认等待 30 秒（15–300 秒），整体/任务预算默认 75/55 秒，详见[架构配置](../ARCHITECTURE.md)。当前独立修复分支尚未部署，本文提供操作契约，不表示服务器验收已完成。

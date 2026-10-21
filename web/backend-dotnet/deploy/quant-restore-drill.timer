@@ -1,0 +1,11 @@
+[Unit]
+Description=Guanlan monthly restore drill (backup recovery verification)
+
+[Timer]
+OnCalendar=*-*-01 05:00:00 Asia/Shanghai
+RandomizedDelaySec=1800
+Persistent=true
+Unit=quant-restore-drill.service
+
+[Install]
+WantedBy=timers.target
