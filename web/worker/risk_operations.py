@@ -1,6 +1,6 @@
 """Portfolio risk metrics and historical stress tests.
 
-Op: ``risk.metrics``. (``risk.stress_test`` arrives in the next commit.)
+Ops: ``risk.metrics``, ``risk.stress_test``.
 
 Contract (batch3): ``risk.metrics`` payload ``{portfolio_id, period_days}`` or
 ``{nav_series: [..]}`` →
@@ -27,6 +27,11 @@ Methodology (documented assumptions):
   together with the peak (start) and trough (end) dates.
 - Fewer than ``MIN_POINTS`` (30) points → all metrics ``None`` + warning;
   the worker never fabricates risk numbers from thin data.
+- ``risk.stress_test`` replays three hard-coded historical broad-index
+  drawdowns (``STRESS_SCENARIOS``) against the current portfolio assuming
+  ``beta ~= 1.0`` (documented coarse estimate). ``est_loss_amount`` needs a
+  ``portfolio_value`` (or is read from the latest ``portfolio_valuations``
+  row in the ``portfolio_id`` path); otherwise it is ``None`` + warning.
 - ``portfolio_id`` is the ledger ``user_id``; the NAV series is read from
   ``portfolio_valuations`` (``as_of_date``, ``unit_nav``) and requires the
   caller to pass ``snapshot`` for the DB context, like other DB-backed ops.
@@ -38,7 +43,7 @@ import math
 from datetime import date, datetime, timedelta
 from statistics import mean, stdev
 
-RISK_CAPABILITIES = ("risk.metrics",)
+RISK_CAPABILITIES = ("risk.metrics", "risk.stress_test")
 
 #: Annual risk-free rate used by the Sharpe ratio. One place to change.
 RISK_FREE_RATE = 0.02
@@ -47,6 +52,43 @@ TRADING_DAYS = 252
 #: Minimum NAV points before metrics are computed; below this we return
 #: nulls + warning instead of fabricating precision.
 MIN_POINTS = 30
+
+STRESS_DISCLAIMER = (
+    "本结果为基于宽基指数历史极端区间的假想测算（组合 beta 按 1.0 粗估），"
+    "不构成投资建议；实际组合跌幅受持仓结构、债基/货基配比与再平衡影响，可能显著偏离。"
+)
+
+#: Hard-coded historical stress scenarios. ``index_drop_pct`` is the
+#: peak-to-trough close-to-close fall of the stated broad index over the
+#: stated interval (approximate reference constants from public exchange
+#:行情 data, see ``source_note``).
+STRESS_SCENARIOS = (
+    {
+        "id": "crash_2015",
+        "name": "2015年股灾",
+        "index": "上证综指",
+        "interval": "2015-06-12 收盘 → 2016-01-28 收盘",
+        "index_drop_pct": -0.486,
+        "source_note": "上交所公开行情数据：2015-06-12 收 5166.35，2016-01-28 收 2655.66，区间跌幅约 -48.6%",
+    },
+    {
+        "id": "covid_2020_03",
+        "name": "2020年3月疫情冲击",
+        "index": "上证综指",
+        "interval": "2020-01-14 收盘 → 2020-03-19 收盘",
+        "index_drop_pct": -0.156,
+        "source_note": "上交所公开行情数据：2020-01-14 收 3127.57，2020-03-19 收 2641.26，区间跌幅约 -15.6%",
+    },
+    {
+        "id": "bear_2022",
+        "name": "2022年熊市",
+        "index": "上证综指",
+        "interval": "2021-12-31 收盘 → 2022-10-31 收盘",
+        "index_drop_pct": -0.205,
+        "source_note": "上交所公开行情数据：2021-12-31 收 3640.44，2022-10-31 收 2893.48，区间跌幅约 -20.5%",
+    },
+)
+
 
 def _to_float(value: object, field: str) -> float:
     try:
@@ -225,6 +267,50 @@ def risk_metrics(
     }
 
 
+def stress_test(
+    nav_series: object | None = None,
+    portfolio_value: float | None = None,
+    beta: float = 1.0,
+) -> dict:
+    """Core computation; pure. ``beta`` is the documented coarse estimate (~1)."""
+    if isinstance(beta, bool) or not isinstance(beta, (int, float)) or not math.isfinite(beta) or beta < 0:
+        raise ValueError("beta must be a non-negative finite number")
+    value = None
+    if portfolio_value is not None:
+        value = _to_float(portfolio_value, "portfolio_value")
+        if value < 0:
+            raise ValueError("portfolio_value must be non-negative")
+    warnings: list[str] = []
+    if value is None and nav_series is not None:
+        points = normalize_nav_series(nav_series)
+        value = points[-1][1]
+        warnings.append("est_loss_amount 以净值序列末点为组合市值参考估算")
+    if value is None:
+        warnings.append("未提供 portfolio_value，est_loss_amount 为空")
+    scenarios = []
+    for scenario in STRESS_SCENARIOS:
+        est_loss_pct = scenario["index_drop_pct"] * float(beta)
+        scenarios.append(
+            {
+                "id": scenario["id"],
+                "name": scenario["name"],
+                "index": scenario["index"],
+                "interval": scenario["interval"],
+                "index_drop_pct": scenario["index_drop_pct"],
+                "beta": float(beta),
+                "est_loss_pct": round(est_loss_pct, 6),
+                "est_loss_amount": round(value * est_loss_pct, 2) if value is not None else None,
+                "source_note": scenario["source_note"],
+            }
+        )
+    return {
+        "scenarios": scenarios,
+        "beta_assumption": "组合 beta 按 1.0 粗估（可传入 beta 覆盖）；未区分债基/货基等低波动资产",
+        "disclaimer": STRESS_DISCLAIMER,
+        "warnings": warnings,
+    }
+
+
 def _portfolio_series_from_db(database, user_id: str) -> tuple[list[tuple[date, float]], float | None]:
     """Read (as_of_date, unit_nav) from portfolio_valuations + latest total_value."""
     with database.connection() as connection:
@@ -255,8 +341,21 @@ def execute_risk(kind: str, payload: dict) -> dict:
 
         with analytical_context(payload["snapshot"]) as (database, _queries, _directory):
             series, db_value = _portfolio_series_from_db(database, portfolio_id.strip())
-    if not series:
-        if portfolio_id is not None:
-            return _null_metrics(["该组合无历史净值（portfolio_valuations 为空）"])
-        raise ValueError("risk.metrics requires nav_series or portfolio_id")
-    return risk_metrics(series, payload.get("period_days"))
+    if kind == "risk.metrics":
+        if not series:
+            if portfolio_id is not None:
+                return _null_metrics(["该组合无历史净值（portfolio_valuations 为空）"])
+            raise ValueError("risk.metrics requires nav_series or portfolio_id")
+        return risk_metrics(series, payload.get("period_days"))
+    # risk.stress_test: the NAV series is optional (only used to infer a
+    # portfolio value reference); portfolio_value alone is a valid payload.
+    beta = payload.get("beta", 1.0)
+    portfolio_value = payload.get("portfolio_value", db_value)
+    weights = payload.get("weights")
+    result = stress_test(series or None, portfolio_value, beta)
+    if portfolio_id is not None and not series:
+        result["warnings"].append("该组合无历史净值（portfolio_valuations 为空）")
+    if weights is not None:
+        result["warnings"].append("weights 暂仅用于文档记录：当前按组合整体 beta 粗估，未做逐资产 beta 加权")
+        result["weights"] = weights
+    return result

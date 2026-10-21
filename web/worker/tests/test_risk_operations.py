@@ -13,9 +13,11 @@ from operations import CAPABILITIES, execute  # noqa: E402
 from risk_operations import (  # noqa: E402
     MIN_POINTS,
     RISK_CAPABILITIES,
+    STRESS_SCENARIOS,
     execute_risk,
     normalize_nav_series,
     risk_metrics,
+    stress_test,
 )
 
 
@@ -54,6 +56,7 @@ class NormalizeTests(unittest.TestCase):
 class RiskMetricsTests(unittest.TestCase):
     def test_op_is_registered(self):
         self.assertIn("risk.metrics", CAPABILITIES)
+        self.assertIn("risk.stress_test", CAPABILITIES)
         self.assertIn("risk.metrics", RISK_CAPABILITIES)
 
     def test_metrics_match_independent_computation(self):
@@ -117,10 +120,46 @@ class RiskMetricsTests(unittest.TestCase):
             risk_metrics(_series([1.0] * 40), period_days=0)
 
 
+class StressTestTests(unittest.TestCase):
+    def test_three_hardcoded_scenarios(self):
+        self.assertEqual(len(STRESS_SCENARIOS), 3)
+        names = [scenario["name"] for scenario in STRESS_SCENARIOS]
+        self.assertTrue(any("2015" in name for name in names))
+        self.assertTrue(any("2020" in name for name in names))
+        self.assertTrue(any("2022" in name for name in names))
+        for scenario in STRESS_SCENARIOS:
+            self.assertLess(scenario["index_drop_pct"], 0)
+            self.assertIn("interval", scenario)
+            self.assertIn("source_note", scenario)
+
+    def test_loss_scales_with_beta_and_value(self):
+        result = stress_test(portfolio_value=100000.0, beta=1.0)
+        first = result["scenarios"][0]
+        self.assertAlmostEqual(first["est_loss_pct"], first["index_drop_pct"])
+        self.assertAlmostEqual(first["est_loss_amount"], 100000.0 * first["index_drop_pct"], places=2)
+        half = stress_test(portfolio_value=100000.0, beta=0.5)["scenarios"][0]
+        self.assertAlmostEqual(half["est_loss_pct"], first["index_drop_pct"] * 0.5)
+        self.assertIn("disclaimer", result)
+        self.assertIn("beta", result["disclaimer"])
+
+    def test_missing_value_gives_null_amount_with_warning(self):
+        result = stress_test()
+        self.assertTrue(all(s["est_loss_amount"] is None for s in result["scenarios"]))
+        self.assertTrue(result["warnings"])
+
+    def test_invalid_beta_rejected(self):
+        with self.assertRaises(ValueError):
+            stress_test(portfolio_value=1.0, beta=-1.0)
+
+
 class ExecuteRiskTests(unittest.TestCase):
     def test_dispatch_metrics_via_registry(self):
         result = execute("risk.metrics", {"nav_series": _series([1.0 + 0.001 * i for i in range(40)])})
         self.assertIn("sharpe", result)
+
+    def test_dispatch_stress_via_registry(self):
+        result = execute("risk.stress_test", {"portfolio_value": 50000.0})
+        self.assertEqual(len(result["scenarios"]), 3)
 
     def test_missing_inputs_rejected(self):
         with self.assertRaises(ValueError):
