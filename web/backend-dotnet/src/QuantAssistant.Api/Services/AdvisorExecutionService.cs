@@ -151,9 +151,9 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
         var months = new[] { 10, 11, 12 };
         try
         {
-            // C 的 0028 将落地 calendar_policy；shape 假设为 {"months":[10,11,12]}，解析失败用默认。
+            // calendar_policy 由迁移 0028 写入：{"policy_version":1,"auto_accept":true,"rollover_months":[10,11,12],"confirmed_years":[]}。
             if (database.Read(sql => sql.Scalar("SELECT value FROM site_settings WHERE key='calendar_policy'")) as string is { } raw
-                && JsonNode.Parse(raw)?["months"]?.AsArray() is { Count: > 0 } array)
+                && JsonNode.Parse(raw)?["rollover_months"]?.AsArray() is { Count: > 0 } array)
                 months = array.Select(m => m!.GetValue<int>()).Where(m => m is >= 1 and <= 12).ToArray();
         }
         catch (Exception) { /* 用默认月份 */ }

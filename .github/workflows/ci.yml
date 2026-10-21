@@ -133,9 +133,8 @@ jobs:
         working-directory: web/backend-dotnet
 
   # 归属: C 流 E21 —— 迁移 --dry-run 冒烟测试。
-  # 依赖 A 流 E2 的 MigrationRunner --dry-run 实现；若 Runner 尚未支持，
-  # 本 job 探测到"未知参数回退为启动 Web 服务"后以 warning 标记为
-  # "待 Runner 就绪"，不使 CI 失败。
+  # A 流 E2 已在 MigrationRunner 实现 --dry-run/--rollback-to/--no-transaction，
+  # Api 的 `--migrate <目录> [--dry-run] [--rollback-to <版本>] [--no-transaction]` 为约定接口。
   migration-dry-run:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -171,13 +170,13 @@ jobs:
           /usr/lib/postgresql/18/bin/createdb -h 127.0.0.1 -p 55440 -U postgres -O quant_test quant_dryrun
       - run: dotnet build QuantAssistant.slnx -c Release
         working-directory: web/backend-dotnet
-      - name: Migration --dry-run smoke test (pending until Runner supports it — A/E2)
+      - name: Migration --dry-run smoke test
         working-directory: web/backend-dotnet
         shell: bash
         run: |
           set -u
           dll=src/QuantAssistant.Api/bin/Release/net10.0/QuantAssistant.Api.dll
-          # 旧版 Runner 遇到未知参数会回退为启动 Web 服务而挂起，用 timeout 兜底。
+          # Runner 回退为启动 Web 服务会挂起，用 timeout 兜底。
           set +e
           timeout 90 dotnet "$dll" --migrate migrations --dry-run > dryrun.log 2>&1
           code=$?
