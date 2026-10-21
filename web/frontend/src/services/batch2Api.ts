@@ -177,3 +177,62 @@ export function buildRebalanceAdvice(state: RebalanceState): { advices: ClassAdv
     .filter(item => item.pct > item.limit)
   return { advices, industryAlerts, hasAlert: advices.some(a => a.alert) || industryAlerts.length > 0 }
 }
+
+/* ---------------- 组合回测（任务6） ---------------- */
+
+export type BacktestFundWeight = { code: string; name?: string; weight: number }
+export type BacktestRebalanceRule =
+  | { mode: 'period'; period: '1M' | '3M' }
+  | { mode: 'threshold'; threshold_pct: number }
+export type BacktestDca = { amount: number; freq: 'monthly' | 'weekly' }
+export type BacktestRequest = {
+  funds: BacktestFundWeight[]
+  start: string
+  end: string
+  rebalance: BacktestRebalanceRule
+  dca?: BacktestDca
+}
+
+export type BacktestMetrics = {
+  total_return_pct: number
+  xirr_pct: number
+  max_drawdown_pct: number
+  sharpe: number | null
+  total_invested: number | null
+  final_value: number | null
+}
+
+export type BacktestResult = {
+  metrics: BacktestMetrics
+  curve: { date: string; nav: number }[]
+  rebalance_events: { date: string; action: string; detail?: string | null }[]
+}
+
+export function validateBacktestRequest(request: BacktestRequest): string | null {
+  if (!request.funds.length) return '请至少配置一只基金。'
+  if (request.funds.some(f => !f.code.trim())) return '基金代码不能为空。'
+  if (request.funds.some(f => !Number.isFinite(f.weight) || f.weight <= 0 || f.weight > 100)) return '权重须在 0–100 之间。'
+  const codes = request.funds.map(f => f.code.trim())
+  if (new Set(codes).size !== codes.length) return '基金代码不能重复。'
+  if (Math.abs(request.funds.reduce((sum, f) => sum + f.weight, 0) - 100) > 0.01) return '权重之和须为 100%。'
+  if (!request.start || !request.end || request.start >= request.end) return '起止日期无效（开始须早于结束）。'
+  if (request.rebalance.mode === 'threshold') {
+    const pct = (request.rebalance as { threshold_pct: number }).threshold_pct
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 50) return '偏离阈值须在 0–50 之间。'
+  }
+  if (request.dca && (!Number.isFinite(request.dca.amount) || request.dca.amount <= 0)) return '定投金额须大于 0。'
+  return null
+}
+
+/** 净值曲线 → ChartCard 可用的相对涨跌幅序列。 */
+export function backtestCurveObservations(result: BacktestResult): { labels: string[]; series: { name: string; value: string; color: string; values: number[] }[] } {
+  const base = result.curve[0]?.nav || 1
+  return {
+    labels: result.curve.map(p => p.date.slice(5)),
+    series: [{
+      name: '组合净值', color: '#4d8dff',
+      value: (result.metrics.total_return_pct >= 0 ? '+' : '') + result.metrics.total_return_pct.toFixed(2) + '%',
+      values: result.curve.map(p => +(((p.nav / base - 1) * 100).toFixed(3))),
+    }],
+  }
+}
