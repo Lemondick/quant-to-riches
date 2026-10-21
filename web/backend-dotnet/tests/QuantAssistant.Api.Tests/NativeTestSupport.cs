@@ -1,9 +1,17 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using QuantAssistant.Infrastructure.Auth;
 using Xunit;
 
 namespace QuantAssistant.Api.Tests;
+
+internal static class TestHostEnvironment
+{
+    // Request fixtures must not acquire scheduled account writes when CI enters a report window.
+    [ModuleInitializer]
+    internal static void Initialize() => Environment.SetEnvironmentVariable("QUANT_DISABLE_SCHEDULER", "true");
+}
 
 internal static class NativeTestSupport
 {
