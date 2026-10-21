@@ -10,9 +10,10 @@ using QuantAssistant.Core.Auth;
 namespace QuantAssistant.Api.Controllers;
 
 /// <summary>
-/// batch3 流 A：风险指标后端（压力测试见同文件的 Stress 端点，另独立 commit 记录）。
+/// batch3 流 A：风险指标后端。
 /// GET api/v1/risk/metrics → worker op risk.metrics（batch3 跨流契约），结果缓存 60 分钟。
-/// 口径定义见 web/docs/功能说明.md §23.1。
+/// GET api/v1/risk/stress → worker op risk.stress_test，响应强制带 disclaimer:"假想测算非预测"。
+/// 口径定义见 web/docs/功能说明.md §23.1/23.2。
 /// </summary>
 [ApiController]
 [Route("api/v1/risk")]
@@ -43,5 +44,22 @@ public sealed class RiskController(ComputeService compute, IMemoryCache cache, Q
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(Math.Max(1, options.RiskMetricsCacheTtlMinutes)),
         });
         return Ok(new JsonObject { ["cached"] = false, ["result"] = result });
+    }
+
+    /// <summary>
+    /// 压力测试：固定三档历史情景（worker 常量 STRESS_SCENARIOS：2015股灾 / 2020-03疫情 / 2022熊市）。
+    /// 响应强制带 disclaimer:"假想测算非预测"，是假想测算而非预测。
+    /// </summary>
+    [HttpGet("stress")]
+    public async Task<IActionResult> Stress([FromQuery] string? portfolio_id = null, CancellationToken cancellation = default)
+    {
+        var portfolioId = string.IsNullOrWhiteSpace(portfolio_id) ? Id : portfolio_id.Trim();
+        if (portfolioId.Length is 0 or > 64) throw new ArgumentException("portfolio_id 无效。");
+        var result = (await compute.Run(Id, "risk.stress_test",
+            new JsonObject { ["portfolio_id"] = portfolioId }, cancellation, seconds: 180))?.AsObject()
+            ?? throw new QuantAssistant.Core.Errors.ApplicationFailure("worker_unavailable", 503, "压力测试计算未完成，请稍后重试。");
+        // 契约铁律：响应必须带 disclaimer:"假想测算非预测"（覆盖 worker 侧同义表述，统一口径）。
+        result["disclaimer"] = "假想测算非预测";
+        return Ok(result);
     }
 }
