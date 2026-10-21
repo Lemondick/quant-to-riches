@@ -8,7 +8,7 @@ using QuantAssistant.Infrastructure.Runtime;
 
 namespace QuantAssistant.Api.Services;
 
-public sealed class AdvisorExecutionService(AccountDatabase database, ModelConnectionService connections, TradingCalendarRepository calendar, ComputeJobRepository jobs, ComputeService compute, SmartDcaService smartDca, AnnouncementService announcements, FundMaintenanceService funds, EmailDeliveryService email, ResearchItemService research, SlowQueryAlertService slowAlerts)
+public sealed class AdvisorExecutionService(AccountDatabase database, ModelConnectionService connections, TradingCalendarRepository calendar, ComputeJobRepository jobs, ComputeService compute, SmartDcaService smartDca, AnnouncementService announcements, FundMaintenanceService funds, EmailDeliveryService email, ResearchItemService research, SlowQueryAlertService slowAlerts, DcaExecutionTrackingService dcaTracking)
 {
     private DateOnly lastCalendarRolloverCheck = DateOnly.MinValue;
     private static JsonObject Issue(string code, string message, string label, string url) => new()
@@ -113,6 +113,7 @@ public sealed class AdvisorExecutionService(AccountDatabase database, ModelConne
         email.CheckDispatch(); // batch3-A：定时报告完成 + critical 告警邮件分发（站内触达保留，微信暂缓）。
         research.CheckDailySync(); // batch3-A：研报/资讯每日抓取落库去重。
         slowAlerts.CheckHourly(); // batch3-A：慢查询聚合告警（按小时评估上一个完整小时桶）。
+        dcaTracking.CheckMissedAlerts(); // batch5-4：定投漏投提醒（QUANT_DCA_MISSED_ALERT_DAYS，默认 3 天）。
         database.WriteNonLedger("compute:reaper",sql=>sql.Execute("UPDATE advisor_schedule_runs SET status='interrupted',error_code='schedule_interrupted' WHERE status='claimed' AND report_id IS NULL AND started_at<now()-interval '2 minutes'"));
         var now=DateTime.UtcNow.AddHours(8);var date=DateOnly.FromDateTime(now);
         if(calendar.TradingDay(date)!=true) return;
