@@ -20,6 +20,20 @@
     <div class="insight-strip"><span>今日收益主要来源：<b>{{ hidden ? '已隐藏' : positions.length ? '查看持仓明细' : '暂无持仓' }}</b></span><RouterLink to="/portfolio" class="text-action">查看收益贡献 <ArrowUpRight :size="13" aria-hidden="true" /></RouterLink></div>
     <p v-if="data.unavailable.length" class="feedback" role="status">部分公开数据暂不可用，已保留账户持仓。</p>
     <p v-if="stale || refreshing && data" class="feedback" role="status">正在更新，当前显示最近一次有效数据。</p>
+    <div class="panel table-panel section-space">
+      <div class="panel-head"><div><h2>本币折算</h2><p>按配置汇率把各币种持仓折算为{{ baseCurrency }}。{{ sourcesNote }}</p></div><button class="btn" @click="fxOpen = true"><Coins :size="14" aria-hidden="true" />汇率设置</button></div>
+      <div class="card-pad">
+        <div class="row-list">
+          <div class="row"><span>折算后总资产（{{ baseCurrency }}）</span><b>{{ showMoney(fxTotal) }}</b></div>
+          <div v-for="group in fxBreakdown" :key="group.currency" class="row">
+            <span>{{ group.currency }} {{ hidden ? '••••' : money(group.amount) }}</span>
+            <span v-if="group.missing" class="tag red">缺汇率，未计入折算总值</span>
+            <span v-else class="subtle">{{ hidden ? '••••' : money(group.value) }} · 1 {{ group.currency }} = {{ group.rate!.rate }} {{ baseCurrency }}</span>
+          </div>
+        </div>
+        <p class="subtle section-space">汇率来源与时点：<span v-for="group in fxBreakdown.filter(item => !item.missing && item.rate)" :key="group.currency">{{ group.currency }}（{{ group.rate!.source }} · {{ group.rate!.observed_at.slice(0, 16).replace('T', ' ') }}）</span><span v-if="!fxBreakdown.some(item => item.rate)">暂无</span>。持仓币种取自行情币种字段，未匹配到的持仓按本币计；折算汇率保存在浏览器本地，`fx_rates` 表由后端 0030 迁移建立，待后端提供读写接口后可同步。</p>
+      </div>
+    </div>
     <div class="panel table-panel">
       <div class="panel-head"><div><h2>持有明细</h2><p>录入现有持仓用于观察；买卖记录请前往交易账本。<span data-update-time> · {{ updateTime(data.portfolio.as_of_date) }}</span></p></div><button class="btn" :disabled="hidden" @click="exportHoldings"><Download :size="14" aria-hidden="true" />导出持仓</button></div>
       <FilterBar v-model="category" v-model:query="query" :options="['全部', '基金', '股票']" class="panel-filters" label="持仓类型" placeholder="搜索持仓名称或代码" search-label="搜索持仓名称或代码" />
@@ -30,21 +44,55 @@
         <template #empty-action><RouterLink class="btn" to="/ledger">录入持仓</RouterLink></template>
       </DataTable>
     </div>
+    <AppDialog v-model="fxOpen" title="汇率设置" description="录入或拉取汇率，用于持仓本币折算。1 单位外币 = 若干本币。">
+      <div class="stack-form">
+        <p v-if="pullError" class="feedback error" role="alert">{{ pullError }}</p>
+        <p v-if="pullNotice" class="feedback" role="status">{{ pullNotice }}</p>
+        <p v-if="fxFormError" class="feedback error" role="alert">{{ fxFormError }}</p>
+        <div class="form-grid">
+          <label>本币<input v-model.trim="baseCurrency" class="field" maxlength="3" placeholder="CNY" /></label>
+          <label>拉取地址<input v-model.trim="pullUrl" class="field" placeholder="https://…/rates.json（可选）" /></label>
+        </div>
+        <div class="inline-actions"><button class="btn" :disabled="pulling" @click="pullRates()">{{ pulling ? '拉取中' : '从拉取地址更新' }}</button></div>
+        <form class="stack-form" @submit.prevent="saveFxRate">
+          <div class="form-grid">
+            <label>币种<input v-model.trim="fxDraft.from" class="field" maxlength="3" placeholder="USD" required /></label>
+            <label>汇率（1 外币 = ? 本币）<input v-model.trim="fxDraft.rate" class="field" inputmode="decimal" placeholder="7.12" required /></label>
+          </div>
+          <div class="form-grid">
+            <label>来源<input v-model.trim="fxDraft.source" class="field" maxlength="80" placeholder="手动录入" /></label>
+            <label>时点<input v-model="fxDraft.observed_at" class="field" type="datetime-local" required /></label>
+          </div>
+          <button class="btn primary" type="submit">保存汇率</button>
+        </form>
+        <div class="row-list">
+          <div v-for="entry in fxRates" :key="entry.from" class="row">
+            <span><b>{{ entry.from }}</b> → {{ baseCurrency }}：1 = {{ entry.rate }}</span>
+            <span class="subtle">{{ entry.source }} · {{ entry.observed_at.slice(0, 16).replace('T', ' ') }}</span>
+            <button class="text-action" @click="removeRate(entry.from)">删除</button>
+          </div>
+          <p v-if="!fxRates.length" class="subtle">暂无汇率，折算将按本币原值显示并提示缺汇率。</p>
+        </div>
+      </div>
+      <template #footer><button class="btn" @click="fxOpen = false">关闭</button></template>
+    </AppDialog>
   </template>
 </template>
 <script setup lang="ts">
 import { updateTime, oldestUpdate, usableEstimate } from '../utils/dataQuality'
 
-import { computed, ref } from 'vue'
-import { ArrowUpRight, Download, Eye, EyeOff, Plus, RefreshCw, Wallet, ChartNoAxesColumnIncreasing, TrendingUp, PieChart } from 'lucide-vue-next'
+import { computed, reactive, ref } from 'vue'
+import { ArrowUpRight, Coins, Download, Eye, EyeOff, Plus, RefreshCw, Wallet, ChartNoAxesColumnIncreasing, TrendingUp, PieChart } from 'lucide-vue-next'
 import PageHeader from './PageHeader.vue'
 import StatCard from './StatCard.vue'
 import Donut from './Donut.vue'
 import DataTable from './DataTable.vue'
 import FilterBar from './FilterBar.vue'
 import BackendState from './BackendState.vue'
+import AppDialog from './AppDialog.vue'
 import { usePortfolioPresentation } from '../composables/usePortfolioPresentation'
 import { useLocalState } from '../composables/useLocalState'
+import { useFxRates } from '../composables/useFxRates'
 import { money, percent, downloadCsv } from '../utils/format'
 import ChartCard from './ChartCard.vue'
 const { data, error, refreshing, stale, refresh, session, positions, total, cost, profit, daily, allocation, observations, range, history } = usePortfolioPresentation()
@@ -65,4 +113,32 @@ const rows = computed(() => positions.value.filter(item => (category.value === '
   return [item.name, item.symbol, hidden.value ? '••••' : quantity ? (value / quantity).toFixed(4) : '—', hidden.value ? '••••' : item.market_value, hidden.value ? '••••' : item.quantity, hidden.value ? '••••' : percent(total.value ? value / total.value * 100 : 0, false), dailyValue === null ? '—' : showMoney(dailyValue, true), showMoney(value - Number(item.average_cost) * quantity, true), item.symbol]
 }))
 function exportHoldings() { if (!hidden.value) downloadCsv('观澜-持仓明细.csv', headers.slice(0, -1), rows.value.map(row => row.slice(0, -1))) }
+
+// F7: 汇率录入/拉取配置 + 持仓本币折算。持仓币种取自行情币种字段（Quote.currency），
+// 后端 fx_rates 表由 0030 迁移建立，读写接口尚未提供，故汇率配置暂存浏览器本地。
+const fx = useFxRates()
+const { baseCurrency, rates: fxRates, convert: fxConvert, upsertRate, removeRate, pullRates, pulling, pullError, pullNotice, pullUrl, sourcesNote } = fx
+const fxOpen = ref(false), fxFormError = ref('')
+const fxDraft = reactive({ from: '', rate: '', source: '', observed_at: '' })
+function currencyOf(symbol: string, assetType: string) {
+  const quote = data.value?.quotes.items.find(item => item.symbol === symbol && (!assetType || item.asset_type === assetType))
+  return (quote?.currency ?? '').trim().toUpperCase() || null
+}
+const fxBreakdown = computed(() => {
+  const groups = new Map<string, number>()
+  for (const item of positions.value) {
+    const currency = currencyOf(item.symbol, item.asset_type) ?? baseCurrency.value
+    groups.set(currency, (groups.get(currency) ?? 0) + Number(item.market_value))
+  }
+  return [...groups.entries()].map(([currency, amount]) => { const c = fxConvert(amount, currency); return { currency, amount, value: c.value, rate: c.rate, missing: c.missing } })
+})
+const fxTotal = computed(() => fxBreakdown.value.reduce((sum, group) => sum + (group.missing ? 0 : group.value), 0))
+function saveFxRate() {
+  fxFormError.value = ''
+  try {
+    const rate = Number(fxDraft.rate)
+    upsertRate({ from: fxDraft.from, rate, source: fxDraft.source, observed_at: fxDraft.observed_at ? new Date(fxDraft.observed_at).toISOString() : new Date().toISOString() })
+    fxDraft.from = ''; fxDraft.rate = ''; fxDraft.source = ''
+  } catch (error) { fxFormError.value = error instanceof Error ? error.message : '保存失败。' }
+}
 </script>
