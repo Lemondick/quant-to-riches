@@ -217,4 +217,4 @@ GitHub required checks 的管理员配置未修改；独立作业的实际结果
 - [x] 基金多维分类及独立榜单、搜索和账户关注。5c167a3 Linux39520665779，Python527/真实PG.NET482/Worker149/工具15/报告5全通过0跳过；Node57、分类16组/6宽度、原88布局/32卡片/K线8组通过。来源、未知和迁移边界见[阶段D验收](fund-catalog-acceptance-20261021.md)。
 - [x] 行业/概念/地域板块质量状态及全链路回归。最终源码32d31ad Linux39524121426四作业成功，Python527/真实PG18.NET488/Worker149/工具15/报告5全通过0跳过；Node60、原页面/16指数/目录/板块浏览器通过。一次独立审查Important目录重复刷新已RED→GREEN修复，1项Minor证据字段归属延后；见[阶段E完整验收](sector-quality-acceptance-20261021.md)。
 
-2026-10-21 用户明确改为15项已确认指数，移除暂定中证1000；分类证据字段待办同步修复。此前阶段验收保留当时的16项记录，当前变更与最终验证另见后续验收。
+2026-10-21 用户明确改为15项已确认指数，已移除暂定中证1000；分类证据字段Minor已修复。最终源码6e56b50，[Linux39527288345](https://github.com/Lemondick/quant-to-riches/actions/runs/39527288345)四作业成功，Python527/真实PG18.NET492/Worker149/工具15/报告5全部通过、0失败/错误/跳过；Node60及六宽度15卡/目录/板块/原页面浏览器通过，独立审查无问题。此前阶段16项及延后Minor均为历史记录，当前状态以[15项确认与补修验收](confirmed-fifteen-indices-acceptance-20261021.md)为准。
