@@ -12,6 +12,11 @@ from ledger_attribution import calculate_periods
 
 
 class Marks:
+    def prefetch_prices(self, items):
+        # Batch warming is a production-Marks optimization; the fake serves
+        # every price from an in-memory dict, so there is nothing to warm.
+        return None
+
     def price(self, symbol, day):
         return Decimal(
             {date(2026, 1, 2): "10", date(2026, 1, 15): "11", date(2026, 1, 30): "12"}[day]

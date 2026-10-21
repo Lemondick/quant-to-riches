@@ -8,33 +8,12 @@ from pathlib import Path
 
 import pandas as pd
 from analysis_context import build_context, site_directory
+from attribution_shared import EvidenceMissing, _amount, _day, _text
+from ledger_attribution import calculate_periods
 
 from quant_assistant.data.snapshots import _frame_sha256
 
 ATTRIBUTION_CAPABILITIES = ("analysis.brinson",)
-
-
-class EvidenceMissing(ValueError):
-    pass
-
-
-def _day(value):
-    return date.fromisoformat(str(value)[:10])
-
-
-def _amount(value):
-    try:
-        result = Decimal(str(value))
-    except (InvalidOperation, ValueError) as failure:
-        raise EvidenceMissing("标的金额或价格证据不是有效十进制数。") from failure
-    if not result.is_finite():
-        raise EvidenceMissing("标的金额或价格证据不是有限数。")
-    return result
-
-
-def _text(value):
-    text = format(value, "f")
-    return text.rstrip("0").rstrip(".") if "." in text else text
 
 
 def _original(tables, start, end, *, ledger=False):
@@ -410,8 +389,6 @@ def execute_attribution(_kind, payload):
             with database.connection() as connection:
                 marks = Marks(connection, directory, tables)
                 if ledger:
-                    from ledger_attribution import calculate_periods
-
                     periods = calculate_periods(
                         tables, baseline, positions, components, start, end, marks
                     )
@@ -509,19 +486,28 @@ def execute_attribution(_kind, payload):
                         if _day(baseline["effective_date"]) <= _day(row[field]) <= end
                     ]
                     identities.update((category, str(row[identity])) for row in frozen[name])
+                # Index by id once: the old `target not in frozen[name]` list scan
+                # was O(n^2) over up to 20k events.
+                targets_by_id = {
+                    name: {str(row["id"]): row for row in tables[name]}
+                    for name in ("transactions", "dividend_events")
+                }
+                frozen_ids = {
+                    name: {str(row["id"]) for row in frozen[name]}
+                    for name in targets_by_id
+                }
                 for correction in frozen["ledger_corrections"]:
                     name = (
                         "transactions"
                         if correction["target_type"] == "transaction"
                         else "dividend_events"
                     )
-                    for target in tables[name]:
-                        if (
-                            str(target["id"]) == str(correction["target_id"])
-                            and target not in frozen[name]
-                        ):
-                            frozen[name].append(target)
-                            identities.add((correction["target_type"], str(target["id"])))
+                    wanted = str(correction["target_id"])
+                    target = targets_by_id[name].get(wanted)
+                    if target is not None and wanted not in frozen_ids[name]:
+                        frozen[name].append(target)
+                        frozen_ids[name].add(wanted)
+                        identities.add((correction["target_type"], wanted))
                 frozen["audit_log"] = [
                     row
                     for row in tables["audit_log"]
