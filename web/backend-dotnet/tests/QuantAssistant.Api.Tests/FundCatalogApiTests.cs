@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using QuantAssistant.Api.Services;
 using QuantAssistant.Core.Market;
+using QuantAssistant.Infrastructure.Jobs;
 using Xunit;
 
 namespace QuantAssistant.Api.Tests;
@@ -66,6 +67,44 @@ public sealed class FundCatalogApiTests
             foreach(var invalid in new[]{"page=0","page_size=101","asset_class="+new string('x',101)})Assert.Equal(HttpStatusCode.UnprocessableEntity,(await client.GetAsync("/api/v1/funds/catalog?"+invalid)).StatusCode);
         }
         finally{user.Execute("DELETE FROM public_compute_snapshots WHERE input_hash=$1",key);Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",previous);}
+    }
+    [PgFact]
+    public async Task StaleDirectoryDoesNotQueueAgainAfterRefreshCompletesWhileMemoryIsRetained()
+    {
+        using var user=new PgTestUser();using var other=new PgTestUser();
+        var previous=Environment.GetEnvironmentVariable("QUANT_PG_CONNECTION");Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",user.Connection);
+        var key="catalog-refresh-"+user.Id;
+        var directory=new JsonObject{["schema_version"]="fund-directory.v1",["source"]="eastmoney",["source_time"]=null,
+            ["fetched_at"]=DateTimeOffset.UtcNow.AddHours(-7).ToString("O"),["quality_status"]="unknown_time",["stale"]=false,["refresh_test"]=user.Id,
+            ["items"]=new JsonArray(new JsonObject{["symbol"]="023530",["name"]="Explicit refresh regression fixture",["fund_type"]="指数型-股票"})};
+        try
+        {
+            user.Execute("INSERT INTO public_compute_snapshots(kind,input_hash,input_json,result_json,completed_at,expires_at) VALUES('fund.catalog',$1,'{}',$2::jsonb,now()-interval '7 hours',now()-interval '1 hour')",key,directory.ToJsonString());
+            using var factory=new WebApplicationFactory<Program>().WithWebHostBuilder(builder=>builder.ConfigureAppConfiguration((_,config)=>config.AddInMemoryCollection(new Dictionary<string,string?>{
+                ["QUANT_PUBLIC_REFRESH_ENABLED"]="false",["QUANT_WORKER_SECRET"]="synthetic-catalog-worker-secret-123456"})));
+            using var client=factory.CreateClient();PgTestUser.AttachSession(client,user.Connection,user.Id);
+            var initial=await client.GetFromJsonAsync<JsonObject>("/api/v1/funds/categories");Assert.True(initial!["stale"]!.GetValue<bool>());
+            Assert.Equal(1L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id IN ($1,$2) AND kind='fund.catalog'",user.Id,other.Id));
+            var jobs=new ComputeJobRepository(user.Connection);var claim=jobs.Claim("catalog-refresh-regression",["fund.catalog"])!;
+            Assert.Equal(user.Id,claim.UserId);Assert.True(JsonNode.Parse(claim.InputJson)!["_refresh"]!.GetValue<bool>());
+            directory["fetched_at"]=DateTimeOffset.UtcNow.ToString("O");
+            Assert.True(jobs.Finish(user.Id,claim.JobId,claim.Attempt,claim.OwnerToken,directory.ToJsonString(),null));
+            Assert.Equal(1L,user.Query("SELECT count(*) FROM public_compute_snapshots WHERE kind='fund.catalog' AND input_hash<>$1 AND result_json->>'refresh_test'=$2",key,user.Id));
+            using var otherClient=factory.CreateClient();PgTestUser.AttachSession(otherClient,user.Connection,other.Id);
+            // The singleton still serves its observed stale directory for 60 seconds, across accounts.
+            foreach(var reader in new[]{client,otherClient,client,otherClient})
+            {
+                var retained=await reader.GetFromJsonAsync<JsonObject>("/api/v1/funds/categories");
+                Assert.Equal(initial["fetched_at"]!.GetValue<string>(),retained!["fetched_at"]!.GetValue<string>());
+                Assert.True(retained["stale"]!.GetValue<bool>());
+            }
+            Assert.Equal(1L,user.Query("SELECT count(*) FROM compute_jobs WHERE user_id IN ($1,$2) AND kind='fund.catalog'",user.Id,other.Id));
+        }
+        finally
+        {
+            user.Execute("DELETE FROM public_compute_snapshots WHERE kind='fund.catalog' AND (input_hash=$1 OR result_json->>'refresh_test'=$2)",key,user.Id);
+            Environment.SetEnvironmentVariable("QUANT_PG_CONNECTION",previous);
+        }
     }
     [PgFact]
     public async Task UnavailableDirectoryQueuesOnePublicTaskWithoutBlockingOnCrawler()
