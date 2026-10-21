@@ -25,6 +25,7 @@ using Npgsql;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
 using System.Threading.RateLimiting;
+using QuantAssistant.Api.Configuration;
 using QuantAssistant.Infrastructure.Db;
 
 var webRoot = Environment.GetEnvironmentVariable("QUANT_WEB_ROOT");
@@ -33,8 +34,10 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     Args = args,
     WebRootPath = string.IsNullOrWhiteSpace(webRoot) ? null : Path.GetFullPath(webRoot),
 });
-if (builder.Configuration["QUANT_SITE_ROOT"] is { Length: > 0 } siteRoot) Directory.CreateDirectory(Path.GetFullPath(siteRoot));
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
+// E7：集中配置 + 启动 fail-fast。连接串缺失直接抛错退出，不再静默回退默认连接串。
+var options = QuantOptions.Bind(builder.Configuration, args);
+builder.Services.AddSingleton(options);
+if (options.SiteRoot is { Length: > 0 } siteRoot) Directory.CreateDirectory(Path.GetFullPath(siteRoot));builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.ForwardLimit = 1; // Default trusted proxies are loopback only.
@@ -53,9 +56,7 @@ builder.Services.AddRateLimiter(options =>
         await context.HttpContext.Response.WriteAsJsonAsync(new ErrorResponse("rate_limited", "请求过于频繁，请稍后重试。", context.HttpContext.GetRequestId()), cancellation);
     };
 });
-var connectionString = builder.Configuration["ConnectionStrings:Default"]
-    ?? Environment.GetEnvironmentVariable("QUANT_PG_CONNECTION")
-    ?? "Host=localhost;Port=5432;Database=quant_assistant;Username=postgres";
+var connectionString = options.ConnectionString;
 
 if (args is ["--migrate", var directory])
 {
@@ -70,7 +71,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
     var formatter = new Serilog.Formatting.Compact.CompactJsonFormatter();
     configuration.ReadFrom.Configuration(context.Configuration).ReadFrom.Services(services)
         .Enrich.FromLogContext().WriteTo.Console(formatter);
-    if (context.Configuration["QUANT_LOG_DIR"] is { Length: > 0 } logDirectory)
+    if (options.LogDir is { Length: > 0 } logDirectory)
     {
         var path = Path.GetFullPath(logDirectory);
         Directory.CreateDirectory(path);
@@ -154,7 +155,7 @@ builder.Services.AddSingleton<QuantAssistant.Api.Services.LinkedAttributionServi
 builder.Services.AddSingleton<AdminDataRepository>();
 builder.Services.AddSingleton<TradingCalendarRepository>();
 var keyProtection = builder.Services.AddDataProtection().SetApplicationName("QuantAssistant.Native");
-if (builder.Configuration["QUANT_SECRET_ROOT"] is { Length: > 0 })
+if (options.SecretRoot is { Length: > 0 })
 {
     var secretRoot = QuantAssistant.Api.Services.PrivateSecretStore.PrepareRoot(builder.Configuration);
     keyProtection.PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(secretRoot, "protection-keys")));
