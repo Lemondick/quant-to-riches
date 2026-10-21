@@ -180,6 +180,9 @@ builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AlertCente
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.RebalanceRepository>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.SmartDcaRepository>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.SmartDcaService>();
+builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.GoalTargetRepository>(); // batch5-1：目标规划
+builder.Services.AddSingleton<QuantAssistant.Api.Services.GoalProjectionService>(); // batch5-1：目标投影（worker goal.project + 本地 stub 兜底）
+builder.Services.AddSingleton<QuantAssistant.Api.Services.NetWorthService>(); // batch5-2：净资产总览
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AskService>();
 builder.Services.AddSingleton<QuantAssistant.Infrastructure.Portfolio.AnnouncementRepository>();
 builder.Services.AddSingleton<QuantAssistant.Api.Services.AnnouncementService>();
