@@ -63,6 +63,7 @@ def create_production_app(config: DeploymentConfig | None = None):
     from quant_assistant.controllers.auth_app import (  # Lazy: FastAPI only for serving.
         create_authenticated_app,
     )
+
     return create_authenticated_app(settings)
 
 

@@ -28,7 +28,10 @@ function readFrontendSources() {
     for (const name of readdirSync(dir)) {
       const path = join(dir, name)
       const stat = statSync(path)
-      if (stat.isDirectory()) { walk(path); continue }
+      if (stat.isDirectory()) {
+        walk(path)
+        continue
+      }
       if (/\.(ts|vue|js|mjs)$/.test(name)) chunks.push(readFileSync(path, 'utf8'))
     }
   }
@@ -38,10 +41,15 @@ function readFrontendSources() {
 
 function markFrontendUsage(routes, frontendSource) {
   for (const route of routes) {
-    const staticPrefix = route.path.replace(/^\/api\/v1/, '').split('{')[0].replace(/\/$/, '')
-    route.hasFrontendEntry = staticPrefix.length > 1 &&
-      (frontendSource.includes(`'${staticPrefix}`) || frontendSource.includes(`"${staticPrefix}`) ||
-       frontendSource.includes(`\`${staticPrefix}`))
+    const staticPrefix = route.path
+      .replace(/^\/api\/v1/, '')
+      .split('{')[0]
+      .replace(/\/$/, '')
+    route.hasFrontendEntry =
+      staticPrefix.length > 1 &&
+      (frontendSource.includes(`'${staticPrefix}`) ||
+        frontendSource.includes(`"${staticPrefix}`) ||
+        frontendSource.includes(`\`${staticPrefix}`))
   }
   return routes
 }
@@ -68,7 +76,7 @@ function fromOpenApi(doc) {
   for (const [path, item] of Object.entries(doc.paths ?? {})) {
     for (const [method, op] of Object.entries(item)) {
       if (!['get', 'post', 'put', 'delete', 'patch'].includes(method)) continue
-      const params = (op.parameters ?? []).map(p => ({
+      const params = (op.parameters ?? []).map((p) => ({
         name: p.name,
         kind: p.in === 'path' ? 'path' : 'query',
         type: p.schema?.type ?? 'string',
@@ -76,7 +84,8 @@ function fromOpenApi(doc) {
       }))
       const bodySchema = op.requestBody?.content?.['application/json']?.schema
       const bodyFields = schemaFields(bodySchema, components)
-      if (bodySchema) params.push({ name: 'body', kind: 'body', type: 'object', required: !!op.requestBody?.required, bodyFields })
+      if (bodySchema)
+        params.push({ name: 'body', kind: 'body', type: 'object', required: !!op.requestBody?.required, bodyFields })
       routes.push({
         method: method.toUpperCase(),
         path,
@@ -91,11 +100,13 @@ function fromOpenApi(doc) {
   return { source: 'openapi.json', routes }
 }
 
-function csTypeName(t) { return t.replace('?', '') }
+function csTypeName(t) {
+  return t.replace('?', '')
+}
 
 function fromControllerScan() {
   const routes = []
-  for (const file of readdirSync(controllersDir).filter(f => f.endsWith('.cs'))) {
+  for (const file of readdirSync(controllersDir).filter((f) => f.endsWith('.cs'))) {
     const src = readFileSync(join(controllersDir, file), 'utf8')
     const base = (src.match(/Route\("([^"]+)"\)/)?.[1] ?? '').replace(/\/$/, '')
     const records = {}
@@ -107,7 +118,8 @@ function fromControllerScan() {
       }
       records[rm[1]] = fields
     }
-    const methodRe = /\[(HttpGet|HttpPost|HttpPut|HttpDelete|HttpPatch)(?:\("([^"]*)"\))?[^\]]*\]\s*\n?\s*public [^\n]*?\b(\w+)\s*\(([^)]*)\)/g
+    const methodRe =
+      /\[(HttpGet|HttpPost|HttpPut|HttpDelete|HttpPatch)(?:\("([^"]*)"\))?[^\]]*\]\s*\n?\s*public [^\n]*?\b(\w+)\s*\(([^)]*)\)/g
     for (const mm of src.matchAll(methodRe)) {
       const verb = mm[1].replace('Http', '').toUpperCase()
       const sub = mm[2] ?? ''
@@ -122,18 +134,37 @@ function fromControllerScan() {
         const plain = p.match(/^(\S+)\s+(\w+)(?:\s*=.*)?$/)
         if (attr) {
           const [, from, alias, type, name] = attr
-          const param = { name: alias ?? name, kind: from === 'FromBody' ? 'body' : from === 'FromRoute' ? 'path' : 'query', type: csTypeName(type), required: !type.includes('?') }
+          const param = {
+            name: alias ?? name,
+            kind: from === 'FromBody' ? 'body' : from === 'FromRoute' ? 'path' : 'query',
+            type: csTypeName(type),
+            required: !type.includes('?'),
+          }
           if (from === 'FromBody' && records[csTypeName(type)]) param.bodyFields = records[csTypeName(type)]
           // 路径模板里的占位符视为 path 参数
-          if (path.includes(`{${param.name}}`) || path.toLowerCase().includes(`{${param.name.toLowerCase()}}`)) param.kind = 'path'
+          if (path.includes(`{${param.name}}`) || path.toLowerCase().includes(`{${param.name.toLowerCase()}}`))
+            param.kind = 'path'
           params.push(param)
         } else if (plain) {
           const [, type, name] = plain
           if (/^(CancellationToken|ClaimsPrincipal)$/.test(type)) continue
-          params.push({ name, kind: path.includes(`{${name}}`) ? 'path' : 'query', type: csTypeName(type), required: !type.includes('?') })
+          params.push({
+            name,
+            kind: path.includes(`{${name}}`) ? 'path' : 'query',
+            type: csTypeName(type),
+            required: !type.includes('?'),
+          })
         }
       }
-      routes.push({ method: verb, path, controller: file.replace('Controller.cs', ''), action: mm[3], summary: '', params, hasFrontendEntry: false })
+      routes.push({
+        method: verb,
+        path,
+        controller: file.replace('Controller.cs', ''),
+        action: mm[3],
+        summary: '',
+        params,
+        hasFrontendEntry: false,
+      })
     }
   }
   routes.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method))
@@ -153,6 +184,6 @@ if (existsSync(artifactsPath)) {
 snapshot.routes = markFrontendUsage(snapshot.routes, frontendSource)
 snapshot.generated_at = new Date().toISOString()
 snapshot.route_count = snapshot.routes.length
-snapshot.unexposed_count = snapshot.routes.filter(r => !r.hasFrontendEntry).length
+snapshot.unexposed_count = snapshot.routes.filter((r) => !r.hasFrontendEntry).length
 writeFileSync(outPath, JSON.stringify(snapshot, null, 2) + '\n')
 console.log(`路由 ${snapshot.route_count} 条，其中无前端入口约 ${snapshot.unexposed_count} 条 → ${outPath}`)

@@ -561,6 +561,7 @@ class PublicFundDetailProvider:
             while len(self._nav_clocks) > 4:
                 self._nav_clocks.popitem(last=False)
         return packed[0]
+
     def nav_histories(self, symbols) -> dict:
         """Fetch published unit NAVs for several symbols with per-symbol isolation.
 
