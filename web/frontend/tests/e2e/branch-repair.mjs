@@ -93,6 +93,44 @@ async function pageFor(t, handler) {
 }
 const visible = (locator) => locator.waitFor({ state: 'visible', timeout: 8000 })
 
+test('risk chart draws nonempty NAV and negative drawdowns with readable tooltips at both widths', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/risk/metrics')
+      return {
+        body: {
+          cached: true,
+          result: {
+            var95: -0.02,
+            max_drawdown: -0.1,
+            ann_volatility: 0.15,
+            sharpe: 0.8,
+            calmar: 0.6,
+            period_days: 5,
+            method: 'historical_simulation',
+            computed_at: '2026-10-23',
+            nav_series: [1.1, 1.05, 1.02, 0.99, 1.08].map((nav, index) => ({ date: `2026-10-${19 + index}`, nav })),
+          },
+        },
+      }
+    if (path === '/risk/stress') return { body: { scenarios: [] } }
+  })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(origin + '/risk')
+    const chart = page.getByRole('img', { name: '组合净值与回撤走势' })
+    await visible(chart.locator('canvas').first())
+    const box = await chart.boundingBox()
+    assert.ok(box.width > 200 && box.height >= 300)
+    await chart.hover({ position: { x: box.width * 0.55, y: box.height * 0.5 } })
+    const tooltip = chart.getByText(/净值 \d+\.\d{4}/).last()
+    await visible(tooltip)
+    assert.match(await tooltip.innerText(), /回撤 -\d+\.\d{2}%/)
+    assert.equal(await page.getByText('图表暂时无法加载，请刷新页面重试。', { exact: true }).count(), 0)
+    if (process.env.QUANT_CHART_SCREENSHOTS)
+      await page.screenshot({ path: `${process.env.QUANT_CHART_SCREENSHOTS}/risk-${width}.png`, fullPage: true })
+  }
+})
+
 test('live goals binds paged rows and POST projections, including ledger amount', async (t) => {
   const { page, calls } = await pageFor(t, ({ path }) =>
     path === '/goals' ? { body: { items: [goal] } } : path.endsWith('/project') ? { body: projection } : undefined,

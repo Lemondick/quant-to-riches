@@ -111,5 +111,13 @@ test('leaving the view cancels backend discovery without reporting a successful 
   )
   const pending = api.connectJev('test-key', controller.signal)
   controller.abort()
-  await assert.rejects(pending, /已取消/)
+  await assert.rejects(pending, (error) => /已取消/.test(error.message) && error.cause?.name === 'AbortError')
+})
+
+test('model connection errors retain the transport cause behind the user-facing message', async () => {
+  const transport = new TypeError('synthetic socket closed')
+  const api = createModelConfigApi('/api', async () => {
+    throw transport
+  })
+  await assert.rejects(api.read(), (error) => /无法连接后端服务/.test(error.message) && error.cause === transport)
 })

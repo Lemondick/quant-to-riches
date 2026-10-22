@@ -30,8 +30,8 @@ export function createModelConfigApi(baseUrl: string, fetcher: typeof fetch = fe
       if (response.status === 204) return null
       try { return await response.json() } catch { throw new Error('服务未返回有效的 JSON，请检查后端接口。') }
     } catch (error) {
-      if (controller.signal.aborted) throw new Error(signal?.aborted ? '请求已取消。' : '连接超时，请检查后端服务后重试。')
-      if (error instanceof TypeError) throw new Error('无法连接后端服务，请检查网络、服务地址和跨域设置。')
+      if (controller.signal.aborted) throw new Error(signal?.aborted ? '请求已取消。' : '连接超时，请检查后端服务后重试。', { cause: error })
+      if (error instanceof TypeError) throw new Error('无法连接后端服务，请检查网络、服务地址和跨域设置。', { cause: error })
       throw error
     } finally {
       clearTimeout(timeout)
