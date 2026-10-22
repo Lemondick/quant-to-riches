@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using QuantAssistant.Api.Services;
 using QuantAssistant.Core.Auth;
+using QuantAssistant.Core.Errors;
 using QuantAssistant.Infrastructure.Portfolio;
 
 namespace QuantAssistant.Api.Controllers;
@@ -26,10 +27,12 @@ public sealed class AlertCenterController(AlertCenterRepository alerts, ComputeS
     [HttpGet("center")]
     public async Task<IActionResult> Read(CancellationToken cancellation = default)
     {
-        var prices = await compute.Run(Id, "market.snapshot", new JsonObject { ["scope"] = "portfolio" }, cancellation);
-        var dates = new JsonObject();
-        foreach (var row in prices?["holdings"]?.AsArray() ?? [])
-            dates[row!["key"]!.GetValue<string>()] = row["data_date"]?.DeepClone();
+        JsonObject dates;
+        try
+        {
+            dates = await compute.Run(Id, "analysis.price_dates", new { }, cancellation, accountSnapshot: true) as JsonObject ?? new();
+        }
+        catch (ApplicationFailure) { dates = new(); } // Missing evidence stays unknown when the worker is unavailable.
         return Ok(await alerts.EvaluateAsync(Id, dates, cancellation));
     }
 

@@ -152,7 +152,7 @@ logger.LogWarning("邮件分发失败：{ErrorType}", error.GetType().Name);
 
 private void DispatchReportCompletions()
 {
-var rows = database.Read(sql =>
+var rows = database.WriteSystem(sql =>
 {
 var cursor = sql.Scalar("SELECT value FROM site_settings WHERE key='email.dispatch.report_cursor'") as string;
 if (cursor is null)
@@ -161,35 +161,45 @@ if (cursor is null)
 sql.Execute("INSERT INTO site_settings(key,value) VALUES('email.dispatch.report_cursor',now()::text) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value");
 return new JsonArray();
 }
+// Older installations store only the timestamp. New cursors include the
+// complete notification key so a LIMIT boundary cannot skip equal timestamps.
+var saved = cursor.StartsWith('{') ? JsonNode.Parse(cursor)!.AsObject() : null;
+var created = saved?["created_at"]?.GetValue<string>() ?? cursor;
+var user = saved?["user_id"]?.GetValue<string>() ?? "";
+var id = saved?["id"]?.GetValue<string>() ?? "";
 return sql.Query("""
 SELECT n.user_id, n.id, n.kind, n.report_id, n.status, r.report_date::text AS report_date, n.created_at::text AS created_at
 FROM advisor_notifications n JOIN market_advisor_reports r ON r.user_id=n.user_id AND r.report_id=n.report_id
-WHERE n.created_at > $1::timestamptz AND n.kind IN ('morning','afternoon') AND n.status='completed'
-ORDER BY n.created_at LIMIT 50
-""", cursor);
+JOIN users u ON u.id=n.user_id AND u.status='active'
+WHERE (n.created_at,n.user_id,n.id) > ($1::timestamptz,$2::text,$3::text)
+AND n.kind IN ('morning','afternoon') AND n.status='completed'
+ORDER BY n.created_at,n.user_id,n.id LIMIT 50
+""", created, user, id);
 });
-string? maxCreated = null;
+string? nextCursor = null;
 foreach (var row in rows.OfType<JsonObject>())
 {
 var userId = row["user_id"]!.GetValue<string>();
 try
 {
-SendAsync(userId, "report_completed", new JsonObject
+var result = SendAsync(userId, "report_completed", new JsonObject
 {
 ["kind"] = row["kind"]?.GetValue<string>(), ["report_id"] = row["report_id"]?.GetValue<string>(),
 ["status"] = row["status"]?.GetValue<string>(), ["report_date"] = row["report_date"]?.GetValue<string>(),
 }).GetAwaiter().GetResult();
+if (result["status"]?.GetValue<string>() is not ("sent" or "skipped")) break;
 }
 catch (Exception error) when (error is not OutOfMemoryException)
 {
 logger.LogWarning("报告完成邮件发送异常（user {UserId}）：{ErrorType}", userId, error.GetType().Name);
+break;
 }
-maxCreated = row["created_at"]!.GetValue<string>();
+nextCursor = new JsonObject { ["created_at"] = row["created_at"]!.GetValue<string>(), ["user_id"] = userId, ["id"] = row["id"]!.GetValue<string>() }.ToJsonString();
 }
-if (maxCreated is not null)
-database.WriteNonLedger("email:dispatch", sql => sql.Execute(
+if (nextCursor is not null)
+database.WriteSystem(sql => sql.Execute(
 "INSERT INTO site_settings(key,value) VALUES('email.dispatch.report_cursor',$1) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",
-maxCreated));
+nextCursor));
 }
 
 private void DispatchCriticalAlerts()

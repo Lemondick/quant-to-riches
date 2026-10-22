@@ -18,9 +18,9 @@ public sealed record CachedPublicResult(string ResultJson, bool Fresh, DateTime 
 public sealed class ComputeJobRepository(string connectionString)
 {
     // These operations read public sources and never receive an account snapshot.
-    public static readonly string[] IndependentPublicKinds = ["market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations", "fund.catalog"];
+    public static readonly string[] IndependentPublicKinds = ["market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations", "fund.catalog", "valuation.percentiles", "fund.health_check", "announcements.fetch"];
     public static int PublicCacheSeconds(string kind) => kind switch
-    { "market.snapshot" => 30, "market.quotes" or "fund.valuations" or "market.news" => 60, "fund.detail" => 300, "market.history" => 3600, "fund.catalog" => 21600, _ => 0 };
+    { "market.snapshot" => 30, "market.quotes" or "fund.valuations" or "market.news" => 60, "fund.detail" => 300, "market.history" or "announcements.fetch" => 3600, "fund.catalog" or "valuation.percentiles" or "fund.health_check" => 21600, _ => 0 };
     public static readonly HashSet<string> AllowedKinds = new(StringComparer.Ordinal)
     {
         "market.snapshot", "market.quotes", "market.news", "market.history", "fund.detail", "fund.valuations", "fund.catalog",
@@ -31,6 +31,9 @@ public sealed class ComputeJobRepository(string connectionString)
         "photo.recognize", "photo.identify",
         "fund.nav_sources",
         "ledger.replay", "analysis.brinson",
+        "valuation.percentiles", "fund.health_check", "announcements.fetch", "calendar.generate_next_year",
+        "fund.redemption_windows", "dca.smart_plan_backtest", "portfolio.backtest", "fund.catalog_validate",
+        "risk.metrics", "risk.stress_test", "cost.positions", "research.fetch", "goal.project", "sentiment.fetch",
     };
 
     /// <summary>batch3 #11：任务优先级，critical &gt; high &gt; normal。未知值归一化为 normal。</summary>
@@ -146,7 +149,7 @@ public sealed class ComputeJobRepository(string connectionString)
     public async Task<ComputeJob?> ClaimAsync(string workerId, string[] capabilities, CancellationToken cancellation = default, int maxLowWaitMinutes = 120)
     {
         using var timing = PerformanceTrace.Measure("db");
-        if (workerId.Length is < 1 or > 64 || capabilities.Length is < 1 or > 50 || capabilities.Any(kind => !AllowedKinds.Contains(kind))) throw new ArgumentException("Worker标识或能力无效");
+        if (workerId.Length is < 1 or > 64 || capabilities.Length < 1 || capabilities.Length > AllowedKinds.Count || capabilities.Any(kind => !AllowedKinds.Contains(kind))) throw new ArgumentException("Worker标识或能力无效");
         await using var conn = await OpenAsync(cancellation);
         await using var tx = await conn.BeginTransactionAsync(cancellation);
         await using var cmd = conn.CreateCommand();
@@ -259,7 +262,7 @@ public sealed class ComputeJobRepository(string connectionString)
     }
 
     public void Recover() => RecoverAsync().GetAwaiter().GetResult();
-    public Task<int> RecoverAsync(CancellationToken cancellation = default) => new AccountDatabase(connectionString).WriteAsync("compute:reaper",async sql=>{await ExpireAsync(sql);return 0;}, cancellation);
+    public Task<int> RecoverAsync(CancellationToken cancellation = default) => new AccountDatabase(connectionString).WriteSystemAsync(async sql=>{await ExpireAsync(sql);return 0;}, cancellation);
     private static async Task ExpireAsync(IAccountSql sql)
     {
         var expired=await sql.QueryAsync("UPDATE compute_jobs j SET status='interrupted',error_code='worker_interrupted',completed_at=now() WHERE status IN('queued','running','cancel_requested') AND (deadline<=now() OR (status<>'queued' AND lease_expires_at<=now()) OR NOT EXISTS(SELECT 1 FROM users u WHERE u.id=j.user_id AND u.status='active')) RETURNING user_id,job_id,kind,input_json",Array.Empty<object?>());

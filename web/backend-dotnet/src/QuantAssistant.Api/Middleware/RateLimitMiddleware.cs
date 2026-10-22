@@ -17,7 +17,7 @@ public sealed class RateLimitMiddleware(RequestDelegate next, QuantOptions optio
 {
     private static readonly HashSet<string> StricterPaths = new(StringComparer.OrdinalIgnoreCase)
     {
-        "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/recovery/redeem", "/api/v1/auth/password",
+        "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/recovery/redeem", "/api/v1/auth/password", "/api/v1/auth/2fa/verify",
     };
 
     private sealed class Window

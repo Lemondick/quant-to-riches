@@ -14,6 +14,10 @@ public sealed class RuntimeController(RuntimeViewService runtime) : ControllerBa
     public async Task<IActionResult> Status(CancellationToken cancellation = default) =>
         Ok(await runtime.StatusAsync(User, cancellation));
 
+    [HttpGet("/api/v1/admin/runtime")]
+    public async Task<IActionResult> AdminStatus(CancellationToken cancellation = default) =>
+        Ok(await runtime.AdminStatusAsync(User, cancellation));
+
     [HttpGet("workers/snapshot")]
     public async Task<IActionResult> WorkerSnapshot(CancellationToken cancellation = default) =>
         Ok(await runtime.WorkerSnapshotAsync(Id, cancellation));

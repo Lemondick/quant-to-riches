@@ -10,7 +10,7 @@ namespace QuantAssistant.Infrastructure.Auth;
 /// batch2 任务12：admin_audit 统一写入（含哈希链）与全链验证。
 /// 契约§5：admin_audit 的 prev_hash/hash 列由流 D 在 0036 添加；本类按列存在来写——
 /// 每次写入先检查列是否存在（information_schema），不存在则退化为旧列写入，保证 0036 前后行为正确。
-/// 写入取最新已入链行（hash IS NOT NULL）的 hash 为 prev_hash（SELECT ... FOR UPDATE 串行化并发管理员写入）；
+/// 写入前取事务级 advisory lock，再读取最新已入链行（hash IS NOT NULL）的 hash 为 prev_hash；
 /// 哈希口径逐字遵守流 D 0036 文件头（deploy/verify-audit-chain.sh 按此验算）。
 /// </summary>
 public sealed class AdminAuditRepository(AccountDatabase database, string hashAlgo = "SHA256")
@@ -33,7 +33,8 @@ public sealed class AdminAuditRepository(AccountDatabase database, string hashAl
                 actorId, action, targetId, detail, createdAt);
             return;
         }
-        var prev = sql.Query("SELECT hash FROM admin_audit WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1 FOR UPDATE")
+        sql.Execute("SELECT pg_advisory_xact_lock(hashtextextended('admin_audit:append',0))");
+        var prev = sql.Query("SELECT hash FROM admin_audit WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1")
             .FirstOrDefault()?["hash"]?.GetValue<string>() ?? AdminAuditChain.GenesisPrevHash;
         var hash = AdminAuditChain.ComputeHash(hashAlgo, prev, actorId, action, targetId, detail, createdAt);
         sql.Execute("INSERT INTO admin_audit(actor_id,action,target_id,detail,prev_hash,hash,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)",
@@ -63,10 +64,16 @@ public sealed class AdminAuditRepository(AccountDatabase database, string hashAl
             return;
         }
         string prev;
+        using (var appendLock = conn.CreateCommand())
+        {
+            appendLock.Transaction = tx;
+            appendLock.CommandText = "SELECT pg_advisory_xact_lock(hashtextextended('admin_audit:append',0))";
+            appendLock.ExecuteNonQuery();
+        }
         using (var latest = conn.CreateCommand())
         {
             latest.Transaction = tx;
-            latest.CommandText = "SELECT hash FROM admin_audit WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1 FOR UPDATE";
+            latest.CommandText = "SELECT hash FROM admin_audit WHERE hash IS NOT NULL ORDER BY id DESC LIMIT 1";
             prev = latest.ExecuteScalar() as string ?? AdminAuditChain.GenesisPrevHash;
         }
         var hash = AdminAuditChain.ComputeHash(hashAlgo, prev, actorId, action, targetId, detail, createdAt);

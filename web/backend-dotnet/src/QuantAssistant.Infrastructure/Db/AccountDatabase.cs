@@ -70,13 +70,27 @@ public sealed class AccountDatabase(string connectionString) : IAccountDatabase
         return result;
     }
 
+    /// <summary>Trusted server maintenance or public-data writes; never accepts a request-supplied account identity.</summary>
+    public async Task<T> WriteSystemAsync<T>(Func<AccountSql, Task<T>> write, CancellationToken cancellation = default)
+    {
+        using var timing = PerformanceTrace.Measure("db");
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync(cancellation);
+        await using var transaction = await connection.BeginTransactionAsync(cancellation);
+        var result = await write(new AccountSql(connection, transaction, cancellation));
+        await transaction.CommitAsync(cancellation);
+        return result;
+    }
+
+    public T WriteSystem<T>(Func<AccountSql, T> write) => WriteSystemAsync(sql => Task.FromResult(write(sql))).GetAwaiter().GetResult();
+
     private static async Task RequireActiveUserAsync(AccountSql session, string userId)
     {
         // 注意：此处必须用 FOR UPDATE 而非 FOR SHARE。同一用户的并发写事务稍后会经
         // quant_account_display_changed_stmt 触发器执行 UPDATE users（行独占锁）；
         // 若此处仅持共享锁，两个并发事务会在“共享→独占”升级时形成死锁（40P01）。
         // FOR UPDATE 让并发写按用户串行等待，消除升级死锁。
-        if (userId != "compute:reaper" && await session.ScalarAsync("SELECT 1 FROM users WHERE id=$1 AND status='active' FOR UPDATE", userId) is null)
+        if (await session.ScalarAsync("SELECT 1 FROM users WHERE id=$1 AND status='active' FOR UPDATE", userId) is null)
             throw new QuantAssistant.Core.Auth.AuthFailure("authentication_required");
     }
 

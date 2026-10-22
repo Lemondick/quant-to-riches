@@ -47,7 +47,7 @@ public sealed class AskService(AccountDatabase database, ComputeService compute,
         return new JsonObject
         {
             ["matched"] = true, ["template"] = template, ["question"] = question,
-            ["answer"] = data["answer"]?.GetValue<string>(), ["data"] = data["data"],
+            ["answer"] = data["answer"]?.GetValue<string>(), ["data"] = data["data"]?.DeepClone(),
             ["model_calls"] = 0,
         };
     }
@@ -79,7 +79,7 @@ public sealed class AskService(AccountDatabase database, ComputeService compute,
         // batch3-A：模型去重缓存。model_version 取 op 作用域版本（API 侧不知 worker 选用模型，见 ModelCallCacheService 注释）。
         const string modelVersion = "ask.answer/v1";
         var prompt = new JsonObject { ["question"] = question };
-        var (hit, cached) = await modelCache.TryGetAsync(modelVersion, prompt, cancellation);
+        var (hit, cached) = await modelCache.TryGetAsync(userId, modelVersion, prompt, cancellation);
         if (hit && cached is JsonObject cachedObject)
             return new JsonObject
             {
@@ -90,7 +90,7 @@ public sealed class AskService(AccountDatabase database, ComputeService compute,
             };
         var result = await compute.Run(userId, "ask.answer", prompt.DeepClone(), cancellation, seconds: 180);
         if (result is null) throw new ApplicationFailure("worker_unavailable", 503, "问答服务暂不可用，请稍后重试。");
-        await modelCache.SetAsync(modelVersion, prompt, result, cancellation);
+        await modelCache.SetAsync(userId, modelVersion, prompt, result, cancellation);
         return new JsonObject
         {
             ["matched"] = false, ["template"] = JsonValue.Create((string?)null), ["question"] = question,

@@ -22,7 +22,7 @@ public sealed class ExplanationController(ComputeService compute, DecisionRunRep
         // batch3-A：模型去重缓存（分析/报告链路的同步模型调用；worker 内部的报告模型调用见 ModelCallCacheService 注释）。
         const string modelVersion = "analysis.explain/v1";
         var prompt = new JsonObject { ["decision_run_id"] = body.DecisionRunId, ["user_text"] = body.UserText };
-        var (hit, cached) = await modelCache.TryGetAsync(modelVersion, prompt, cancellation);
+        var (hit, cached) = await modelCache.TryGetAsync(user, modelVersion, prompt, cancellation);
         if (hit && cached is JsonObject cachedObject)
         {
             cachedObject["cached"] = true;
@@ -31,7 +31,7 @@ public sealed class ExplanationController(ComputeService compute, DecisionRunRep
         var result = await compute.Run(user, "analysis.explain", body, cancellation, accountSnapshot: true);
         if (result?.AsObject() is { } resultObject)
         {
-            await modelCache.SetAsync(modelVersion, prompt, resultObject, cancellation);
+            await modelCache.SetAsync(user, modelVersion, prompt, resultObject, cancellation);
             resultObject["cached"] = false;
         }
         return Ok(result);

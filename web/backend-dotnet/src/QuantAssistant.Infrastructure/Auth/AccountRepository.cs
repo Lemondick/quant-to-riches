@@ -645,7 +645,7 @@ public sealed class AccountRepository(string connectionString, string auditHashA
     {
         using var conn = Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM totp_login_challenges WHERE expires_at<=$2; INSERT INTO totp_login_challenges(token_hash,user_id,created_at,expires_at) VALUES($1,$3,$2,$4)";
+        cmd.CommandText = "WITH expired AS (DELETE FROM totp_login_challenges WHERE expires_at<=$2) INSERT INTO totp_login_challenges(token_hash,user_id,created_at,expires_at) VALUES($1,$3,$2,$4)";
         cmd.Parameters.AddWithValue(tokenHash);
         cmd.Parameters.AddWithValue(now);
         cmd.Parameters.AddWithValue(userId);

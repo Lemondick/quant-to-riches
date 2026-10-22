@@ -47,9 +47,9 @@ public sealed class SmartDcaRepository(IAccountDatabase database)
     }
 
     public async Task<JsonArray> ListAsync(string userId, string? status, CancellationToken cancellation = default) =>
-        await database.ReadAsync(async sql =>
-            await sql.QueryAsync($"SELECT {Columns} FROM smart_dca_plans WHERE user_id=$1 AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC",
-                userId, status), cancellation);
+        await database.ReadAsync(async sql => new JsonArray(
+            (await sql.QueryAsync($"SELECT {Columns} FROM smart_dca_plans WHERE user_id=$1 AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC",
+                userId, status)).OfType<JsonObject>().Select(row => (JsonNode)View(row)).ToArray()), cancellation);
 
     public async Task<JsonObject> GetAsync(string userId, string planId, CancellationToken cancellation = default) =>
         await database.ReadAsync(async sql =>
@@ -84,13 +84,20 @@ public sealed class SmartDcaRepository(IAccountDatabase database)
 
     /// <summary>到期检查用：所有活跃且 next_run_date <= today 的计划。</summary>
     public async Task<JsonArray> DuePlansAsync(DateOnly today, CancellationToken cancellation = default) =>
-        await database.QueryAsync(
-            $"SELECT {Columns},user_id FROM smart_dca_plans WHERE status='active' AND next_run_date IS NOT NULL AND next_run_date<=$1",
-            [today], cancellation);
+        ReminderViews(await database.QueryAsync(
+            $"SELECT {Columns},user_id FROM smart_dca_plans WHERE status='active' AND next_run_date IS NOT NULL AND next_run_date<=$1 AND user_id IN (SELECT id FROM users WHERE status='active')",
+            [today], cancellation));
 
     /// <summary>估值触发用：所有活跃计划去重标的。</summary>
     public async Task<JsonArray> ActivePlansAsync(CancellationToken cancellation = default) =>
-        await database.QueryAsync($"SELECT {Columns},user_id FROM smart_dca_plans WHERE status='active'", [], cancellation);
+        ReminderViews(await database.QueryAsync($"SELECT {Columns},user_id FROM smart_dca_plans WHERE status='active' AND user_id IN (SELECT id FROM users WHERE status='active')", [], cancellation));
+
+    private static JsonArray ReminderViews(JsonArray rows) => new(rows.OfType<JsonObject>().Select(row =>
+    {
+        var view = View(row);
+        view["user_id"] = row["user_id"]?.DeepClone();
+        return (JsonNode)view;
+    }).ToArray());
 
     public async Task AdvanceNextRunAsync(string userId, string planId, DateOnly next, CancellationToken cancellation = default) =>
         await database.WriteNonLedgerAsync(userId,
@@ -98,11 +105,14 @@ public sealed class SmartDcaRepository(IAccountDatabase database)
 
     public static JsonObject View(JsonObject row) => new()
     {
-        ["id"] = row["id"]?.GetValue<string>(), ["symbol"] = row["symbol"]?.GetValue<string>(),
+        ["id"] = row["id"]?.GetValue<string>(),
+        ["symbol"] = row["symbol"]?.GetValue<string>(),
         ["base_amount"] = row["base_amount"]?.GetValue<string>(),
-        ["rules"] = row["rules_json"] is null ? new JsonObject() : JsonNode.Parse(row["rules_json"]!.GetValue<string>())!.AsObject(),
-        ["frequency"] = row["frequency"]?.GetValue<string>(), ["next_run_date"] = row["next_run_date"]?.GetValue<string>(),
-        ["status"] = row["status"]?.GetValue<string>(), ["created_at"] = row["created_at"]?.GetValue<string>(),
+        ["rules"] = row["rules_json"]?.DeepClone() ?? new JsonObject(),
+        ["frequency"] = row["frequency"]?.GetValue<string>(),
+        ["next_run_date"] = row["next_run_date"]?.GetValue<string>(),
+        ["status"] = row["status"]?.GetValue<string>(),
+        ["created_at"] = row["created_at"]?.GetValue<string>(),
         ["updated_at"] = row["updated_at"]?.GetValue<string>(),
     };
 }

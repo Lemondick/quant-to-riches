@@ -20,12 +20,16 @@ public sealed class SmartDcaService(SmartDcaRepository plans, ComputeService com
         if (start >= end || start < new DateOnly(1990, 1, 1) || end > today)
             throw new ArgumentException("回测起止日期无效（须 start<end 且不晚于今日）。");
         var plan = await plans.GetAsync(userId, planId, cancellation);
+        var rules = plan["rules"]!.DeepClone().AsObject();
+        // Persisted thresholds are fractions; the worker and valuation feed use 0..100.
+        rules["halt_pct"] = rules["halt_pct"]!.GetValue<double>() * 100;
         var payload = new JsonObject
         {
             ["index_symbol"] = plan["symbol"]!.GetValue<string>(),
-            ["start"] = start.ToString("yyyy-MM-dd"), ["end"] = end.ToString("yyyy-MM-dd"),
+            ["start"] = start.ToString("yyyy-MM-dd"),
+            ["end"] = end.ToString("yyyy-MM-dd"),
             ["base_amount"] = decimal.Parse(plan["base_amount"]!.GetValue<string>(), CultureInfo.InvariantCulture),
-            ["rules"] = plan["rules"]!.DeepClone(),
+            ["rules"] = rules,
         };
         var result = await compute.Run(userId, "dca.smart_plan_backtest", payload, cancellation, seconds: 300);
         return result ?? throw new ApplicationFailure("worker_unavailable", 503, "回测计算未完成，请稍后重试。");
@@ -65,44 +69,47 @@ public sealed class SmartDcaService(SmartDcaRepository plans, ComputeService com
     {
         var active = plans.ActivePlansAsync().GetAwaiter().GetResult().OfType<JsonObject>().ToList();
         if (active.Count == 0) return;
-        var symbols = active.Select(p => p["symbol"]!.GetValue<string>()).Distinct(StringComparer.Ordinal).ToArray();
-        var payload = new JsonObject
+        foreach (var owned in active.GroupBy(p => p["user_id"]!.GetValue<string>()))
         {
-            ["indices"] = new JsonArray(symbols.Select(s => (JsonNode)new JsonObject { ["symbol"] = s, ["market"] = "CN" }).ToArray()),
-            ["years"] = 10,
-        };
-        var result = compute.Run("system:smart-dca", "valuation.percentiles", payload, CancellationToken.None, seconds: 180)
-            .GetAwaiter().GetResult()?.AsObject();
-        var percentiles = result?["items"]?.AsArray() ?? new JsonArray();
-        var bySymbol = percentiles.OfType<JsonObject>()
-            .Where(i => i["symbol"]?.GetValue<string>() is { } s && symbols.Contains(s, StringComparer.Ordinal))
-            .ToDictionary(i => i["symbol"]!.GetValue<string>(), i => i, StringComparer.Ordinal);
-        foreach (var plan in active)
-        {
-            try
+            var symbols = owned.Select(p => p["symbol"]!.GetValue<string>()).Distinct(StringComparer.Ordinal).ToArray();
+            var payload = new JsonObject
             {
-                var userId = plan["user_id"]!.GetValue<string>();
-                var planId = plan["id"]!.GetValue<string>();
-                var symbol = plan["symbol"]!.GetValue<string>();
-                if (!bySymbol.TryGetValue(symbol, out var item)) continue;
-                var pePct = item["pe_pct"]?.GetValue<double?>();
-                if (pePct is null) continue;
-                var rules = plan["rules"]!.AsObject();
-                var halt = rules["halt_pct"]!.GetValue<double>();
-                var cut = rules["high_pct_cut"]!.GetValue<double>();
-                var boost = rules["low_pct_boost"]!.GetValue<double>();
-                var baseAmount = decimal.Parse(plan["base_amount"]!.GetValue<string>(), CultureInfo.InvariantCulture);
-                decimal suggest;
-                string label;
-                if (pePct >= halt) { suggest = 0m; label = "暂停"; }
-                else if (pePct >= 70) { suggest = Math.Round(baseAmount * (decimal)(1 - cut), 2); label = "高估削减"; }
-                else if (pePct <= 30) { suggest = Math.Round(baseAmount * (decimal)(1 + boost), 2); label = "低估加投"; }
-                else continue; // 估值中性：不打扰。
-                RaiseReminder(userId, planId, "valuation",
-                    $"智能定投估值触发（{label}）：{symbol} PE 分位 {pePct:0.#}%，建议本期投入 {suggest} 元（基准 {baseAmount} 元），请手动执行（系统不会自动扣款）。",
-                    new JsonObject { ["pe_pct"] = pePct, ["suggested_amount"] = suggest, ["trigger"] = label });
+                ["indices"] = new JsonArray(symbols.Select(s => (JsonNode)new JsonObject { ["symbol"] = s, ["market"] = "CN" }).ToArray()),
+                ["years"] = 10,
+            };
+            var result = compute.Run(owned.Key, "valuation.percentiles", payload, CancellationToken.None, seconds: 180)
+                .GetAwaiter().GetResult()?.AsObject();
+            var percentiles = result?["items"]?.AsArray() ?? new JsonArray();
+            var bySymbol = percentiles.OfType<JsonObject>()
+                .Where(i => i["symbol"]?.GetValue<string>() is { } s && symbols.Contains(s, StringComparer.Ordinal))
+                .ToDictionary(i => i["symbol"]!.GetValue<string>(), i => i, StringComparer.Ordinal);
+            foreach (var plan in owned)
+            {
+                try
+                {
+                    var userId = plan["user_id"]!.GetValue<string>();
+                    var planId = plan["id"]!.GetValue<string>();
+                    var symbol = plan["symbol"]!.GetValue<string>();
+                    if (!bySymbol.TryGetValue(symbol, out var item)) continue;
+                    var pePct = item["pe_pct"]?.GetValue<double?>();
+                    if (pePct is null) continue;
+                    var rules = plan["rules"]!.AsObject();
+                    var halt = rules["halt_pct"]!.GetValue<double>() * 100;
+                    var cut = rules["high_pct_cut"]!.GetValue<double>();
+                    var boost = rules["low_pct_boost"]!.GetValue<double>();
+                    var baseAmount = decimal.Parse(plan["base_amount"]!.GetValue<string>(), CultureInfo.InvariantCulture);
+                    decimal suggest;
+                    string label;
+                    if (pePct >= halt) { suggest = 0m; label = "暂停"; }
+                    else if (pePct >= 70) { suggest = Math.Round(baseAmount * (decimal)(1 - cut), 2); label = "高估削减"; }
+                    else if (pePct <= 30) { suggest = Math.Round(baseAmount * (decimal)(1 + boost), 2); label = "低估加投"; }
+                    else continue; // 估值中性：不打扰。
+                    RaiseReminder(userId, planId, "valuation",
+                        $"智能定投估值触发（{label}）：{symbol} PE 分位 {pePct:0.#}%，建议本期投入 {suggest} 元（基准 {baseAmount} 元），请手动执行（系统不会自动扣款）。",
+                        new JsonObject { ["pe_pct"] = pePct, ["suggested_amount"] = suggest, ["trigger"] = label });
+                }
+                catch (Exception) { /* 单个计划失败不中断其余 */ }
             }
-            catch (Exception) { /* 单个计划失败不中断其余 */ }
         }
     }
 

@@ -14,7 +14,7 @@ public sealed class SessionAuthenticationMiddleware(RequestDelegate next, IConfi
 {
     private static readonly HashSet<string> PublicPaths = new(StringComparer.OrdinalIgnoreCase)
     {
-        "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/status", "/api/v1/auth/recovery/redeem",
+        "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/status", "/api/v1/auth/recovery/redeem", "/api/v1/auth/2fa/verify",
     };
 
     public async Task InvokeAsync(HttpContext context, AuthService auth)

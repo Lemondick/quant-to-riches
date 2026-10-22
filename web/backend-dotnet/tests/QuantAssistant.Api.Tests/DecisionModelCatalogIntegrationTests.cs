@@ -24,7 +24,7 @@ public sealed class DecisionModelCatalogIntegrationTests
             using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
                 builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(
                     new Dictionary<string, string?> { ["QUANT_SECRET_ROOT"] = root })));
-            using var client = factory.CreateClient();
+            using var client = factory.CreateTestClient();
             PgTestUser.AttachSession(client, user.Connection, user.Id);
             var secrets = factory.Services.GetRequiredService<PrivateSecretStore>();
             var providerRef = secrets.Save(user.Id, "synthetic-provider-key");

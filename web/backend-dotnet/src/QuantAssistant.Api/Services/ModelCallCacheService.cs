@@ -5,12 +5,13 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using QuantAssistant.Api.Configuration;
 using QuantAssistant.Infrastructure.Db;
+using QuantAssistant.Core.Auth;
 
 namespace QuantAssistant.Api.Services;
 
 /// <summary>
 /// batch3 流 A：模型调用去重缓存。
-/// 键 = sha256(model_version + canonical_json(prompt))（batch3 跨流契约）；
+/// 键包含账户身份、模型版本和 canonical_json(prompt)，避免私人结果跨账户复用；
 /// TTL 走 QUANT_MODEL_CACHE_TTL_MIN（默认 60 分钟），开关 QUANT_MODEL_CACHE_ENABLED（默认 true）；
 /// 命中返回 cached:true（由调用方在响应中标记），DB 侧审计记 model_call_cache.hits+1。
 /// model_call_cache 表由流 D 建（0040：prompt_hash PK, model_version, result_json, hits, created_at, expires_at）；
@@ -49,8 +50,25 @@ public sealed class ModelCallCacheService(AccountDatabase database, QuantOptions
         return node?.ToJsonString() ?? "null";
     }
 
-    public static string CacheKey(string modelVersion, JsonNode prompt) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(modelVersion + CanonicalJson(prompt)))).ToLowerInvariant();
+    public static string CacheKey(string userId, string modelVersion, JsonNode prompt) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(CanonicalJson(new JsonObject
+        {
+            ["user_id"] = userId, ["model_version"] = modelVersion, ["prompt"] = prompt.DeepClone(),
+        })))).ToLowerInvariant();
+
+    private async Task RequireActiveUserAsync(string userId, CancellationToken cancellation)
+    {
+        var rows = await database.QueryAsync("SELECT 1 FROM users WHERE id=$1 AND status='active'", [userId], cancellation);
+        if (rows.Count == 0) throw new AuthFailure("authentication_required");
+    }
+
+    private (bool Hit, JsonNode? Result) ReadMemory(string key)
+    {
+        if (_memory.TryGetValue(key, out var entry) && entry.ExpiresAt > DateTimeOffset.UtcNow)
+            return (true, JsonNode.Parse(entry.ResultJson));
+        _memory.TryRemove(key, out _);
+        return (false, null);
+    }
 
     private bool TableExists()
     {
@@ -74,18 +92,14 @@ public sealed class ModelCallCacheService(AccountDatabase database, QuantOptions
     }
 
     /// <summary>命中返回 (true, 结果)；调用方在响应中标记 cached:true。未命中/未启用返回 (false, null)。</summary>
-    public async Task<(bool Hit, JsonNode? Result)> TryGetAsync(string modelVersion, JsonNode prompt,
+    public async Task<(bool Hit, JsonNode? Result)> TryGetAsync(string userId, string modelVersion, JsonNode prompt,
         CancellationToken cancellation = default)
     {
         if (!options.ModelCacheEnabled) return (false, null);
-        var key = CacheKey(modelVersion, prompt);
-        if (!TableExists())
-        {
-            if (_memory.TryGetValue(key, out var entry) && entry.ExpiresAt > DateTimeOffset.UtcNow)
-                return (true, JsonNode.Parse(entry.ResultJson));
-            _memory.TryRemove(key, out _);
-            return (false, null);
-        }
+        await RequireActiveUserAsync(userId, cancellation);
+        var key = CacheKey(userId, modelVersion, prompt);
+        var memory = ReadMemory(key);
+        if (memory.Hit || !TableExists()) return memory;
         JsonArray rows;
         try
         {
@@ -103,7 +117,7 @@ public sealed class ModelCallCacheService(AccountDatabase database, QuantOptions
         // 审计：hits+1（best-effort，不影响返回）。
         try
         {
-            await database.WriteNonLedgerAsync("model:cache",
+            await database.WriteNonLedgerAsync(userId,
                 sql => sql.ExecuteAsync("UPDATE model_call_cache SET hits=hits+1 WHERE prompt_hash=$1", key), cancellation);
         }
         catch (Exception) { /* 审计失败不影响命中返回 */ }
@@ -111,11 +125,12 @@ public sealed class ModelCallCacheService(AccountDatabase database, QuantOptions
     }
 
     /// <summary>写入/刷新缓存（TTL 到期覆盖）。失败降级为内存写入，不抛错。</summary>
-    public async Task SetAsync(string modelVersion, JsonNode prompt, JsonNode result,
+    public async Task SetAsync(string userId, string modelVersion, JsonNode prompt, JsonNode result,
         CancellationToken cancellation = default)
     {
         if (!options.ModelCacheEnabled) return;
-        var key = CacheKey(modelVersion, prompt);
+        await RequireActiveUserAsync(userId, cancellation);
+        var key = CacheKey(userId, modelVersion, prompt);
         var ttlMinutes = Math.Max(1, options.ModelCacheTtlMinutes);
         var json = result.ToJsonString();
         if (!TableExists())
@@ -125,12 +140,13 @@ public sealed class ModelCallCacheService(AccountDatabase database, QuantOptions
         }
         try
         {
-            await database.WriteNonLedgerAsync("model:cache", sql => sql.ExecuteAsync("""
+            await database.WriteNonLedgerAsync(userId, sql => sql.ExecuteAsync("""
                 INSERT INTO model_call_cache(prompt_hash,model_version,result_json,hits,created_at,expires_at)
                 VALUES($1,$2,$3::json,0,now(),now()+($4::int * interval '1 minute'))
                 ON CONFLICT(prompt_hash) DO UPDATE SET model_version=EXCLUDED.model_version,
                     result_json=EXCLUDED.result_json,hits=0,created_at=now(),expires_at=EXCLUDED.expires_at
                 """, key, modelVersion, json, ttlMinutes), cancellation);
+            _memory.TryRemove(key, out _);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {

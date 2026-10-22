@@ -46,7 +46,7 @@ builder.Services.AddRateLimiter(options =>
 {
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         HttpMethods.IsPost(context.Request.Method) && context.Request.Path.Value?.TrimEnd('/').ToLowerInvariant() is
-            "/api/v1/auth/login" or "/api/v1/auth/register" or "/api/v1/auth/recovery/redeem" or "/api/v1/auth/password"
+            "/api/v1/auth/login" or "/api/v1/auth/register" or "/api/v1/auth/recovery/redeem" or "/api/v1/auth/password" or "/api/v1/auth/2fa/verify"
             ? RateLimitPartition.GetTokenBucketLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new()
             { TokenLimit = 20, TokensPerPeriod = 20, ReplenishmentPeriod = TimeSpan.FromMinutes(1), QueueLimit = 0 })
             : RateLimitPartition.GetNoLimiter("other"));
@@ -260,7 +260,7 @@ var app = builder.Build();
 var siteLock = app.Services.GetRequiredService<QuantAssistant.Api.Services.NativeSiteLock>();
 if(QuantAssistant.Api.NativeSecretCommands.Execute(args,app.Services,connectionString))return;
 if (siteLock.Held && builder.Configuration["QUANT_WORKER_SECRET"] is { Length: >= 32 })
-    app.Services.GetRequiredService<AccountDatabase>().Write("compute:reaper", sql => sql.Execute("UPDATE worker_heartbeats SET stopping=true"));
+    app.Services.GetRequiredService<AccountDatabase>().WriteSystem(sql => sql.Execute("UPDATE worker_heartbeats SET stopping=true"));
 
 app.UseForwardedHeaders();
 // E16：异常处理器必须在 NativeMetrics/RequestId/Performance 之前，

@@ -34,10 +34,10 @@ public sealed class RiskController(ComputeService compute, IMemoryCache cache, Q
         if (portfolioId.Length is 0 or > 64) throw new ArgumentException("portfolio_id 无效。");
         if (period_days is < 30 or > 1825) throw new ArgumentException("period_days 须在 30 到 1825 之间。");
         var payload = new JsonObject { ["portfolio_id"] = portfolioId, ["period_days"] = period_days };
-        var key = "risk:metrics:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload.ToJsonString())));
+        var key = "risk:metrics:" + Id + ":" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload.ToJsonString())));
         if (cache.TryGetValue(key, out JsonNode? hit) && hit is not null)
             return Ok(new JsonObject { ["cached"] = true, ["result"] = hit.DeepClone() });
-        var result = (await compute.Run(Id, "risk.metrics", payload, cancellation, seconds: 180))?.AsObject()
+        var result = (await compute.Run(Id, "risk.metrics", payload, cancellation, accountSnapshot: true, seconds: 180))?.AsObject()
             ?? throw new QuantAssistant.Core.Errors.ApplicationFailure("worker_unavailable", 503, "风险指标计算未完成，请稍后重试。");
         cache.Set(key, result.DeepClone(), new MemoryCacheEntryOptions
         {
@@ -56,7 +56,7 @@ public sealed class RiskController(ComputeService compute, IMemoryCache cache, Q
         var portfolioId = string.IsNullOrWhiteSpace(portfolio_id) ? Id : portfolio_id.Trim();
         if (portfolioId.Length is 0 or > 64) throw new ArgumentException("portfolio_id 无效。");
         var result = (await compute.Run(Id, "risk.stress_test",
-            new JsonObject { ["portfolio_id"] = portfolioId }, cancellation, seconds: 180))?.AsObject()
+            new JsonObject { ["portfolio_id"] = portfolioId }, cancellation, accountSnapshot: true, seconds: 180))?.AsObject()
             ?? throw new QuantAssistant.Core.Errors.ApplicationFailure("worker_unavailable", 503, "压力测试计算未完成，请稍后重试。");
         // 契约铁律：响应必须带 disclaimer:"假想测算非预测"（覆盖 worker 侧同义表述，统一口径）。
         result["disclaimer"] = "假想测算非预测";

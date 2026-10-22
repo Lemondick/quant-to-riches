@@ -38,9 +38,9 @@ public sealed class MigrationRunner(string connectionString)
         }
         try
         {
-            EnsureMigrationsTable(connection);
+            if (!options.DryRun) EnsureMigrationsTable(connection);
             var applied = ReadApplied(connection);
-            VerifyNoDrift(connection, files, applied);
+            VerifyNoDrift(connection, files, applied, backfill: !options.DryRun);
 
             if (options.RollbackTo is not null)
                 return RollbackTo(connection, files, applied, options.RollbackTo, options.DryRun);
@@ -80,7 +80,11 @@ public sealed class MigrationRunner(string connectionString)
     {
         var applied = new Dictionary<string, string?>(StringComparer.Ordinal);
         using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT version, sha256 FROM schema_migrations";
+        cmd.CommandText = "SELECT to_regclass('schema_migrations') IS NOT NULL";
+        if (!(bool)cmd.ExecuteScalar()!) return applied;
+        cmd.CommandText = "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('schema_migrations') AND attname='sha256' AND NOT attisdropped)";
+        var hasChecksum = (bool)cmd.ExecuteScalar()!;
+        cmd.CommandText = hasChecksum ? "SELECT version, sha256 FROM schema_migrations" : "SELECT version, NULL::text FROM schema_migrations";
         using var reader = cmd.ExecuteReader();
         while (reader.Read()) applied[reader.GetString(0)] = reader.IsDBNull(1) ? null : reader.GetString(1);
         return applied;
@@ -89,7 +93,7 @@ public sealed class MigrationRunner(string connectionString)
     private static string Sha256(string file) =>
         Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant();
 
-    private static void VerifyNoDrift(NpgsqlConnection connection, List<string> files, Dictionary<string, string?> applied)
+    private static void VerifyNoDrift(NpgsqlConnection connection, List<string> files, Dictionary<string, string?> applied, bool backfill)
     {
         foreach (var file in files)
         {
@@ -98,6 +102,7 @@ public sealed class MigrationRunner(string connectionString)
             var current = Sha256(file);
             if (recorded is null)
             {
+                if (!backfill) continue;
                 // Grandfather：老迁移首次纳入校验和（内容不改写），打印提示以便审计。
                 using var cmd = connection.CreateCommand();
                 cmd.CommandText = "UPDATE schema_migrations SET sha256=$2 WHERE version=$1";
@@ -170,7 +175,7 @@ public sealed class MigrationRunner(string connectionString)
         var victims = applied.Keys.Where(version => string.Compare(version, target, StringComparison.Ordinal) > 0)
             .OrderByDescending(version => version, StringComparer.Ordinal).ToList();
         if (dryRun) return victims;
-        var rolledBack = new List<string>();
+        var scripts = new List<(string Version, string File)>();
         foreach (var version in victims)
         {
             if (!byVersion.TryGetValue(version, out var upFile))
@@ -180,6 +185,12 @@ public sealed class MigrationRunner(string connectionString)
                 throw new InvalidOperationException(
                     $"回滚被拒绝：{version} 缺少同名 .down.sql 回滚脚本（应为 {Path.GetFileName(downFile)}）。" +
                     "请先补充回滚脚本，或改用整库备份恢复。");
+            scripts.Add((version, downFile));
+        }
+        // Validate the whole requested rollback before removing the first version.
+        var rolledBack = new List<string>();
+        foreach (var (version, downFile) in scripts)
+        {
             using var transaction = connection.BeginTransaction();
             using (var cmd = connection.CreateCommand())
             {

@@ -29,7 +29,7 @@ public sealed class AnnouncementRepository(AccountDatabase database)
     {
         var list = items.ToList();
         if (list.Count == 0) return 0;
-        return await database.WriteNonLedgerAsync("system:announcements", async sql =>
+        return await database.WriteSystemAsync(async sql =>
         {
             var inserted = 0;
             foreach (var item in list)

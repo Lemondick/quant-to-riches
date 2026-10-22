@@ -1,6 +1,11 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
+using System.Globalization;
 using QuantAssistant.Api.Configuration;
+using QuantAssistant.Core.Errors;
+using QuantAssistant.Core.Portfolio;
 using QuantAssistant.Infrastructure.Db;
+using QuantAssistant.Infrastructure.Portfolio;
 
 namespace QuantAssistant.Api.Services;
 
@@ -12,7 +17,7 @@ namespace QuantAssistant.Api.Services;
 ///   结果 JSON 存 site_settings（key=fund_health_check_latest:{userId}，避免新迁移）；critical 发现同步写用户告警。
 /// 口径假设（commit 注明）：批次取每只基金最新快照（fund_lot_snapshots 最新 id）的剩余份额；cron 解析仅支持数字与 *。
 /// </summary>
-public sealed class FundMaintenanceService(AccountDatabase database, ComputeService compute, QuantOptions options)
+public sealed class FundMaintenanceService(AccountDatabase database, ComputeService compute, QuantOptions options, FundFeeRepository fees)
 {
     private DateOnly _lastRedemptionCheck = DateOnly.MinValue;
     private DateOnly _lastHealthRun = DateOnly.MinValue;
@@ -36,20 +41,49 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
 
     private void CheckUserRedemption(string userId, int remindDays)
     {
-        var lots = database.Read(sql => sql.Query("""
+        var lots = database.Read(sql =>
+        {
+            var rows = sql.Query("""
             SELECT s.symbol AS fund_code, l.lot_id, l.confirmed_on::text AS acquired_at, l.remaining_units::text AS amount
             FROM fund_lot_snapshots s JOIN fund_holding_lots l ON l.user_id=s.user_id AND l.snapshot_id=s.id
             WHERE s.user_id=$1 AND l.remaining_units > 0
               AND s.id = (SELECT max(id) FROM fund_lot_snapshots WHERE user_id=s.user_id AND symbol=s.symbol)
             ORDER BY s.symbol, l.confirmed_on, l.lot_id
-            """, userId)).OfType<JsonObject>().ToList();
+            """, userId).OfType<JsonObject>();
+            var verified = new List<JsonObject>();
+            foreach (var row in rows)
+            {
+                var symbol = row["fund_code"]!.GetValue<string>();
+                try
+                {
+                    var schedule = fees.Current(sql, userId, symbol, FundFeeRepository.Today());
+                    var nav = sql.Scalar("""
+                    SELECT sum(market_value)/NULLIF(sum(quantity),0) FROM (
+                      SELECT quantity,market_value FROM positions WHERE user_id=$1 AND symbol=$2 AND quantity>0
+                      UNION ALL SELECT p.quantity,p.market_value FROM account_positions p
+                      JOIN portfolio_accounts a ON a.user_id=p.user_id AND a.account_id=p.account_id
+                      WHERE p.user_id=$1 AND p.symbol=$2 AND p.quantity>0 AND a.status='active'
+                    ) held
+                    """, userId, symbol);
+                    if (nav is not decimal currentNav || currentNav <= 0) continue;
+                    row["amount"] = (decimal.Parse(row["amount"]!.GetValue<string>(), CultureInfo.InvariantCulture) * currentNav).ToString(CultureInfo.InvariantCulture);
+                    row["redemption_tiers"] = JsonSerializer.SerializeToNode(schedule.RedemptionTiers, FinanceJson.Options);
+                    verified.Add(row);
+                }
+                catch (Exception error) when (error is UnverifiedFeeScheduleError or ArgumentException) { /* 无已验证费率证据，跳过。 */ }
+            }
+            return verified;
+        });
         if (lots.Count == 0) return;
         var payload = new JsonObject
         {
             ["lots"] = new JsonArray(lots.Select(l => (JsonNode)new JsonObject
             {
-                ["fund_code"] = l["fund_code"]?.GetValue<string>(), ["lot_id"] = l["lot_id"]?.GetValue<string>(),
-                ["acquired_at"] = l["acquired_at"]?.GetValue<string>(), ["amount"] = l["amount"]?.GetValue<string>(),
+                ["fund_code"] = l["fund_code"]?.GetValue<string>(),
+                ["lot_id"] = l["lot_id"]?.GetValue<string>(),
+                ["acquired_at"] = l["acquired_at"]?.GetValue<string>(),
+                ["amount"] = l["amount"]?.GetValue<string>(),
+                ["redemption_tiers"] = l["redemption_tiers"]?.DeepClone(),
             }).ToArray()),
             ["days_ahead"] = remindDays,
         };
@@ -70,11 +104,14 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
                 var detail = new JsonObject
                 {
                     ["severity"] = "warning",
-                    ["message"] = $"{fundCode} 批次 {lotId} 将在 {daysLeft:0.#} 天后进入更低赎回费率档（{window["current_tier"]?.GetValue<string>()} → {window["next_tier"]?.GetValue<string>()}），" +
+                    ["message"] = $"{fundCode} 批次 {lotId} 将在 {daysLeft:0.#} 天后进入更低赎回费率档（{TierRate(window["current_tier"])} → {TierRate(window["next_tier"])}），" +
                         $"预计可省约 {window["save_estimate"]?.GetValue<string>()} 元。如不急用可等降档后再赎回。",
-                    ["fund_code"] = fundCode, ["lot_id"] = lotId,
-                    ["current_tier"] = window["current_tier"]?.DeepClone(), ["next_tier"] = window["next_tier"]?.DeepClone(),
-                    ["next_tier_at"] = window["next_tier_at"]?.DeepClone(), ["days_left"] = daysLeft,
+                    ["fund_code"] = fundCode,
+                    ["lot_id"] = lotId,
+                    ["current_tier"] = window["current_tier"]?.DeepClone(),
+                    ["next_tier"] = window["next_tier"]?.DeepClone(),
+                    ["next_tier_at"] = window["next_tier_at"]?.DeepClone(),
+                    ["days_left"] = daysLeft,
                     ["save_estimate"] = window["save_estimate"]?.DeepClone(),
                 };
                 sql.Execute("""
@@ -89,6 +126,10 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
             return 0;
         });
     }
+
+    private static string TierRate(JsonNode? tier) =>
+        decimal.TryParse(tier?["rate"]?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var rate)
+            ? (rate * 100).ToString("0.####", CultureInfo.InvariantCulture) + "%" : "未知";
 
     public void CheckFundHealth()
     {
@@ -129,7 +170,8 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
         {
             ["funds"] = new JsonArray(funds.Select(f => (JsonNode)new JsonObject
             {
-                ["code"] = f["code"]?.GetValue<string>(), ["name"] = f["name"]?.GetValue<string>(),
+                ["code"] = f["code"]?.GetValue<string>(),
+                ["name"] = f["name"]?.GetValue<string>(),
             }).ToArray()),
         };
         var result = (compute.Run(userId, "fund.health_check", payload, CancellationToken.None, seconds: 300)
@@ -154,8 +196,10 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
                     {
                         ["severity"] = "critical",
                         ["message"] = $"{code} 体检发现严重问题（{finding["kind"]?.GetValue<string>()}）：{finding["detail"]?.GetValue<string>()}",
-                        ["fund_code"] = code, ["kind"] = finding["kind"]?.DeepClone(),
-                        ["detail"] = finding["detail"]?.DeepClone(), ["evidence"] = finding["evidence"]?.DeepClone(),
+                        ["fund_code"] = code,
+                        ["kind"] = finding["kind"]?.DeepClone(),
+                        ["detail"] = finding["detail"]?.DeepClone(),
+                        ["evidence"] = finding["evidence"]?.DeepClone(),
                     };
                     sql.Execute("""
                         INSERT INTO user_alert_center(user_id,id,kind,subject,detail,first_seen,last_seen,active,acknowledged)
