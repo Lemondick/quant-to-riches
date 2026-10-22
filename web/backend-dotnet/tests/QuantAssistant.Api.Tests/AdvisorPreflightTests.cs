@@ -29,7 +29,7 @@ public sealed class AdvisorPreflightTests
             foreach (var key in new[] { "model-provider", "model-jev" })
             {
                 var reference = secrets.Save(user.Id, "synthetic-unused-model-credential");
-                user.Execute("INSERT INTO user_documents(user_id,document_key,revision,payload) VALUES($1,$2,1,$3::jsonb)", user.Id, key, JsonSerializer.Serialize(new { revision=1, models=Array.Empty<string>(), key_reference=reference }));
+                user.Execute("INSERT INTO user_documents(user_id,document_key,revision,payload) VALUES($1,$2,1,$3::jsonb)", user.Id, key, JsonSerializer.Serialize(new { revision=1, models=key == "model-provider" ? new[] { "gemini-3.1-pro-low", "gpt-6.1-sol", "gpt-6-astra" } : new[] { "jev-latest" }, key_reference=reference }));
             }
             user.Execute("INSERT INTO advisor_provider_selection(user_id,id,provider_revision) VALUES($1,1,1)", user.Id);
             var pending = client.PostAsJsonAsync("/api/v1/advisor/preflight", new { kind="morning" });

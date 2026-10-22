@@ -97,6 +97,139 @@ def execute_paid(kind, payload):
     )
     models = AdvisorModels(settings, post=public_post)
     models.costs = CostClient(payload["_execution"])
+    if (
+        kind == "agent.research"
+        and payload.get("research_engine") == "tradingagents_full"
+    ):
+        from tradingagents_operations import execute_full_tradingagents
+
+        expires = datetime.fromisoformat(payload["preview_expires_at"])
+        if expires <= datetime.now(SHANGHAI_TZ):
+            raise AdvisorModelError("preview_expired")
+        current = execute_strategy(
+            "strategy.preview",
+            {
+                "snapshot": payload["snapshot"],
+                "parameters": payload["preview_parameters"],
+            },
+        )
+        if current.get("_evidence", {}).get("content_hash") != payload[
+            "preview_content_hash"
+        ]:
+            raise AdvisorModelError("preview_changed")
+        upstream = execute_full_tradingagents(payload)
+        facts = payload["request"].get("facts", [])
+        frozen_sources = [
+            {
+                "id": fact["fact_id"],
+                "content": fact,
+                "source_time_status": fact.get("source_time_status", "unknown"),
+            }
+            for fact in facts
+            if isinstance(fact, dict) and isinstance(fact.get("fact_id"), str)
+        ]
+        upstream_sources = [
+            {
+                "id": item["source_id"],
+                "content": item.get("content", ""),
+                "tool_name": item.get("tool_name", "unknown"),
+                "source_time_status": item.get("source_time_status", "unknown"),
+                "observed_at": item.get("observed_at"),
+            }
+            for item in upstream.get("tool_evidence", [])
+            if isinstance(item, dict) and isinstance(item.get("source_id"), str)
+        ]
+        compact_state = {
+            "input": {
+                "kind": "morning",
+                "symbols": [payload["request"]["symbol"]],
+                "sources": [*frozen_sources, *upstream_sources],
+                "blockers": list(payload["request"].get("warnings", [])),
+                "symbol_gates": {},
+                "observed_at": payload["request"].get("data_date"),
+                "tradingagents": {
+                    "data_quality_summary": str(
+                        upstream.get("data_quality_summary", "")
+                    )[:5000],
+                    "missing_data_tasks": upstream.get("missing_data_tasks", []),
+                    "analysts": {
+                        key: str(value)[:1800]
+                        for key, value in upstream.get("analysts", {}).items()
+                    },
+                    "research_plan": str(
+                        upstream.get("research_plan", "")
+                    )[:5000],
+                    "trader_proposal": str(
+                        upstream.get("trader_proposal", "")
+                    )[:3000],
+                    "risk_debate": str(
+                        upstream.get("risk_debate", "")
+                    )[:5000],
+                    "portfolio_decision": str(
+                        upstream.get("portfolio_decision", "")
+                    )[:5000],
+                },
+            }
+        }
+        questions = {
+            "evidence": {
+                "type": "noul",
+                "instructions": (
+                    "Determine whether the frozen facts and full TradingAgents report "
+                    "are fresh, consistent and sufficient. Missing facts or data-quality "
+                    "warnings mean insufficient evidence. This is not a profit probability."
+                ),
+            },
+            "candidate_0": {
+                "type": "choice",
+                "instructions": (
+                    "Decide whether this stock should enter further research. Never issue "
+                    "an order and never override local hard blockers."
+                ),
+                "criteria": {
+                    "research_candidate": "Enter further research only.",
+                    "watch": (
+                        "Evidence is incomplete, stale, conflicting or requires human "
+                        "review."
+                    ),
+                    "exclude": (
+                        "Current evidence supports excluding this candidate from "
+                        "further research."
+                    ),
+                },
+            },
+        }
+        models.call_role = "jev"
+        verdict = models.decide(
+            compact_state, questions, model=models_config["decision"]
+        )
+        answer = verdict["answers"]["candidate_0"]
+        evidence_ok = verdict["answers"]["evidence"]["noul"] >= 0.8
+        confidence = min(
+            answer["confidence"], answer["probabilities"][answer["choice"]]
+        )
+        hard_blockers = list(payload["request"].get("warnings", []))
+        if upstream.get("missing_data_requires_reanalysis"):
+            hard_blockers.append("TradingAgents 标记缺失数据需要重新分析")
+        if not upstream.get("missing_data_complete", False):
+            hard_blockers.append("TradingAgents 的必需数据任务尚未全部完成")
+        if not evidence_ok:
+            hard_blockers.append("Jev 判定研究证据不足")
+        if confidence < 0.8:
+            hard_blockers.append("Jev 模型自报置信度不足，需要人工复核")
+        action = answer["choice"] if not hard_blockers else "watch"
+        return {
+            "engine": "tradingagents-astock-full",
+            "tradingagents": upstream,
+            "jev_review": verdict,
+            "final_status": action,
+            "confidence_is_model_reported": True,
+            "blockers": hard_blockers,
+            "research_only": True,
+            "strategy_validated": False,
+            "automatic_trading": False,
+        }
+
     if kind == "agent.research":
         # Recheck analytical sources at execution time before reserving a paid call.
         # The preview can expire or its source files can change while queued.
