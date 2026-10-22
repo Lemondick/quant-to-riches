@@ -38,6 +38,7 @@ SMOKE_MODE=live npx playwright test
 - 无浏览器冒烟：preview 服务 + curl 逐路由 200 检查（见完工报告）。
 
 ## 2026-10-21 执行记录（补）
+
 - `storage.googleapis.com` 权限批准后，`npx playwright install chromium` 成功（headless shell）。
 - 另需 `npm install -D @playwright/test`（冒烟测试运行器，之前缺失）。
 - demo 模式 4/4 通过（仪表盘、持仓、风险看板、组合回测），live 模式登录页 1/1 通过。

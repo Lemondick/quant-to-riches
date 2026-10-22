@@ -1,7 +1,7 @@
 <template>
   <div class="panel widget-panel">
     <div class="panel-head">
-      <div><h2>净资产</h2><p>四类配置速览<span data-update-time> · {{ snapshot.as_of }}</span></p></div>
+      <div><h2>净资产</h2><p>资产配置速览<span data-update-time> · {{ snapshot.as_of ?? '暂无记录' }}</span></p></div>
       <RouterLink to="/net-worth" class="text-action">详情</RouterLink>
     </div>
     <div class="card-pad">

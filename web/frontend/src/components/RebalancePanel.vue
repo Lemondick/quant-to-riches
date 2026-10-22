@@ -19,7 +19,7 @@
       </div>
     </div>
 
-    <div class="panel card-pad">
+    <div v-if="state.current" class="panel card-pad">
       <div class="card-title">实际 vs 目标</div>
       <p class="subtle">截至 {{ state.as_of ?? '未知' }} · 总资产 ¥{{ totalValue }}</p>
       <div v-for="advice in adviceResult.advices" :key="advice.class" class="alloc-compare">
@@ -29,18 +29,19 @@
         <div class="alloc-diff" :class="{ alert: advice.alert }">偏离 {{ advice.diffPct >= 0 ? '+' : '' }}{{ advice.diffPct.toFixed(1) }}%<span v-if="advice.alert" class="tag red">超阈值</span></div>
       </div>
     </div>
+    <p v-else class="feedback" role="status">尚未设置目标配置，请先保存目标比例后评估。</p>
   </div>
 
-  <div v-if="adviceResult.hasAlert" class="alert-banner" role="alert">
+  <div v-if="state.current && adviceResult.hasAlert" class="alert-banner" role="alert">
     <TriangleAlert :size="16" aria-hidden="true" />
     <span>组合已偏离目标配置（阈值 ±{{ liveTarget.deviation_threshold_pct }}%），请查看下方调仓建议。</span>
   </div>
-  <div v-else class="ok-banner" role="status">
+  <div v-else-if="state.current" class="ok-banner" role="status">
     <CircleCheck :size="16" aria-hidden="true" />
     <span>当前配置在偏离阈值范围内，无需调仓。</span>
   </div>
 
-  <div class="two-col">
+  <div v-if="state.current" class="two-col">
     <div class="panel card-pad">
       <div class="card-title">调仓建议</div>
       <p class="subtle">仅建议方向与金额，不下单。</p>
@@ -90,7 +91,7 @@ function resetDraft() { Object.assign(draft, props.state.target); formError.valu
 
 const liveTarget = computed(() => ({ ...props.state.target, ...draft }))
 const adviceResult = computed(() => buildRebalanceAdvice({ ...props.state, target: liveTarget.value }))
-const totalValue = computed(() => Math.round(Number(props.state.current.total_value) || 0).toLocaleString('zh-CN'))
+const totalValue = computed(() => Math.round(Number(props.state.current?.total_value) || 0).toLocaleString('zh-CN'))
 
 function onSave() {
   formError.value = validateRebalanceTarget(draft) ?? ''

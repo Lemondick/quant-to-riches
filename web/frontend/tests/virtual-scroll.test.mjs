@@ -40,7 +40,10 @@ test('overscan adds buffer rows above and below', () => {
 test('edge cases never produce negative or out-of-range windows', () => {
   assert.deepEqual(computeVisibleRange(0, VIEWPORT, 0, ROWS), { start: 0, end: 0 })
   assert.deepEqual(computeVisibleRange(0, VIEWPORT, ROW_HEIGHT, 0), { start: 0, end: 0 })
-  assert.deepEqual(computeVisibleRange(-50, VIEWPORT, ROW_HEIGHT, ROWS), computeVisibleRange(0, VIEWPORT, ROW_HEIGHT, ROWS))
+  assert.deepEqual(
+    computeVisibleRange(-50, VIEWPORT, ROW_HEIGHT, ROWS),
+    computeVisibleRange(0, VIEWPORT, ROW_HEIGHT, ROWS),
+  )
   assert.deepEqual(computeVisibleRange(99999999, VIEWPORT, ROW_HEIGHT, ROWS).end, ROWS)
   assert.equal(totalContentHeight(ROWS, ROW_HEIGHT), 360000)
 })

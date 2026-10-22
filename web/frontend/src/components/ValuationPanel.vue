@@ -1,10 +1,12 @@
 <template>
   <PageHeader title="估值仪表盘" subtitle="六大指数 PE/PB 历史百分位、ERP 与市场温度计。" />
   <div class="page-context"><span class="data-badge">{{ demo ? '演示数据' : '公开行情' }}</span><span>百分位基于近 10 年历史 · 截至 {{ snapshot.as_of }}</span></div>
+  <p v-for="warning in snapshot.warnings ?? []" :key="warning" class="feedback" role="status">{{ warning }}</p>
   <div class="two-col">
     <div class="panel card-pad gauge-panel">
       <div class="card-title">市场温度计</div>
-      <TemperatureGauge :score="snapshot.temperature.score" :label="snapshot.temperature.label" :size="240" />
+      <TemperatureGauge v-if="snapshot.temperature.score !== null" :score="snapshot.temperature.score" :label="snapshot.temperature.label" :size="240" />
+      <p v-else class="feedback" role="status">{{ snapshot.temperature.label || '数据不足，暂无市场温度。' }}</p>
       <p class="subtle">0–100：越低越便宜。当前所处分位综合六大指数 PE/PB 百分位。</p>
     </div>
     <div class="panel card-pad">
@@ -15,8 +17,8 @@
       </div>
       <p v-else class="subtle">暂无数据。</p>
       <div class="row-list">
-        <div class="row"><span>温度分值</span><b>{{ snapshot.temperature.score }}</b></div>
-        <div class="row"><span>温度判断</span><b>{{ snapshot.temperature.label || temperatureLabel(snapshot.temperature.score) }}</b></div>
+        <div class="row"><span>温度分值</span><b>{{ snapshot.temperature.score ?? '—' }}</b></div>
+        <div class="row"><span>温度判断</span><b>{{ snapshot.temperature.label || (snapshot.temperature.score === null ? '数据不足' : temperatureLabel(snapshot.temperature.score)) }}</b></div>
         <div class="row"><span>覆盖指数</span><b>{{ snapshot.items.length }} 个</b></div>
       </div>
       <RouterLink class="text-action section-space" to="/">回首页查看紧凑小组件 <ArrowUpRight :size="13" aria-hidden="true" /></RouterLink>

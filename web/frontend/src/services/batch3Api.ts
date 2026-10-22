@@ -1,3 +1,5 @@
+import type { AccountReader } from './dataApi'
+
 /**
  * Batch3 新页面 API 类型与纯函数（流 C）。
  * 后端（流 A）并行开发中；路由按跨流契约 §3：
@@ -110,22 +112,23 @@ export type CostPosition = {
   /** 持仓总成本（元）。 */
   cost_total: string
   /** 最新价/单位净值。 */
-  price: string
+  price: string | null
   /** 浮动盈亏（元）。 */
   unrealized_pnl: string
   /** 浮动盈亏率（比例）。 */
-  unrealized_pnl_rate: string
+  unrealized_pnl_rate: string | null
   /** 年化收益率（比例，null 表示区间不足或无法计算）。 */
   annualized_return: string | null
   /** 回本线价格（null 表示暂无）。 */
   breakeven_price: string | null
   /** 持有天数。 */
-  holding_days: number
+  holding_days: number | null
   /** 赎回提示（后端按 FundFeeRules 口径返回；缺失时只展示通用税费提醒）。 */
   redemption?: {
     fee_tiers: RedemptionTier[]
     /** 后端返回的税费提示原文；缺失时前端展示通用提醒。 */
     tax_note?: string | null
+    estimate?: { rate: number | null; fee: number | null; basis: string }
   } | null
 }
 
@@ -147,7 +150,32 @@ export const COST_TAX_NOTE_FALLBACK =
 /** 行展开用的赎回提示文本：档位 + 税费说明。 */
 export function redemptionHintText(position: CostPosition): { tiers: string[]; taxNote: string } {
   const tiers = (position.redemption?.fee_tiers ?? []).map(redemptionTierText)
+  const estimate = position.redemption?.estimate
+  if (estimate?.rate !== null && estimate?.rate !== undefined) tiers.push(`当前适用赎回费率：${(estimate.rate * 100).toFixed(2)}%；估算赎回费 ${estimate.fee === null ? '暂无' : '¥' + estimate.fee.toFixed(2)}（${estimate.basis}）`)
+  else if (estimate?.basis) tiers.push(estimate.basis)
   return { tiers, taxNote: position.redemption?.tax_note || COST_TAX_NOTE_FALLBACK }
+}
+
+export async function loadRiskMetrics(api: AccountReader, signal?: AbortSignal): Promise<RiskMetrics> {
+  const { result } = await api.read<{ cached: boolean; result: RiskMetrics }>('/risk/metrics', signal)
+  if (!result || !('var95' in result)) throw new Error('风险数据格式不正确。')
+  return result
+}
+export async function loadStressTest(api: AccountReader, signal?: AbortSignal): Promise<StressTestResult> {
+  const result = await api.read<StressTestResult>('/risk/stress', signal)
+  if (!Array.isArray(result.scenarios)) throw new Error('压力测试数据格式不正确。')
+  return { ...result, scenarios: result.scenarios.map(item => ({ ...item, index_drop_pct: Math.abs(item.index_drop_pct) * 100,
+    est_loss_pct: Math.abs(item.est_loss_pct) * 100, est_loss_amount: item.est_loss_amount === null ? null : Math.abs(item.est_loss_amount) })) }
+}
+type CostWire = { symbol: string; name: string | null; quantity: number; total_cost: number; market_value: number; floating_pnl: number; pnl_rate: number | null; annualized_return: number | null; weighted_holding_days: number | null; break_even_nav: number | null; redemption_rate: number | null; redemption_fee_estimate: number | null; fee_basis: string }
+export async function loadCost(api: AccountReader, signal?: AbortSignal): Promise<CostSnapshot> {
+  const result = await api.read<{ items: CostWire[]; tax_note: string }>('/cost/positions', signal)
+  if (!Array.isArray(result.items)) throw new Error('持有成本数据格式不正确。')
+  const text = (value: number | null) => value === null ? null : String(value)
+  return { as_of: null, positions: result.items.map(item => ({ symbol: item.symbol, name: item.name, cost_total: String(item.total_cost),
+    price: item.quantity > 0 ? String(item.market_value / item.quantity) : null, unrealized_pnl: String(item.floating_pnl), unrealized_pnl_rate: text(item.pnl_rate),
+    annualized_return: text(item.annualized_return), holding_days: item.weighted_holding_days, breakeven_price: text(item.break_even_nav),
+    redemption: { fee_tiers: [], tax_note: result.tax_note, estimate: { rate: item.redemption_rate, fee: item.redemption_fee_estimate, basis: item.fee_basis } } })) }
 }
 
 /* ---------------- 研报资讯（任务4） ---------------- */

@@ -1,12 +1,13 @@
+import type { AccountReader } from './dataApi'
+
 /**
  * Batch5 新页面 API 类型与纯函数（流 C）。
- * 后端（流 A）并行开发中；路由按跨流契约：
+ * 路由：
  *   GET/POST api/v1/goals · GET/PUT/DELETE api/v1/goals/{id} · POST api/v1/goals/{id}/project
  *   GET api/v1/net-worth（?history_days=） · GET api/v1/net-worth/allocation
  *   GET api/v1/sentiment
  *   GET api/v1/dca/tracking · POST api/v1/dca/executions
- * 联调前 Live 组件用本地 mock 数据保证可构建、可预览（mock 见 src/data/batch5.ts），
- * 情绪指标除外：无合规源→空态 + warning，不虚构。
+ * Live 组件通过适配器读取账户数据；无数据或请求失败时显示空态与错误。
  */
 
 /* ---------------- 目标规划（任务1） ---------------- */
@@ -31,6 +32,8 @@ export type GoalProjection = {
   assumptions: { monthly_amount?: number; assumed_annual_return: number; frequency: 'monthly' }
   /** 契约强制：必须醒目展示。 */
   disclaimer: string
+  calculation_source?: string
+  as_of_net_worth?: string
 }
 
 /** 契约强制文案（worker goal.project 亦返回此句）。 */
@@ -130,7 +133,9 @@ export type NetWorthSnapshot = {
   total_assets: number
   /** 净资产（总资产 − 负债）。 */
   net_assets: number
-  as_of: string
+  as_of: string | null
+  liabilities_note?: string
+  allocation_items?: { name: string; value: number }[]
   /** 四类配置金额（股/债/现金/其他）。 */
   allocation: Record<NetWorthAllocationClass, number>
   /** 净资产历史曲线（?history_days=）。 */
@@ -144,6 +149,11 @@ const ALLOCATION_COLORS: Record<NetWorthAllocationClass, string> = {
 
 /** 配置饼图：Donut 组件可用的切片。 */
 export function allocationDonutItems(snapshot: NetWorthSnapshot, formatMoney: (value: number) => string): DonutSlice[] {
+  if (snapshot.allocation_items) {
+    const total = snapshot.allocation_items.reduce((sum, item) => sum + item.value, 0)
+    const colors = Object.values(ALLOCATION_COLORS)
+    return snapshot.allocation_items.map((item, index) => ({ name: item.name, value: formatMoney(item.value), pct: `${(total > 0 ? item.value / total * 100 : 0).toFixed(1)}%`, weight: total > 0 ? item.value / total * 100 : 0, color: colors[index % colors.length] }))
+  }
   const total = NET_WORTH_CLASS_ORDER.reduce((sum, cls) => sum + (snapshot.allocation[cls] || 0), 0)
   return NET_WORTH_CLASS_ORDER.map(cls => {
     const amount = snapshot.allocation[cls] || 0
@@ -264,4 +274,45 @@ export function validateExecutionForm(form: { plan_id: string; due_date: string;
   const amount = Number(form.actual_amount)
   if (!Number.isFinite(amount) || amount <= 0) return '实际扣款金额须大于 0。'
   return null
+}
+
+export async function loadGoals(api: AccountReader, signal?: AbortSignal, monthlyAmounts: Record<string, number> = {}) {
+  const { items } = await api.read<{ items: GoalTarget[] }>('/goals', signal)
+  if (!Array.isArray(items)) throw new Error('目标数据格式不正确。')
+  const goals = items.map(item => ({ ...item, target_amount: Number(item.target_amount), current_amount: Number(item.current_amount), assumed_annual_return: Number(item.assumed_annual_return) }))
+  const projections: Record<string, GoalProjection> = {}, projectionErrors: string[] = []
+  for (const goal of goals) {
+    try {
+      const monthly = monthlyAmounts[goal.id]
+      const projection = await api.post<GoalProjection>(`/goals/${encodeURIComponent(goal.id)}/project`, monthly === undefined ? {} : { monthly_amount: monthly })
+      projections[goal.id] = projection
+      if (projection.as_of_net_worth !== undefined) goal.current_amount = Number(projection.as_of_net_worth)
+    } catch (failure) {
+      if (failure && typeof failure === 'object' && 'status' in failure && [401, 403].includes(Number(failure.status))) throw failure
+      projectionErrors.push(`${goal.name}：${failure instanceof Error ? failure.message : '测算暂不可用。'}`)
+    }
+  }
+  return { goals, projections, projectionErrors }
+}
+export async function loadNetWorth(api: AccountReader, signal?: AbortSignal): Promise<NetWorthSnapshot> {
+  const [summary, allocation] = await Promise.all([
+    api.read<{ total_assets: string; net_worth: string; as_of_date: string | null; liabilities_note: string; history: { date: string; total_value: string }[] }>('/net-worth?history_days=90', signal),
+    api.read<{ items: { name: string; value: string }[] }>('/net-worth/allocation', signal),
+  ])
+  if (!Array.isArray(summary.history) || !Array.isArray(allocation.items)) throw new Error('净资产数据格式不正确。')
+  return { total_assets: Number(summary.total_assets), net_assets: Number(summary.net_worth), as_of: summary.as_of_date, liabilities_note: summary.liabilities_note,
+    allocation: { equity: 0, bond: 0, cash: 0, other: 0 }, allocation_items: allocation.items.map(item => ({ name: item.name, value: Number(item.value) })),
+    history: summary.history.map(item => ({ date: item.date, net_assets: Number(item.total_value) })) }
+}
+export async function loadSentiment(api: AccountReader, signal?: AbortSignal): Promise<SentimentSnapshot> {
+  const { result } = await api.read<{ cached: boolean; result: SentimentSnapshot }>('/sentiment', signal)
+  if (!Array.isArray(result?.items)) throw new Error('情绪数据格式不正确。')
+  return result
+}
+export async function loadDcaTracking(api: AccountReader, signal?: AbortSignal): Promise<DcaTracking[]> {
+  const result = await api.read<{ missed_alert_days: number; plans: { plan_id: string; symbol: string; frequency: string; periods: { due_date: string; state: 'on_time' | 'pending' | 'missed' | 'skipped'; planned_amount: string; actual_amount: string | null }[] }[] }>('/dca/tracking', signal)
+  if (!Array.isArray(result.plans)) throw new Error('定投跟踪数据格式不正确。')
+  return result.plans.map(plan => ({ plan_id: plan.plan_id, plan_name: `${plan.symbol} · ${plan.frequency === 'weekly' ? '每周' : '每月'}`, missed_alert_days: result.missed_alert_days,
+    periods: plan.periods.map(period => ({ due_date: period.due_date, status: period.state === 'on_time' ? 'done' : period.state,
+      planned_amount: Number(period.planned_amount), actual_amount: period.actual_amount === null ? null : Number(period.actual_amount), executed_at: null, note: null })) }))
 }

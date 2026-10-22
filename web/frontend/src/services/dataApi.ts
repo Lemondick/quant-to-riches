@@ -30,6 +30,7 @@ export function apiRoot(base: string) {
 export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
   const root = apiRoot(base)
   async function request<T>(path: string, signal?: AbortSignal, body?: unknown, method = body === undefined ? 'GET' : 'POST', csrf?: string, scope?: string): Promise<T> {
+    path = path.replace(/^\/api\/v1(?=\/|\?|$)/, '') || '/'
     if (!root) throw new ApiError(0, '后端服务尚未接入。')
     const controller = new AbortController()
     const abort = () => controller.abort()
@@ -53,7 +54,7 @@ export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
       if (!response.ok) {
         const failure = await response.json().catch(() => undefined)
         const code = failure?.error_code ?? failure?.error?.code ?? failure?.code
-        throw new ApiError(response.status, response.status === 401 ? path === '/auth/login' ? '账号或密码无效。' : '请先登录后端账户。' : response.status === 403 ? '当前账户没有访问权限。' : response.status === 503 ? '数据暂不可用，后台准备完成后可再次刷新。' : `读取失败（HTTP ${response.status}），请重试。`, typeof code === 'string' ? code : undefined)
+        throw new ApiError(response.status, path === '/auth/2fa/verify' && response.status === 401 ? '验证码或恢复码无效，或验证已过期。请重试或返回密码登录。' : response.status === 401 ? path === '/auth/login' ? '账号或密码无效。' : '请先登录后端账户。' : response.status === 403 ? '当前账户没有访问权限。' : response.status === 503 ? '数据暂不可用，后台准备完成后可再次刷新。' : `读取失败（HTTP ${response.status}），请重试。`, typeof code === 'string' ? code : undefined)
       }
       const data = await response.json() as T
       if (isGet) {
@@ -70,8 +71,11 @@ export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
       throw error
     } finally { clearTimeout(timeout); signal?.removeEventListener('abort', abort) }
   }
-  return { read: <T>(path: string, signal?: AbortSignal, scope?: string) => request<T>(path, signal, undefined, 'GET', undefined, scope), write: <T>(path: string, body: unknown, csrf: string, scope: string, method = 'POST') => request<T>(path, undefined, body, method, csrf, scope), login: (username: string, password: string) => request('/auth/login', undefined, { username, password }) }
+  return { read: <T>(path: string, signal?: AbortSignal, scope?: string) => request<T>(path, signal, undefined, 'GET', undefined, scope), write: <T>(path: string, body: unknown, csrf: string, scope: string, method = 'POST') => request<T>(path, undefined, body, method, csrf, scope), login: (username: string, password: string) => request<LoginResult>('/auth/login', undefined, { username, password }), verifyTwoFactor: (pendingToken: string, code: string) => request<LoginSession>('/auth/2fa/verify', undefined, { pending_token: pendingToken, code }) }
 }
+export type LoginSession = { user: { id: string; username: string; role: string }; csrf_token: string; expires_at: string }
+export type LoginResult = LoginSession | { two_factor_required: true; pending_token: string }
+export type AccountReader = { read: <T>(path: string, signal?: AbortSignal) => Promise<T>; post: <T>(path: string, body?: unknown) => Promise<T> }
 export type BackendSession = { user: { id: string; username: string; role: 'admin' | 'user' }; csrf_token: string; cache_scope: string }
 
 export type Position = { symbol: string; asset_type: string; name: string; quantity: string; average_cost: string; market_value: string; as_of_date: string }

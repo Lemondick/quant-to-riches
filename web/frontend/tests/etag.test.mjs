@@ -24,9 +24,7 @@ function makeFetcher(handler) {
 test('ETag: second GET sends If-None-Match and 304 returns cached data', async () => {
   clearEtagCache()
   const { fetcher, calls } = makeFetcher((n) =>
-    n === 1
-      ? mockResponse({ body: { v: 1 }, headers: { ETag: '"abc123"' } })
-      : mockResponse({ status: 304 }),
+    n === 1 ? mockResponse({ body: { v: 1 }, headers: { ETag: '"abc123"' } }) : mockResponse({ status: 304 }),
   )
   const api = createDataApi('http://localhost:5000', fetcher)
   const first = await api.read('/market/snapshot')

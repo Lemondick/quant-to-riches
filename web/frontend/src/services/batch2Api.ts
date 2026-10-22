@@ -1,9 +1,11 @@
+import type { AccountReader } from './dataApi'
+
 /**
  * Batch2 新页面 API 类型与纯函数。
- * 后端（流 A）并行开发中；路由按跨流契约 §3：
- *   api/v1/rebalance · api/v1/valuation · api/v1/funds/health ·
+ * 路由：
+ *   api/v1/rebalance/targets · api/v1/rebalance/evaluate · api/v1/valuation · api/v1/funds/health/latest ·
  *   api/v1/backtest/portfolio · api/v1/ask · api/v1/announcements
- * 联调前 Live 组件用本地 mock 数据保证可构建；mock 数据见 src/data/batch2.ts。
+ * Live 组件通过本文件的适配器读取后端响应；演示数据仅用于演示页面。
  */
 
 export type RebalanceTarget = {
@@ -25,8 +27,10 @@ export type AllocationSnapshot = {
 
 export type RebalanceState = {
   target: RebalanceTarget
-  current: AllocationSnapshot
+  current: AllocationSnapshot | null
   as_of?: string | null
+  configured?: boolean
+  suggestions?: string[]
 }
 
 export type ClassAdvice = {
@@ -70,7 +74,8 @@ export type ValuationItem = {
 export type ValuationSnapshot = {
   as_of: string
   items: ValuationItem[]
-  temperature: { score: number; label: string }
+  temperature: { score: number | null; label: string }
+  warnings?: string[]
 }
 
 export const VALUATION_INDEX_ORDER = ['000300.SH', '000905.SH', '399006.SZ', 'HSI', 'SPX', 'NDX']
@@ -155,11 +160,13 @@ export function cheapestIndex(snapshot: ValuationSnapshot): ValuationItem | null
 
 /** 由当前配置与目标配置算出偏离、告警与调仓建议（纯函数，可单元测试）。 */
 export function buildRebalanceAdvice(state: RebalanceState): { advices: ClassAdvice[]; industryAlerts: IndustryAlert[]; hasAlert: boolean } {
-  const total = Number(state.current.total_value) || 0
+  if (!state.current) return { advices: [], industryAlerts: [], hasAlert: false }
+  const current = state.current
+  const total = Number(current.total_value) || 0
   const threshold = state.target.deviation_threshold_pct
   const advices: ClassAdvice[] = (Object.keys(ALLOCATION_CLASS_NAMES) as AllocationClass[]).map(cls => {
     const targetPct = state.target[`${cls}_pct`]
-    const currentPct = Number(state.current.classes[cls]) || 0
+    const currentPct = Number(current.classes[cls]) || 0
     const diffPct = currentPct - targetPct
     const alert = Math.abs(diffPct) >= threshold
     let suggestion: string | null = null
@@ -172,7 +179,7 @@ export function buildRebalanceAdvice(state: RebalanceState): { advices: ClassAdv
     }
     return { class: cls, name: ALLOCATION_CLASS_NAMES[cls], targetPct, currentPct, diffPct, alert, suggestion }
   })
-  const industryAlerts: IndustryAlert[] = state.current.industries
+  const industryAlerts: IndustryAlert[] = current.industries
     .map(item => ({ name: item.name, pct: Number(item.pct) || 0, limit: state.target.max_industry_pct }))
     .filter(item => item.pct > item.limit)
   return { advices, industryAlerts, hasAlert: advices.some(a => a.alert) || industryAlerts.length > 0 }
@@ -195,7 +202,7 @@ export type BacktestRequest = {
 
 export type BacktestMetrics = {
   total_return_pct: number
-  xirr_pct: number
+  xirr_pct: number | null
   max_drawdown_pct: number
   sharpe: number | null
   total_invested: number | null
@@ -206,6 +213,23 @@ export type BacktestResult = {
   metrics: BacktestMetrics
   curve: { date: string; nav: number }[]
   rebalance_events: { date: string; action: string; detail?: string | null }[]
+  warnings?: string[]
+}
+
+type PortfolioBacktestWire = {
+  metrics: { total_return: number; xirr: number | null; max_drawdown: number; sharpe_zero_rate: number | null; total_invested: string; final_value: string }
+  curve: { date: string; value: string; invested: string; unit_nav: number }[]
+  rebalance_events: { date: string; action: string; reason: string }[]
+  warnings: string[]
+}
+export function normalizePortfolioBacktest(result: PortfolioBacktestWire): BacktestResult {
+  return {
+    metrics: { total_return_pct: result.metrics.total_return * 100, xirr_pct: result.metrics.xirr === null ? null : result.metrics.xirr * 100,
+      max_drawdown_pct: result.metrics.max_drawdown * 100, sharpe: result.metrics.sharpe_zero_rate,
+      total_invested: Number(result.metrics.total_invested), final_value: Number(result.metrics.final_value) },
+    curve: result.curve.map(point => ({ date: point.date, nav: point.unit_nav })),
+    rebalance_events: result.rebalance_events.map(event => ({ ...event, detail: event.reason })), warnings: result.warnings,
+  }
 }
 
 export function validateBacktestRequest(request: BacktestRequest): string | null {
@@ -269,7 +293,7 @@ export type Announcement = {
   summary?: string | null
 }
 
-export type AnnouncementList = { announcements: Announcement[] }
+export type AnnouncementList = { announcements: Announcement[]; total?: number }
 
 /** 公告唯一键：后端未给 id 时用三元组。 */
 export function announcementId(item: Announcement): string {
@@ -301,4 +325,40 @@ export function saveReadAnnouncementIds(ids: Set<string>): void {
   } catch {
     /* 本次会话内仍可用内存集合，见调用方。 */
   }
+}
+
+type RebalanceTargetsWire = { stock_ratio: string; bond_ratio: string; cash_ratio: string; industry_concentration_limit: string; deviation_threshold: string; updated_at: string }
+function rebalanceTarget(target: RebalanceTargetsWire): RebalanceTarget {
+  return { equity_pct: Number(target.stock_ratio) * 100, bond_pct: Number(target.bond_ratio) * 100, cash_pct: Number(target.cash_ratio) * 100,
+    max_industry_pct: Number(target.industry_concentration_limit) * 100, deviation_threshold_pct: Number(target.deviation_threshold) * 100 }
+}
+export function rebalanceTargetBody(target: RebalanceTarget) {
+  return { stock_ratio: target.equity_pct / 100, bond_ratio: target.bond_pct / 100, cash_ratio: target.cash_pct / 100,
+    industry_concentration_limit: target.max_industry_pct / 100, deviation_threshold: target.deviation_threshold_pct / 100 }
+}
+export async function loadRebalance(api: AccountReader, signal?: AbortSignal): Promise<RebalanceState> {
+  const { targets } = await api.read<{ targets: RebalanceTargetsWire | null }>('/rebalance/targets', signal)
+  if (!targets) return { configured: false, target: { equity_pct: 0, bond_pct: 0, cash_pct: 0, max_industry_pct: 30, deviation_threshold_pct: 5 }, current: null }
+  const result = await api.post<{ as_of: string; total_value: string; targets: RebalanceTargetsWire; allocation: { stock: string; bond: string; cash: string }; industry: { top: string | null; ratio: string }; suggestions: { note: string }[] }>('/rebalance/evaluate')
+  const total = Number(result.total_value)
+  const pct = (value: string) => String(total > 0 ? Number(value) / total * 100 : 0)
+  return { configured: true, target: rebalanceTarget(result.targets), as_of: result.as_of, current: { total_value: result.total_value,
+    classes: { equity: pct(result.allocation.stock), bond: pct(result.allocation.bond), cash: pct(result.allocation.cash) },
+    industries: result.industry.top ? [{ name: result.industry.top, pct: String(Number(result.industry.ratio) * 100) }] : [] },
+    suggestions: result.suggestions.map(item => item.note) }
+}
+export async function loadValuation(api: AccountReader, signal?: AbortSignal): Promise<ValuationSnapshot> {
+  const { result } = await api.read<{ cached: boolean; result: ValuationSnapshot }>('/valuation', signal)
+  if (!Array.isArray(result?.items) || !result.temperature) throw new Error('估值数据格式不正确。')
+  return { ...result, items: result.items.map(item => ({ ...item, name: item.name || VALUATION_INDEX_NAMES[item.symbol] || VALUATION_INDEX_NAMES[`${item.symbol}.SH`] || VALUATION_INDEX_NAMES[`${item.symbol}.SZ`] || item.symbol, erp: item.erp === null ? null : Number(item.erp) * 100 })) }
+}
+export async function loadFundHealth(api: AccountReader, signal?: AbortSignal): Promise<FundHealthSnapshot | null> {
+  const { report } = await api.read<{ report: FundHealthSnapshot | null; cron: string }>('/funds/health/latest', signal)
+  if (report !== null && !Array.isArray(report?.reports)) throw new Error('基金体检数据格式不正确。')
+  return report
+}
+export async function loadAnnouncements(api: AccountReader, signal?: AbortSignal): Promise<AnnouncementList> {
+  const result = await api.read<{ items: (Omit<Announcement, 'published_at'> & { published_at: string | null })[]; total: number }>('/announcements?limit=100', signal)
+  if (!Array.isArray(result.items)) throw new Error('公告数据格式不正确。')
+  return { announcements: result.items.map(item => ({ ...item, published_at: item.published_at ?? '' })), total: result.total }
 }

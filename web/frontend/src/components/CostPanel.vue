@@ -23,7 +23,7 @@
                 <td class="numeric" :class="pnlTone(row.unrealized_pnl)">{{ rateText(row.unrealized_pnl_rate) }}</td>
                 <td class="numeric">{{ rateText(row.annualized_return) }}</td>
                 <td class="numeric">{{ moneyText(row.breakeven_price) }}</td>
-                <td class="numeric">{{ row.holding_days }} 天</td>
+                <td class="numeric">{{ row.holding_days === null ? '—' : row.holding_days + ' 天' }}</td>
               </tr>
               <tr v-if="expanded === row.symbol" class="cost-expand">
                 <td colspan="8">
@@ -71,7 +71,7 @@ const emptyReason = computed(() =>
 
 function toggle(symbol: string) { expanded.value = expanded.value === symbol ? null : symbol }
 function num(value: string | null): number | null {
-  if (value === null) return null
+  if (value === null || value === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
@@ -82,7 +82,7 @@ function moneyText(value: string | null): string {
 function signedMoneyText(value: string | null): string {
   const parsed = num(value)
   if (parsed === null) return '—'
-  return (parsed > 0 ? '+' : '') + '¥' + Math.abs(parsed).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (parsed > 0 ? '+' : parsed < 0 ? '-' : '') + '¥' + Math.abs(parsed).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 function rateText(value: string | null): string {
   const parsed = num(value)
@@ -103,8 +103,8 @@ function redemptionHint(row: CostPosition) { return redemptionHintText(row) }
 
 const virtualRows = computed<TableCell[][]>(() => rows.value.map(row => [
   row.name ? `${row.name}（${row.symbol}）` : row.symbol,
-  row.cost_total, row.price, row.unrealized_pnl, row.unrealized_pnl_rate,
-  row.annualized_return ?? '', row.breakeven_price ?? '', row.holding_days,
+  row.cost_total, row.price ?? '', row.unrealized_pnl, row.unrealized_pnl_rate ?? '',
+  row.annualized_return ?? '', row.breakeven_price ?? '', row.holding_days ?? '',
 ]))
 function virtualCellHtml(value: TableCell, columnIndex: number): string | null {
   if (columnIndex === 0) return `<b>${escapeHtml(String(value))}</b>`
@@ -116,7 +116,7 @@ function virtualCellHtml(value: TableCell, columnIndex: number): string | null {
   }
   if ([1, 2, 6].includes(columnIndex)) return escapeHtml(moneyText(String(value)))
   if (columnIndex === 5) return escapeHtml(rateText(String(value)))
-  if (columnIndex === 7) return escapeHtml(`${value} 天`)
+  if (columnIndex === 7) return escapeHtml(value === '' ? '—' : `${value} 天`)
   return null
 }
 </script>

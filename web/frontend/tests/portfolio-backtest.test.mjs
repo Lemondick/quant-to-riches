@@ -6,7 +6,8 @@ import { mockBacktestFunds, mockBacktestResult } from '../src/data/batch2.ts'
 function validRequest() {
   return {
     funds: mockBacktestFunds(),
-    start: '2025-10-21', end: '2026-10-21',
+    start: '2025-10-21',
+    end: '2026-10-21',
     rebalance: { mode: 'period', period: '3M' },
   }
 }
@@ -14,11 +15,15 @@ function validRequest() {
 test('backtest request validation covers weights, dates and rules', () => {
   assert.equal(validateBacktestRequest(validRequest()), null)
   assert.ok(validateBacktestRequest({ ...validRequest(), funds: [] }))
-  const dup = validRequest(); dup.funds = [...dup.funds, { ...dup.funds[0] }]
+  const dup = validRequest()
+  dup.funds = [...dup.funds, { ...dup.funds[0] }]
   assert.ok(validateBacktestRequest(dup))
-  const badSum = validRequest(); badSum.funds[0] = { ...badSum.funds[0], weight: 10 }
+  const badSum = validRequest()
+  badSum.funds[0] = { ...badSum.funds[0], weight: 10 }
   assert.ok(validateBacktestRequest(badSum))
-  const badDate = validRequest(); badDate.start = '2026-10-21'; badDate.end = '2025-10-21'
+  const badDate = validRequest()
+  badDate.start = '2026-10-21'
+  badDate.end = '2025-10-21'
   assert.ok(validateBacktestRequest(badDate))
   const badThreshold = { ...validRequest(), rebalance: { mode: 'threshold', threshold_pct: 0 } }
   assert.ok(validateBacktestRequest(badThreshold))

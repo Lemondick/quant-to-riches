@@ -6,13 +6,14 @@
           <h2>{{ item.goal.name }}</h2>
           <p>目标日期 {{ item.goal.target_date }} · 假设年化 {{ (item.goal.assumed_annual_return * 100).toFixed(1) }}%</p>
         </div>
-        <span class="tag" :class="item.deviation === 'ontrack' ? 'blue' : 'red'">{{ GOAL_DEVIATION_NAMES[item.deviation] }}</span>
+        <span v-if="item.deviation" class="tag" :class="item.deviation === 'ontrack' ? 'blue' : 'red'">{{ GOAL_DEVIATION_NAMES[item.deviation] }}</span>
+        <span v-else class="tag">测算暂不可用</span>
       </div>
       <div class="card-pad">
         <div class="goal-amounts">
           <div><span class="subtle">目标金额</span><b>{{ money(item.goal.target_amount) }}</b></div>
           <div><span class="subtle">当前金额</span><b>{{ money(item.goal.current_amount) }}</b></div>
-          <div><span class="subtle">缺口</span><b :class="item.projection.gap > 0 ? 'down' : 'up'">{{ item.projection.gap > 0 ? '缺 ' + money(item.projection.gap) : '已达标' }}</b></div>
+          <div><span class="subtle">缺口</span><b v-if="item.projection" :class="item.projection.gap > 0 ? 'down' : 'up'">{{ item.projection.gap > 0 ? '缺 ' + money(item.projection.gap) : '已达标' }}</b><b v-else>—</b></div>
         </div>
         <div class="progress" role="progressbar" :aria-valuenow="Math.round(item.progress)" aria-valuemin="0" aria-valuemax="100" :aria-label="item.goal.name + ' 进度'">
           <i :style="{ width: item.progress + '%' }"></i>
@@ -40,17 +41,15 @@ import { money } from '../utils/format'
 
 const props = defineProps<{
   goals: GoalTarget[]
-  /** 每个目标的测算结果（id → projection；后端未就绪时用本地兜底测算）。 */
+  /** 每个目标已成功返回的测算结果（id → projection）。 */
   projections: Record<string, GoalProjection>
 }>()
 defineEmits<{ edit: [goal: GoalTarget]; remove: [goal: GoalTarget] }>()
 
-const cards = computed(() => props.goals.map(goal => ({
-  goal,
-  progress: goalProgress(goal),
-  projection: props.projections[goal.id] ?? { required_monthly: 0, projected_amount: goal.current_amount, gap: goal.target_amount - goal.current_amount, on_track: goal.current_amount >= goal.target_amount, assumptions: { assumed_annual_return: goal.assumed_annual_return, frequency: 'monthly' as const }, disclaimer: '假设测算非承诺' },
-  deviation: goalDeviation(goal, props.projections[goal.id] ?? { required_monthly: 0, projected_amount: goal.current_amount, gap: goal.target_amount - goal.current_amount, on_track: goal.current_amount >= goal.target_amount, assumptions: { assumed_annual_return: goal.assumed_annual_return, frequency: 'monthly' as const }, disclaimer: '假设测算非承诺' }),
-})))
+const cards = computed(() => props.goals.map(goal => {
+  const projection = props.projections[goal.id]
+  return { goal, progress: goalProgress(goal), projection, deviation: projection ? goalDeviation(goal, projection) : null }
+}))
 </script>
 <style scoped>
 .goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}

@@ -3,6 +3,15 @@
   "routes": [
     {
       "method": "GET",
+      "path": "/api/v1/admin/audit/verify",
+      "controller": "AdminAudit",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/admin/users",
       "controller": "Admin",
       "action": "",
@@ -616,6 +625,78 @@
         }
       ],
       "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/announcements",
+      "controller": "Announcements",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "fund_code",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "kind",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/announcements/sync",
+      "controller": "Announcements",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/ask",
+      "controller": "Ask",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "question",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
     },
     {
       "method": "POST",
@@ -1369,6 +1450,245 @@
       "hasFrontendEntry": false
     },
     {
+      "method": "POST",
+      "path": "/api/v1/dca/smart",
+      "controller": "DcaSmart",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "kind",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "force",
+              "type": "boolean",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/dca/smart",
+      "controller": "DcaSmart",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "status",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/dca/smart/{id}",
+      "controller": "DcaSmart",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/dca/smart/{id}",
+      "controller": "DcaSmart",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "rules",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "frequency",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "status",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "nextRunDate",
+              "type": "null,string:date",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/dca/smart/{id}",
+      "controller": "DcaSmart",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/dca/smart/{id}/backtest",
+      "controller": "DcaSmart",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "start",
+              "type": "string:date",
+              "required": true
+            },
+            {
+              "name": "end",
+              "type": "string:date",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/dca/tracking",
+      "controller": "DcaTracking",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/dca/executions",
+      "controller": "DcaTracking",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "planId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "dueDate",
+              "type": "string:date",
+              "required": true
+            },
+            {
+              "name": "actualAmount",
+              "type": "number,string:double",
+              "required": true
+            },
+            {
+              "name": "executedAt",
+              "type": "null,string:date-time",
+              "required": false
+            },
+            {
+              "name": "note",
+              "type": "null,string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/dca/executions/skip",
+      "controller": "DcaTracking",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "planId",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "dueDate",
+              "type": "string:date",
+              "required": true
+            },
+            {
+              "name": "note",
+              "type": "null,string",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
       "method": "GET",
       "path": "/api/v1/portfolio/drawdown",
       "controller": "Drawdown",
@@ -1540,6 +1860,15 @@
           "required": false
         }
       ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/cost/positions",
+      "controller": "FundCost",
+      "action": "",
+      "summary": "",
+      "params": [],
       "hasFrontendEntry": true
     },
     {
@@ -1807,6 +2136,24 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/funds/health/latest",
+      "controller": "FundHealth",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/funds/health/run",
+      "controller": "FundHealth",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/funds/{symbol}/holding-lots",
       "controller": "FundLot",
       "action": "",
@@ -2067,6 +2414,142 @@
       "summary": "",
       "params": [],
       "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/goals",
+      "controller": "GoalTarget",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "kind",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "force",
+              "type": "boolean",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/goals",
+      "controller": "GoalTarget",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/goals/{id}",
+      "controller": "GoalTarget",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/goals/{id}",
+      "controller": "GoalTarget",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "rules",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "frequency",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "status",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "nextRunDate",
+              "type": "null,string:date",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/goals/{id}",
+      "controller": "GoalTarget",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/goals/{id}/project",
+      "controller": "GoalTarget",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "id",
+          "kind": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": false,
+          "bodyFields": []
+        }
+      ],
+      "hasFrontendEntry": true
     },
     {
       "method": "GET",
@@ -3019,6 +3502,133 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/net-worth",
+      "controller": "NetWorth",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "history_days",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/net-worth/allocation",
+      "controller": "NetWorth",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notify/email/settings",
+      "controller": "NotifyEmail",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/notify/email/settings",
+      "controller": "NotifyEmail",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "host",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "port",
+              "type": "null,integer,string:int32",
+              "required": false
+            },
+            {
+              "name": "user",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "from",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "notifyTo",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "password",
+              "type": "null,string",
+              "required": false
+            },
+            {
+              "name": "clearPassword",
+              "type": "boolean",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/notify/email/settings/test",
+      "controller": "NotifyEmail",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notify/email/log",
+      "controller": "NotifyEmail",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "page",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/operations/readiness",
       "controller": "OperationalReadiness",
       "action": "",
@@ -3652,6 +4262,34 @@
       "hasFrontendEntry": false
     },
     {
+      "method": "POST",
+      "path": "/api/v1/backtest/portfolio",
+      "controller": "PortfolioBacktest",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "start",
+              "type": "string:date",
+              "required": true
+            },
+            {
+              "name": "end",
+              "type": "string:date",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
       "method": "GET",
       "path": "/api/v1/portfolio",
       "controller": "Portfolio",
@@ -3714,6 +4352,67 @@
         }
       ],
       "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/rebalance/targets",
+      "controller": "Rebalance",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/rebalance/targets",
+      "controller": "Rebalance",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "stockRatio",
+              "type": "number,string:double",
+              "required": true
+            },
+            {
+              "name": "bondRatio",
+              "type": "number,string:double",
+              "required": true
+            },
+            {
+              "name": "cashRatio",
+              "type": "number,string:double",
+              "required": true
+            },
+            {
+              "name": "industryConcentrationLimit",
+              "type": "number,string:double",
+              "required": false
+            },
+            {
+              "name": "deviationThreshold",
+              "type": "number,string:double",
+              "required": false
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/rebalance/evaluate",
+      "controller": "Rebalance",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
     },
     {
       "method": "GET",
@@ -3999,6 +4698,63 @@
         }
       ],
       "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/research",
+      "controller": "ResearchItems",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "symbol",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "kind",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "page",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        },
+        {
+          "name": "limit",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/research/refresh",
+      "controller": "ResearchItems",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": false,
+          "bodyFields": []
+        }
+      ],
+      "hasFrontendEntry": true
     },
     {
       "method": "POST",
@@ -4412,6 +5168,47 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/risk/metrics",
+      "controller": "Risk",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "portfolio_id",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "period_days",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/risk/stress",
+      "controller": "Risk",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "portfolio_id",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/runtime/status",
       "controller": "Runtime",
       "action": "",
@@ -4421,12 +5218,30 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/admin/runtime",
+      "controller": "Runtime",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/runtime/workers/snapshot",
       "controller": "Runtime",
       "action": "",
       "summary": "",
       "params": [],
       "hasFrontendEntry": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/sentiment",
+      "controller": "Sentiment",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": true
     },
     {
       "method": "GET",
@@ -4467,6 +5282,132 @@
           "type": "object",
           "required": true,
           "bodyFields": []
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/2fa/status",
+      "controller": "TwoFactor",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/2fa/enable",
+      "controller": "TwoFactor",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/2fa/confirm",
+      "controller": "TwoFactor",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "code",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/2fa/disable",
+      "controller": "TwoFactor",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "password",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/2fa/recovery-codes/regenerate",
+      "controller": "TwoFactor",
+      "action": "",
+      "summary": "",
+      "params": [],
+      "hasFrontendEntry": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/2fa/verify",
+      "controller": "TwoFactor",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "body",
+          "kind": "body",
+          "type": "object",
+          "required": true,
+          "bodyFields": [
+            {
+              "name": "pendingToken",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "code",
+              "type": "string",
+              "required": true
+            }
+          ]
+        }
+      ],
+      "hasFrontendEntry": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/valuation",
+      "controller": "Valuation",
+      "action": "",
+      "summary": "",
+      "params": [
+        {
+          "name": "indices",
+          "kind": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "years",
+          "kind": "query",
+          "type": [
+            "integer",
+            "string"
+          ],
+          "required": false
         }
       ],
       "hasFrontendEntry": true
@@ -4717,7 +5658,7 @@
       "hasFrontendEntry": false
     }
   ],
-  "generated_at": "2026-10-21T03:26:58.776Z",
-  "route_count": 172,
-  "unexposed_count": 103
+  "generated_at": "2026-10-22T13:48:44.960Z",
+  "route_count": 217,
+  "unexposed_count": 118
 }

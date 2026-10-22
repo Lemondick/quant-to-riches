@@ -5819,6 +5819,18 @@
         }
       }
     },
+    "/api/v1/admin/runtime": {
+      "get": {
+        "tags": [
+          "Runtime"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/runtime/workers/snapshot": {
       "get": {
         "tags": [

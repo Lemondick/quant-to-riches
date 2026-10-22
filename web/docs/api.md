@@ -238,6 +238,7 @@ GET /api/v1/admin/audit
 GET /api/v1/admin/audit/verify
 GET /api/v1/admin/calendar
 GET /api/v1/admin/calendar/status
+GET /api/v1/admin/runtime
 GET /api/v1/admin/users
 GET /api/v1/admin/users/{userId}/details
 GET /api/v1/admin/users/{userId}/export

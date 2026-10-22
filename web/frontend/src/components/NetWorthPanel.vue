@@ -2,12 +2,12 @@
   <div class="stats-grid">
     <StatCard label="总资产" :value="money(snapshot.total_assets)" delta="含负债口径" note="快照时点" :icon="Wallet" />
     <StatCard label="净资产" :value="money(snapshot.net_assets)" :delta="equityDelta" note="总资产 − 负债" :icon="TrendingUp" tone="green" />
-    <StatCard label="负债" :value="money(snapshot.total_assets - snapshot.net_assets)" delta="总资产 − 净资产" note="估算口径" :icon="Scale" />
+    <StatCard label="负债" :value="money(snapshot.total_assets - snapshot.net_assets)" delta="总资产 − 净资产" :note="snapshot.liabilities_note ?? '估算口径'" :icon="Scale" />
   </div>
   <div class="dashboard-grid">
     <ChartCard title="净资产历史曲线" :subtitle="'已确认净资产记录'" :updated-at="snapshot.as_of" :observations="observations" variant="line" />
     <div class="panel donut-panel">
-      <div class="panel-head"><div><h2>资产配置</h2><p>按快照金额计算<span data-update-time> · {{ snapshot.as_of }}</span></p></div><span class="tag blue">四类</span></div>
+      <div class="panel-head"><div><h2>资产配置</h2><p>按快照金额计算<span data-update-time> · {{ snapshot.as_of ?? '暂无记录' }}</span></p></div><span class="tag blue">{{ donutItems.length }} 类</span></div>
       <Donut :center="shortMoney(snapshot.net_assets)" label="净资产" :items="donutItems" />
     </div>
   </div>

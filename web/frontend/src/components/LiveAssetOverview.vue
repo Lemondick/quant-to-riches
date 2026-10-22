@@ -31,7 +31,7 @@
           <div v-for="group in fxBreakdown" :key="group.currency" class="row">
             <span>{{ group.currency }} {{ hidden ? '••••' : money(group.amount) }}</span>
             <span v-if="group.missing" class="tag red">缺汇率，未计入折算总值</span>
-            <span v-else class="subtle">{{ hidden ? '••••' : money(group.value) }} · 1 {{ group.currency }} = {{ group.rate!.rate }} {{ baseCurrency }}</span>
+            <span v-else class="subtle">{{ hidden ? '••••' : money(group.value) }} · {{ group.rate ? `1 ${group.currency} = ${group.rate.rate} ${baseCurrency}` : '本币原值' }}</span>
           </div>
         </div>
         <p class="subtle section-space">汇率来源与时点：<span v-for="group in fxBreakdown.filter(item => !item.missing && item.rate)" :key="group.currency">{{ group.currency }}（{{ group.rate!.source }} · {{ group.rate!.observed_at.slice(0, 16).replace('T', ' ') }}）</span><span v-if="!fxBreakdown.some(item => item.rate)">暂无</span>。持仓币种取自行情币种字段，未匹配到的持仓按本币计；折算汇率保存在浏览器本地，`fx_rates` 表由后端 0030 迁移建立，待后端提供读写接口后可同步。</p>

@@ -1,27 +1,46 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  computeDrawdown, fmtRiskPct, fmtRiskRatio, riskMethodNote,
-  maxStressLoss, stressBarWidth,
-  redemptionTierText, redemptionHintText, COST_TAX_NOTE_FALLBACK,
-  researchItemId, researchSymbols, filterResearchItems, sortResearchDesc,
-  validateEmailSettings, emailStatusName, defaultEmailSettings,
+  computeDrawdown,
+  fmtRiskPct,
+  fmtRiskRatio,
+  riskMethodNote,
+  maxStressLoss,
+  stressBarWidth,
+  redemptionTierText,
+  redemptionHintText,
+  COST_TAX_NOTE_FALLBACK,
+  researchItemId,
+  researchSymbols,
+  filterResearchItems,
+  sortResearchDesc,
+  validateEmailSettings,
+  emailStatusName,
+  defaultEmailSettings,
 } from '../src/services/batch3Api.ts'
 
 test('drawdown tracks the running peak', () => {
   const points = computeDrawdown([
-    { date: '2026-01-01', nav: 1 }, { date: '2026-01-02', nav: 1.1 },
-    { date: '2026-01-03', nav: 0.99 }, { date: '2026-01-04', nav: 1.2 },
+    { date: '2026-01-01', nav: 1 },
+    { date: '2026-01-02', nav: 1.1 },
+    { date: '2026-01-03', nav: 0.99 },
+    { date: '2026-01-04', nav: 1.2 },
   ])
   assert.equal(points[0].drawdown_pct, 0)
   assert.equal(points[1].drawdown_pct, 0)
-  assert.ok(Math.abs(points[2].drawdown_pct - (-10)) < 1e-9)
+  assert.ok(Math.abs(points[2].drawdown_pct - -10) < 1e-9)
   assert.equal(points[3].drawdown_pct, 0)
 })
 
 test('drawdown tolerates invalid nav points', () => {
-  const points = computeDrawdown([{ date: 'x', nav: NaN }, { date: 'y', nav: -1 }])
-  assert.deepEqual(points.map(p => p.drawdown_pct), [0, 0])
+  const points = computeDrawdown([
+    { date: 'x', nav: NaN },
+    { date: 'y', nav: -1 },
+  ])
+  assert.deepEqual(
+    points.map((p) => p.drawdown_pct),
+    [0, 0],
+  )
 })
 
 test('risk formatting', () => {
@@ -56,12 +75,27 @@ test('redemption tier text', () => {
 })
 
 test('redemption hint falls back to the generic tax note', () => {
-  const hint = redemptionHintText({ symbol: '000001', cost_total: '1', price: '1', unrealized_pnl: '0', unrealized_pnl_rate: '0', annualized_return: null, breakeven_price: null, holding_days: 10 })
+  const hint = redemptionHintText({
+    symbol: '000001',
+    cost_total: '1',
+    price: '1',
+    unrealized_pnl: '0',
+    unrealized_pnl_rate: '0',
+    annualized_return: null,
+    breakeven_price: null,
+    holding_days: 10,
+  })
   assert.deepEqual(hint.tiers, [])
   assert.equal(hint.taxNote, COST_TAX_NOTE_FALLBACK)
   const withTiers = redemptionHintText({
-    symbol: '000001', cost_total: '1', price: '1', unrealized_pnl: '0', unrealized_pnl_rate: '0',
-    annualized_return: null, breakeven_price: null, holding_days: 10,
+    symbol: '000001',
+    cost_total: '1',
+    price: '1',
+    unrealized_pnl: '0',
+    unrealized_pnl_rate: '0',
+    annualized_return: null,
+    breakeven_price: null,
+    holding_days: 10,
     redemption: { fee_tiers: [{ min_days: 0, max_days: 7, rate: 0.015 }], tax_note: '自定义税费说明' },
   })
   assert.deepEqual(withTiers.tiers, ['持有0–7天：1.50%'])
@@ -77,7 +111,10 @@ test('research helpers', () => {
   assert.deepEqual(researchSymbols(items), ['300750', '600519'])
   assert.equal(researchItemId(items[2]), 'https://example.com/x')
   assert.ok(researchItemId(items[0]).includes('b'))
-  assert.deepEqual(sortResearchDesc(items).map(i => i.title), ['a', 'b', 'c'])
+  assert.deepEqual(
+    sortResearchDesc(items).map((i) => i.title),
+    ['a', 'b', 'c'],
+  )
   assert.equal(filterResearchItems(items, '600519', 'all').length, 2)
   assert.equal(filterResearchItems(items, '600519', 'report').length, 1)
   assert.equal(filterResearchItems(items, '', 'news').length, 2)

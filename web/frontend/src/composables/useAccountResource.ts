@@ -1,6 +1,6 @@
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import { apiCache } from '../services/apiCache'
-import { ApiError, createDataApi, clearEtagCache, type BackendSession } from '../services/dataApi'
+import { ApiError, createDataApi, clearEtagCache, type BackendSession, type AccountReader } from '../services/dataApi'
 import { useApiLoader } from './useApiLoader'
 
 const base = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -9,7 +9,7 @@ export const activeBackendSession = shallowRef<BackendSession>()
 
 let previousScope: string | undefined
 let sessionPending: Promise<BackendSession> | undefined
-export type ScopedReader = { read: <T>(path: string, signal?: AbortSignal) => Promise<T> }
+export type ScopedReader = AccountReader
 
 export function useAccountResource<T>(name: string, read: (api: ScopedReader, signal: AbortSignal, userId: string) => Promise<T>, ttl = 15000) {
   const session = shallowRef<BackendSession>(), sessionError = shallowRef<unknown>()
@@ -20,6 +20,12 @@ export function useAccountResource<T>(name: string, read: (api: ScopedReader, si
     if (!current || !scope.value) throw new ApiError(401, '请先登录后端账户。')
     const result = await api.read<R>(path, signal, current)
     if (disposed || session.value?.cache_scope !== current) throw new ApiError(401, '账户会话已改变。')
+    return result
+  }, async post<R>(path: string, body: unknown = {}): Promise<R> {
+    const current = session.value
+    if (!current || !scope.value) throw new ApiError(401, '请先登录后端账户。')
+    const result = await api.write<R>(path, body, current.csrf_token, current.cache_scope)
+    if (disposed || session.value?.cache_scope !== current.cache_scope) throw new ApiError(401, '账户会话已改变。')
     return result
   } }
   const loader = useApiLoader<T>(computed(() => scope.value ? `${base}:private:${scope.value}:${name}` : null), signal => read(client, signal, session.value!.user.id), ttl)

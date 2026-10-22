@@ -11,6 +11,7 @@
     "format": "prettier --write scripts tests *.json *.ts *.js",
     "format:check": "prettier --check scripts tests *.json *.ts *.js",
     "test": "node --test tests/*.test.mjs",
+    "test:browser:contracts": "node --test --test-timeout=120000 tests/e2e/branch-repair.mjs",
     "preview": "node scripts/preview-ui.mjs",
     "preview:ui": "node scripts/preview-ui.mjs",
     "snapshot:routes": "node scripts/generate-route-snapshot.mjs",

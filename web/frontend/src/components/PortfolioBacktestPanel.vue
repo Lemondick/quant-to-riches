@@ -46,9 +46,10 @@
   </div>
 
   <template v-if="result">
+    <p v-for="warning in result.warnings ?? []" :key="warning" class="feedback">{{ warning }}</p>
     <div class="kpi-grid section-space">
       <div class="panel metric-card"><span class="metric-label">累计收益</span><div class="metric-value" :class="result.metrics.total_return_pct >= 0 ? 'up' : 'down'">{{ signed(result.metrics.total_return_pct) }}%</div><div class="metric-note">区间总回报</div></div>
-      <div class="panel metric-card"><span class="metric-label">XIRR 年化</span><div class="metric-value" :class="result.metrics.xirr_pct >= 0 ? 'up' : 'down'">{{ signed(result.metrics.xirr_pct) }}%</div><div class="metric-note">内部收益率</div></div>
+      <div class="panel metric-card"><span class="metric-label">XIRR 年化</span><div class="metric-value" :class="result.metrics.xirr_pct !== null && result.metrics.xirr_pct >= 0 ? 'up' : 'down'">{{ result.metrics.xirr_pct === null ? '—' : signed(result.metrics.xirr_pct) + '%' }}</div><div class="metric-note">内部收益率</div></div>
       <div class="panel metric-card"><span class="metric-label">最大回撤</span><div class="metric-value down">{{ result.metrics.max_drawdown_pct.toFixed(2) }}%</div><div class="metric-note">区间最差跌幅</div></div>
       <div class="panel metric-card"><span class="metric-label">夏普比率</span><div class="metric-value">{{ result.metrics.sharpe ?? '—' }}</div><div class="metric-note">风险调整后收益</div></div>
     </div>

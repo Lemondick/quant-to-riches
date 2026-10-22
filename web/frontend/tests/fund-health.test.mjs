@@ -13,7 +13,10 @@ test('insufficient data is explicitly flagged', () => {
 test('findings follow the scale/manager/style/fee order', () => {
   const snapshot = mockFundHealth()
   const shuffled = { ...snapshot.reports[0], findings: [...snapshot.reports[0].findings].reverse() }
-  assert.deepEqual(orderFindings(shuffled).map(f => f.kind), ['scale_change', 'manager_change', 'style_drift', 'fee_level'])
+  assert.deepEqual(
+    orderFindings(shuffled).map((f) => f.kind),
+    ['scale_change', 'manager_change', 'style_drift', 'fee_level'],
+  )
 })
 
 test('worst severity bubbles up to the fund header', () => {

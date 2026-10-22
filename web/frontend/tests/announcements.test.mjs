@@ -18,7 +18,7 @@ test('announcement id falls back to a stable composite key', () => {
 })
 
 test('all four kinds are covered by the mock', () => {
-  const kinds = new Set(mockAnnouncements().announcements.map(a => a.kind))
+  const kinds = new Set(mockAnnouncements().announcements.map((a) => a.kind))
   for (const kind of ['dividend', 'manager_change', 'liquidation_risk', 'other']) {
     assert.ok(kinds.has(kind), `missing kind: ${kind}`)
   }
