@@ -3,6 +3,8 @@
 Never overwrite an existing site. Sessions and recovery tokens remain revoked;
 model keys require a separate private credential export or reconfiguration.
 Analytical files remain unchanged. Current business records come from PostgreSQL.
+Enabled two-factor authentication and roles unsupported by legacy are rejected;
+omitted native-only authentication metadata is listed in the export manifest.
 """
 
 from __future__ import annotations
@@ -39,6 +41,20 @@ NATIVE_ONLY = {
     "operation_locks",
     "review_sessions",
     "site_restore_runs",
+    "user_totp_recovery",
+    "totp_login_challenges",
+}
+
+NATIVE_AUTH_METADATA = {
+    "users": {
+        "data_revision",
+        "totp_secret",
+        "totp_enabled",
+        "display_name",
+        "timezone",
+        "last_active_at",
+    },
+    "admin_audit": {"prev_hash", "hash"},
 }
 
 
@@ -171,6 +187,22 @@ def export(source: Path, destination: Path, dsn: str):
         )
         if cursor.fetchone()[0]:
             raise ValueError("Recover or cancel all native jobs before exporting")
+        cursor.execute(
+            "SELECT EXISTS (SELECT 1 FROM users u WHERE "
+            "COALESCE((to_jsonb(u)->>'totp_enabled')::boolean,false)), "
+            "EXISTS (SELECT 1 FROM users WHERE role NOT IN ('admin','user'))"
+        )
+        two_factor, unsupported_role = cursor.fetchone()
+        if two_factor:
+            raise ValueError(
+                "Legacy rollback cannot preserve enabled two-factor authentication; "
+                "disable it explicitly before exporting"
+            )
+        if unsupported_role:
+            raise ValueError(
+                "Legacy rollback cannot preserve this account role; "
+                "review read-only accounts before exporting"
+            )
         before = inventory(source)
         stage = destination.with_name(destination.name + ".rollback-staging")
         if stage.exists():
@@ -189,17 +221,22 @@ def export(source: Path, destination: Path, dsn: str):
             shutil.copy2(source / relative, target)
         registry = AuthRepository(stage)
         counts = {}
+        omitted_auth_metadata = {}
         with registry.connection(write=True) as auth:
             auth.execute("DELETE FROM site_settings")
             for table in AUTH_TABLES:
                 cursor.execute(sql.SQL("SELECT * FROM {} ORDER BY 1").format(sql.Identifier(table)))
                 columns = [column.name for column in cursor.description]
                 accepted = {row[1] for row in auth.execute(f'PRAGMA table_info("{table}")')}
-                # Derived native cache versions have no legacy business meaning.
-                # Keep the fail-closed check for every other unmapped column.
-                derived = {"data_revision"} if table == "users" else set()
+                # Legacy has no representation for these explicitly known native
+                # fields. Unsupported authentication semantics were rejected above;
+                # every other unknown column still fails closed.
+                derived = NATIVE_AUTH_METADATA.get(table, set()) - accepted
                 if set(columns) - accepted - derived:
                     raise ValueError(f"An authentication export column needs a mapping: {table}")
+                omitted = sorted(set(columns) & derived)
+                if omitted:
+                    omitted_auth_metadata[table] = omitted
                 kept = [index for index, column in enumerate(columns) if column not in derived]
                 records = [tuple(row[index] for index in kept) for row in cursor.fetchall()]
                 columns = [columns[index] for index in kept]
@@ -351,6 +388,7 @@ def export(source: Path, destination: Path, dsn: str):
             "counts": counts,
             "sessions_revoked": True,
             "model_secrets_exported": False,
+            "omitted_native_auth_metadata": omitted_auth_metadata,
         }
         (stage / "rollback-manifest.json").write_text(
             json.dumps(report, sort_keys=True), encoding="utf-8"

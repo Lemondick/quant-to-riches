@@ -4,6 +4,7 @@
 用法：python3 .github/scripts/check_migration_syntax.py [migrations-dir]
 默认目录：web/backend-dotnet/migrations（相对仓库根目录）。
 """
+
 import glob
 import os
 import sys
@@ -14,8 +15,11 @@ import pglast
 def main() -> int:
     script_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(os.path.dirname(script_dir))  # <root>/.github/scripts/xxx.py
-    migrations_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-        repo_root, "web", "backend-dotnet", "migrations")
+    migrations_dir = (
+        sys.argv[1]
+        if len(sys.argv) > 1
+        else os.path.join(repo_root, "web", "backend-dotnet", "migrations")
+    )
     files = sorted(glob.glob(os.path.join(migrations_dir, "*.sql")))
     if not files:
         print(f"未找到迁移文件：{migrations_dir}")

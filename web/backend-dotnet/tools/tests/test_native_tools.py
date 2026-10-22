@@ -55,7 +55,10 @@ class NativeToolTests(unittest.TestCase):
         self.assertFalse(fits(Decimal("NaN"), 28, 8))
 
     def test_evidence_suffix_matches_only_the_owning_account(self):
-        files = {"users/first/prices/data.csv": "a", "users/second/prices/data.csv": "b"}
+        files = {
+            "users/first/prices/data.csv": "a",
+            "users/second/prices/data.csv": "b",
+        }
         self.assertEqual(
             evidence_relative("C:/old/prices/data.csv", "first", "user", files),
             "users/first/prices/data.csv",
@@ -74,8 +77,13 @@ class NativeToolTests(unittest.TestCase):
             evidence_relative("C:/old/users/second/prices.parquet", "first", "user", files)
         )
 
-    def test_explicit_foreign_account_evidence_is_never_rebound_to_a_same_named_file(self):
-        files = {"users/first/prices/data.csv": "a", "users/second/prices/data.csv": "b"}
+    def test_explicit_foreign_account_evidence_is_never_rebound_to_a_same_named_file(
+        self,
+    ):
+        files = {
+            "users/first/prices/data.csv": "a",
+            "users/second/prices/data.csv": "b",
+        }
         self.assertIsNone(
             evidence_relative("C:/old/users/second/prices/data.csv", "first", "user", files)
         )
@@ -143,9 +151,12 @@ class NativeMigrationIntegrationTests(unittest.TestCase):
                 for path in sorted(
                     (Path(__file__).resolve().parents[2] / "migrations").glob("*.sql")
                 ):
+                    if path.name.endswith(".down.sql"):
+                        continue
                     cursor.execute(path.read_text(encoding="utf-8"))
                     cursor.execute(
-                        "INSERT INTO schema_migrations(version) VALUES(%s)", (path.name,)
+                        "INSERT INTO schema_migrations(version) VALUES(%s)",
+                        (path.name,),
                     )
         return dsn
 
@@ -171,10 +182,32 @@ class NativeMigrationIntegrationTests(unittest.TestCase):
         native, dsn = self.imported()
         with psycopg2.connect(dsn) as connection, connection.cursor() as cursor:
             cursor.execute(
-                "UPDATE positions SET quantity=2.23456789 WHERE user_id=%s", (self.users[1],)
+                "UPDATE positions SET quantity=2.23456789 WHERE user_id=%s",
+                (self.users[1],),
+            )
+            cursor.execute(
+                "UPDATE users SET display_name='Synthetic',timezone='Asia/Shanghai',"
+                "last_active_at=now() WHERE id=%s",
+                (self.users[1],),
+            )
+            cursor.execute(
+                "INSERT INTO admin_audit(actor_id,action,detail,created_at,prev_hash,hash) "
+                "VALUES(%s,'synthetic-audit','unchanged',now(),'','synthetic-hash')",
+                (self.users[0],),
             )
         rollback = self.root / "rollback"
-        export_legacy_site.export(native, rollback, dsn)
+        report = export_legacy_site.export(native, rollback, dsn)
+        self.assertIn("totp_enabled", report["omitted_native_auth_metadata"]["users"])
+        self.assertEqual(
+            report["omitted_native_auth_metadata"]["admin_audit"], ["hash", "prev_hash"]
+        )
+        with AuthRepository(rollback).connection() as auth:
+            account = auth.execute(
+                "SELECT password_hash,role FROM users WHERE id=?", (self.users[1],)
+            ).fetchone()
+            self.assertEqual(tuple(account), ("synthetic-test-hash", "user"))
+            audit = auth.execute("SELECT action,detail FROM admin_audit").fetchone()
+            self.assertEqual(tuple(audit), ("synthetic-audit", "unchanged"))
         database = Database(rollback / "users" / self.users[1] / "quant_assistant.duckdb")
         try:
             with database.connection() as legacy:
@@ -200,12 +233,17 @@ class NativeMigrationIntegrationTests(unittest.TestCase):
         with patch.dict(os.environ, self.pg_environment(restored_dsn)):
             with (
                 patch.object(
-                    site_archive, "prepare_restore", side_effect=OSError("synthetic fault")
+                    site_archive,
+                    "prepare_restore",
+                    side_effect=OSError("synthetic fault"),
                 ),
                 self.assertRaises(OSError),
             ):
                 site_archive.restore(archive, destination)
-            with psycopg2.connect(restored_dsn) as connection, connection.cursor() as cursor:
+            with (
+                psycopg2.connect(restored_dsn) as connection,
+                connection.cursor() as cursor,
+            ):
                 cursor.execute(
                     "SELECT status,database_fingerprint FROM site_restore_runs "
                     "WHERE archive_sha256=%s",
@@ -222,15 +260,48 @@ class NativeMigrationIntegrationTests(unittest.TestCase):
         with patch.dict(os.environ, self.pg_environment(changed_dsn)):
             with (
                 patch.object(
-                    site_archive, "prepare_restore", side_effect=OSError("synthetic fault")
+                    site_archive,
+                    "prepare_restore",
+                    side_effect=OSError("synthetic fault"),
                 ),
                 self.assertRaises(OSError),
             ):
                 site_archive.restore(archive, self.root / "changed")
-            with psycopg2.connect(changed_dsn) as connection, connection.cursor() as cursor:
+            with (
+                psycopg2.connect(changed_dsn) as connection,
+                connection.cursor() as cursor,
+            ):
                 cursor.execute("UPDATE positions SET quantity=quantity+1")
             with self.assertRaisesRegex(ValueError, "Database changed"):
                 site_archive.complete_restore(archive, self.root / "changed")
+
+    def test_export_refuses_enabled_two_factor_before_creating_destination(self):
+        native, dsn = self.imported()
+        with psycopg2.connect(dsn) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE users SET totp_enabled=true,totp_secret='synthetic' WHERE id=%s",
+                (self.users[1],),
+            )
+        before = migrate_site.inventory(native)
+        destination = self.root / "unsupported-two-factor"
+        with self.assertRaisesRegex(ValueError, "two-factor"):
+            export_legacy_site.export(native, destination, dsn)
+        self.assertFalse(destination.exists())
+        self.assertFalse(destination.with_name(destination.name + ".rollback-staging").exists())
+        self.assertEqual(before, migrate_site.inventory(native))
+        with psycopg2.connect(dsn) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT totp_enabled FROM users WHERE id=%s", (self.users[1],))
+            self.assertTrue(cursor.fetchone()[0])
+
+    def test_export_refuses_readonly_role_instead_of_granting_legacy_writes(self):
+        native, dsn = self.imported()
+        with psycopg2.connect(dsn) as connection, connection.cursor() as cursor:
+            cursor.execute("UPDATE users SET role='readonly' WHERE id=%s", (self.users[1],))
+        destination = self.root / "unsupported-role"
+        with self.assertRaisesRegex(ValueError, "role"):
+            export_legacy_site.export(native, destination, dsn)
+        self.assertFalse(destination.exists())
+        self.assertFalse(destination.with_name(destination.name + ".rollback-staging").exists())
 
     def tearDown(self):
         connection = psycopg2.connect(self.dsn)

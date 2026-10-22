@@ -185,9 +185,11 @@ jobs:
           if [ "$code" -eq 0 ]; then
             echo "migration --dry-run supported: OK"
           elif [ "$code" -eq 124 ]; then
-            echo "::warning::Runner 尚未实现 --dry-run（命令疑似回退为启动服务，已超时终止）；本 job 标记为待 A 流 E2 就绪。"
+            echo "::error::Migration --dry-run timed out."
+            exit "$code"
           else
-            echo "::warning::Runner --dry-run 退出码 $code；本 job 标记为待 A 流 E2 就绪。"
+            echo "::error::Migration --dry-run failed with exit code $code."
+            exit "$code"
           fi
 
   # 归属: D 流 batch2 任务14 —— pglast 解析全部 SQL 迁移（含 .down.sql），语法错误阻断。
