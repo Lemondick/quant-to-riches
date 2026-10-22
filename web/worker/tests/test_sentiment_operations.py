@@ -8,7 +8,6 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import requests  # noqa: E402
-
 import sentiment_operations  # noqa: E402
 from operations import CAPABILITIES, execute  # noqa: E402
 from sentiment_operations import (  # noqa: E402

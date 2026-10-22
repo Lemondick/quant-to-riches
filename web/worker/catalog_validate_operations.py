@@ -75,9 +75,7 @@ def catalog_validate(payload: Mapping) -> dict:
     if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
         errors.append({"index": -1, "message": "items must be a list"})
     elif not 1 <= len(items) <= _MAX_ITEMS:
-        errors.append(
-            {"index": -1, "message": f"items length must be between 1 and {_MAX_ITEMS}"}
-        )
+        errors.append({"index": -1, "message": f"items length must be between 1 and {_MAX_ITEMS}"})
     else:
         for index, item in enumerate(items):
             message = _element_error(index, item)

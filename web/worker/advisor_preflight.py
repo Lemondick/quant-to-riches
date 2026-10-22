@@ -62,9 +62,9 @@ def execute_preflight(payload):
     if kind not in ("morning", "afternoon"):
         raise ValueError("invalid report kind")
     with analytical_context(payload["snapshot"]) as (database, queries, directory):
-        facts = evidence_context(database, queries, directory, payload, shanghai_now, persist=False).build(
-            kind, shanghai_now()
-        )
+        facts = evidence_context(
+            database, queries, directory, payload, shanghai_now, persist=False
+        ).build(kind, shanghai_now())
         issues = [issue(message) for message in dict.fromkeys(facts["blockers"])]
         global_messages = {i["message"] for i in issues}
         for symbol, gates in facts["symbol_gates"].items():

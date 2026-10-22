@@ -32,6 +32,7 @@ class AdvisorPreflightTests(unittest.TestCase):
             queries.market_quotes = lambda **_: SimpleNamespace(
                 items=[], stale=True, unavailable=True
             )
+
             # analytical_context is a context manager since the E17
             # try/finally consolidation; the fake yields the real triple.
             @contextmanager

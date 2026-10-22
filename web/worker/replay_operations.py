@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 
-from analysis_context import analytical_context, shanghai_now
+from analysis_context import analytical_context
 
 from quant_assistant.common.time import SHANGHAI_TZ
 from quant_assistant.models.entities import Action, AssetType
@@ -51,7 +51,9 @@ def execute_replay(_kind, payload):
         except (ValueError, RuntimeError) as error:
             # Contract section 4: internal failure details stay in the worker log;
             # the caller only sees the redacted error code and a generic blocker.
-            _logger.warning("ledger replay blocked by %s: %s", type(error).__name__, str(error)[:500])
+            _logger.warning(
+                "ledger replay blocked by %s: %s", type(error).__name__, str(error)[:500]
+            )
             return {
                 "status": "blocked",
                 "error_code": "worker_computation_failed",

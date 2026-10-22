@@ -69,7 +69,9 @@ STRESS_SCENARIOS = (
         "index": "上证综指",
         "interval": "2015-06-12 收盘 → 2016-01-28 收盘",
         "index_drop_pct": -0.486,
-        "source_note": "上交所公开行情数据：2015-06-12 收 5166.35，2016-01-28 收 2655.66，区间跌幅约 -48.6%",
+        "source_note": (
+            "上交所公开行情数据：2015-06-12 收 5166.35，2016-01-28 收 2655.66，区间跌幅约 -48.6%"
+        ),
     },
     {
         "id": "covid_2020_03",
@@ -77,7 +79,9 @@ STRESS_SCENARIOS = (
         "index": "上证综指",
         "interval": "2020-01-14 收盘 → 2020-03-19 收盘",
         "index_drop_pct": -0.156,
-        "source_note": "上交所公开行情数据：2020-01-14 收 3127.57，2020-03-19 收 2641.26，区间跌幅约 -15.6%",
+        "source_note": (
+            "上交所公开行情数据：2020-01-14 收 3127.57，2020-03-19 收 2641.26，区间跌幅约 -15.6%"
+        ),
     },
     {
         "id": "bear_2022",
@@ -85,7 +89,9 @@ STRESS_SCENARIOS = (
         "index": "上证综指",
         "interval": "2021-12-31 收盘 → 2022-10-31 收盘",
         "index_drop_pct": -0.205,
-        "source_note": "上交所公开行情数据：2021-12-31 收 3640.44，2022-10-31 收 2893.48，区间跌幅约 -20.5%",
+        "source_note": (
+            "上交所公开行情数据：2021-12-31 收 3640.44，2022-10-31 收 2893.48，区间跌幅约 -20.5%"
+        ),
     },
 )
 
@@ -273,7 +279,12 @@ def stress_test(
     beta: float = 1.0,
 ) -> dict:
     """Core computation; pure. ``beta`` is the documented coarse estimate (~1)."""
-    if isinstance(beta, bool) or not isinstance(beta, (int, float)) or not math.isfinite(beta) or beta < 0:
+    if (
+        isinstance(beta, bool)
+        or not isinstance(beta, (int, float))
+        or not math.isfinite(beta)
+        or beta < 0
+    ):
         raise ValueError("beta must be a non-negative finite number")
     value = None
     if portfolio_value is not None:
@@ -311,13 +322,12 @@ def stress_test(
     }
 
 
-def _portfolio_series_from_db(database, user_id: str) -> tuple[list[tuple[date, float]], float | None]:
-    """Read (as_of_date, unit_nav) from portfolio_valuations + latest total_value."""
+def _portfolio_series_from_db(database) -> tuple[list[tuple[date, float]], float | None]:
+    """Read the authenticated snapshot's already account-isolated ledger."""
     with database.connection() as connection:
         rows = connection.execute(
             "SELECT as_of_date, unit_nav, total_value FROM portfolio_valuations "
-            "WHERE user_id = ? ORDER BY as_of_date",
-            (user_id,),
+            "ORDER BY as_of_date",
         ).fetchall()
     series = [(_to_date(row[0], "as_of_date"), float(row[1])) for row in rows]
     latest_value = float(rows[-1][2]) if rows else None
@@ -340,7 +350,7 @@ def execute_risk(kind: str, payload: dict) -> dict:
         from analysis_context import analytical_context
 
         with analytical_context(payload["snapshot"]) as (database, _queries, _directory):
-            series, db_value = _portfolio_series_from_db(database, portfolio_id.strip())
+            series, db_value = _portfolio_series_from_db(database)
     if kind == "risk.metrics":
         if not series:
             if portfolio_id is not None:
@@ -356,6 +366,8 @@ def execute_risk(kind: str, payload: dict) -> dict:
     if portfolio_id is not None and not series:
         result["warnings"].append("该组合无历史净值（portfolio_valuations 为空）")
     if weights is not None:
-        result["warnings"].append("weights 暂仅用于文档记录：当前按组合整体 beta 粗估，未做逐资产 beta 加权")
+        result["warnings"].append(
+            "weights 暂仅用于文档记录：当前按组合整体 beta 粗估，未做逐资产 beta 加权"
+        )
         result["weights"] = weights
     return result

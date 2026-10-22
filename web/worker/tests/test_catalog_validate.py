@@ -102,9 +102,7 @@ class CatalogValidateTests(unittest.TestCase):
     def test_invalid_payload_envelope(self):
         with self.assertRaises(ValueError):
             execute_catalog_validate("fund.catalog_validate", None)
-        outcome = child_envelope(
-            lambda: execute_catalog_validate("fund.catalog_validate", None)
-        )
+        outcome = child_envelope(lambda: execute_catalog_validate("fund.catalog_validate", None))
         self.assertEqual(outcome["error_code"], "invalid_request")
 
     def test_execute_dispatch(self):

@@ -5,7 +5,6 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import requests
-
 from attribution_shared import _finite_decimal
 from worker_cache import cache_get, cache_key, cache_set
 

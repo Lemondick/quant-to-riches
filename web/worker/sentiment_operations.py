@@ -44,7 +44,6 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import requests
-
 from public_source_failures import PublicSourceFailureTracker, alert_rounds_from_env
 
 SENTIMENT_CAPABILITIES = frozenset({"sentiment.fetch"})

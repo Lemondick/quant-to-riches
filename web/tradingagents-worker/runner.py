@@ -13,13 +13,11 @@ import re
 import socket
 import sys
 import tempfile
-import time
-import uuid
+from contextlib import suppress
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from langchain_core.callbacks import BaseCallbackHandler
-from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 UPSTREAM_COMMIT = "e3981af1e4c94656cdc663f1466d54fd49253dd5"
 MAX_INPUT_BYTES = 256_000
@@ -72,7 +70,7 @@ def _pin_public_endpoint(endpoint: str):
         raise RunnerFailure("model_endpoint_unavailable") from None
 
     addresses = []
-    for family, socktype, proto, canonname, sockaddr in rows:
+    for _family, _socktype, _proto, _canonname, sockaddr in rows:
         address = sockaddr[0]
         try:
             ip = ipaddress.ip_address(address)
@@ -100,8 +98,14 @@ def _pin_public_endpoint(endpoint: str):
                 continue
             if type not in (0, socket.SOCK_STREAM):
                 continue
-            sockaddr = (address, query_port, 0, 0) if candidate_family == socket.AF_INET6 else (address, query_port)
-            results.append((candidate_family, socket.SOCK_STREAM, proto or socket.IPPROTO_TCP, "", sockaddr))
+            sockaddr = (
+                (address, query_port, 0, 0)
+                if candidate_family == socket.AF_INET6
+                else (address, query_port)
+            )
+            results.append(
+                (candidate_family, socket.SOCK_STREAM, proto or socket.IPPROTO_TCP, "", sockaddr)
+            )
         if not results:
             raise socket.gaierror(socket.EAI_NONAME, "No pinned public address")
         return results
@@ -118,7 +122,9 @@ class BudgetCallbacks(BaseCallbackHandler):
     def __init__(self, execution: dict, fallback_model: str):
         self.api = str(execution["api"]).rstrip("/")
         self.secret = str(execution["secret"])
-        self.lease = {key: execution["lease"][key] for key in ("user_id", "job_id", "attempt", "owner_token")}
+        self.lease = {
+            key: execution["lease"][key] for key in ("user_id", "job_id", "attempt", "owner_token")
+        }
         self.fallback_model = fallback_model
         self.session = __import__("requests").Session()
         self.session.trust_env = False
@@ -148,7 +154,12 @@ class BudgetCallbacks(BaseCallbackHandler):
             return None, None
         input_tokens = usage.get("prompt_tokens", usage.get("input_tokens"))
         output_tokens = usage.get("completion_tokens", usage.get("output_tokens"))
-        if type(input_tokens) is not int or type(output_tokens) is not int or input_tokens < 0 or output_tokens < 0:
+        if (
+            type(input_tokens) is not int
+            or type(output_tokens) is not int
+            or input_tokens < 0
+            or output_tokens < 0
+        ):
             return None, None
         return input_tokens, output_tokens
 
@@ -160,14 +171,17 @@ class BudgetCallbacks(BaseCallbackHandler):
             raise RunnerFailure("model_input_limit")
         invocation = kwargs.get("invocation_params") or {}
         model = invocation.get("model_name") or invocation.get("model") or self.fallback_model
-        reserved = self._post("cost-reserve", {
-            **self.lease,
-            "model": str(model),
-            "role": "tradingagents",
-            "provider": "compatible_api",
-            "max_input_tokens": max(1, prompt_chars),
-            "max_output_tokens": MAX_OUTPUT_TOKENS,
-        })
+        reserved = self._post(
+            "cost-reserve",
+            {
+                **self.lease,
+                "model": str(model),
+                "role": "tradingagents",
+                "provider": "compatible_api",
+                "max_input_tokens": max(1, prompt_chars),
+                "max_output_tokens": MAX_OUTPUT_TOKENS,
+            },
+        )
         self.pending[str(run_id)] = (reserved["call_id"], str(model))
         self.llm_calls += 1
 
@@ -184,14 +198,19 @@ class BudgetCallbacks(BaseCallbackHandler):
             raise RunnerFailure("cost_reservation_missing")
         call_id, _ = pending
         input_tokens, output_tokens = self._usage(response)
-        self._post("cost-finish", {
-            **self.lease,
-            "call_id": call_id,
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "stage": "response",
-            "unknown_reason": None if input_tokens is not None and output_tokens is not None else "no_usage",
-        })
+        self._post(
+            "cost-finish",
+            {
+                **self.lease,
+                "call_id": call_id,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "stage": "response",
+                "unknown_reason": None
+                if input_tokens is not None and output_tokens is not None
+                else "no_usage",
+            },
+        )
         if input_tokens is not None:
             self.total_input_tokens += input_tokens
             self.total_output_tokens += output_tokens
@@ -200,14 +219,17 @@ class BudgetCallbacks(BaseCallbackHandler):
         pending = self.pending.pop(str(run_id), None)
         if pending is not None:
             call_id, _ = pending
-            self._post("cost-finish", {
-                **self.lease,
-                "call_id": call_id,
-                "input_tokens": None,
-                "output_tokens": None,
-                "stage": "transport_error",
-                "unknown_reason": "no_usage",
-            })
+            self._post(
+                "cost-finish",
+                {
+                    **self.lease,
+                    "call_id": call_id,
+                    "input_tokens": None,
+                    "output_tokens": None,
+                    "stage": "transport_error",
+                    "unknown_reason": "no_usage",
+                },
+            )
 
     def on_tool_start(self, serialized, input_str, run_id, **kwargs):
         self.tool_calls += 1
@@ -220,7 +242,9 @@ class BudgetCallbacks(BaseCallbackHandler):
             "tool_calls": self.tool_calls,
             "input_tokens": self.total_input_tokens,
             "output_tokens": self.total_output_tokens,
-            "usage_status": "reported" if self.llm_calls and self.total_input_tokens + self.total_output_tokens > 0 else "unknown",
+            "usage_status": "reported"
+            if self.llm_calls and self.total_input_tokens + self.total_output_tokens > 0
+            else "unknown",
         }
 
 
@@ -234,6 +258,7 @@ def run(task: dict) -> dict:
     if not isinstance(trade_date, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", trade_date):
         raise RunnerFailure("invalid_request")
     from datetime import date
+
     try:
         parsed_date = date.fromisoformat(trade_date)
     except ValueError:
@@ -245,7 +270,9 @@ def run(task: dict) -> dict:
     api_key = task.get("api_key")
     quick_model = task.get("quick_model")
     deep_model = task.get("deep_model")
-    if not all(isinstance(v, str) and v.strip() for v in (endpoint, api_key, quick_model, deep_model)):
+    if not all(
+        isinstance(v, str) and v.strip() for v in (endpoint, api_key, quick_model, deep_model)
+    ):
         raise RunnerFailure("model_configuration")
     if len(api_key) > 4096 or any(ch.isspace() for ch in api_key):
         raise RunnerFailure("model_configuration")
@@ -265,12 +292,20 @@ def run(task: dict) -> dict:
             results_dir = root / "results"
             cache_dir.mkdir()
             results_dir.mkdir()
+            home_dir = root / "home"
+            home_dir.mkdir()
             memory_path = root / "memory.md"
+            # Pinned upstream missing_data.py resolves Path.home() at import
+            # time, independently of its configurable result/cache paths.
+            os.environ["HOME"] = str(home_dir)
+            os.environ["USERPROFILE"] = str(home_dir)
             os.environ["OPENAI_API_KEY"] = api_key
             os.environ["TRADINGAGENTS_RESULTS_DIR"] = str(results_dir)
             os.environ["TRADINGAGENTS_CACHE_DIR"] = str(cache_dir)
             os.environ["TRADINGAGENTS_MEMORY_LOG_PATH"] = str(memory_path)
             os.environ["TRADINGAGENTS_MAX_TOKENS"] = str(MAX_OUTPUT_TOKENS)
+
+            from tradingagents.graph.trading_graph import TradingAgentsGraph
 
             callbacks = BudgetCallbacks(execution, quick_model)
             config = {
@@ -286,7 +321,15 @@ def run(task: dict) -> dict:
                 "max_debate_rounds": 1,
                 "max_risk_discuss_rounds": 1,
                 "max_recur_limit": 48,
-                "selected_analysts": ["market", "social", "news", "fundamentals", "policy", "hot_money", "lockup"],
+                "selected_analysts": [
+                    "market",
+                    "social",
+                    "news",
+                    "fundamentals",
+                    "policy",
+                    "hot_money",
+                    "lockup",
+                ],
                 "data_vendors": {
                     "core_stock_apis": "a_stock",
                     "technical_indicators": "a_stock",
@@ -308,14 +351,20 @@ def run(task: dict) -> dict:
                 callbacks=[callbacks],
             )
             try:
-                final_state, signal = graph.propagate(symbol.split('.')[0], trade_date)
+                company = symbol.split(".")[0]
+                # The pinned propagate() omits callbacks from graph config.
+                # Its public lifecycle keeps runtime tool events and constructor
+                # LLM callbacks on the same authoritative budget handler.
+                initial_state, args, _ = graph.prepare_graph_run(
+                    company, trade_date, callbacks=[callbacks]
+                )
+                final_state = graph.graph.invoke(initial_state, **args)
+                signal = graph.finalize_graph_run(company, trade_date, final_state)
             finally:
                 # Upstream normally closes the graph during propagate; close again
                 # defensively if a provider failed before normal graph cleanup.
-                try:
+                with suppress(Exception):
                     graph.close_graph_run()
-                except Exception:
-                    pass
 
             analyst_fields = {
                 "market": "market_report",
@@ -326,7 +375,10 @@ def run(task: dict) -> dict:
                 "hot_money": "hot_money_report",
                 "lockup": "lockup_report",
             }
-            analysts = {role: _safe_text(final_state.get(field, "")) for role, field in analyst_fields.items()}
+            analysts = {
+                role: _safe_text(final_state.get(field, ""))
+                for role, field in analyst_fields.items()
+            }
             quality = _safe_text(final_state.get("data_quality_summary", ""))
             missing_tasks = final_state.get("missing_data_tasks", [])
             if not isinstance(missing_tasks, list):
@@ -338,12 +390,19 @@ def run(task: dict) -> dict:
                     "commit": UPSTREAM_COMMIT,
                     "version": "0.5.21",
                 },
-                "input": {"symbol": symbol, "trade_date": trade_date, "endpoint_host": pinned_host, "pinned_public_addresses": pinned_addresses},
+                "input": {
+                    "symbol": symbol,
+                    "trade_date": trade_date,
+                    "endpoint_host": pinned_host,
+                    "pinned_public_addresses": pinned_addresses,
+                },
                 "analysts": analysts,
                 "data_quality_summary": quality,
                 "missing_data_tasks": [_safe_text(item, 1000) for item in missing_tasks[:100]],
                 "missing_data_complete": bool(final_state.get("missing_data_complete", False)),
-                "missing_data_requires_reanalysis": bool(final_state.get("missing_data_requires_reanalysis", False)),
+                "missing_data_requires_reanalysis": bool(
+                    final_state.get("missing_data_requires_reanalysis", False)
+                ),
                 "research_plan": _safe_text(final_state.get("investment_plan", "")),
                 "trader_proposal": _safe_text(final_state.get("trader_investment_plan", "")),
                 "risk_debate": _safe_text(final_state.get("risk_debate_state", {})),

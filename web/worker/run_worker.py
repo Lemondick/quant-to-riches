@@ -46,7 +46,10 @@ def child_operation(kind, payload):
         lambda: execute(kind, payload),
         pre_handlers=[
             (AdvisorModelError, lambda error: {"result": None, "error_code": str(error)}),
-            (CostLimitError, lambda _error: {"result": None, "error_code": "model_budget_exceeded"}),
+            (
+                CostLimitError,
+                lambda _error: {"result": None, "error_code": "model_budget_exceeded"},
+            ),
         ],
     )
 
@@ -272,6 +275,7 @@ def _init_public_source_failure_tracker():
         PublicSourceFailureTracker,
         alert_rounds_from_env,
     )
+
     from quant_assistant.providers.public_http import PublicHttp
 
     site_root = os.environ.get("QUANT_SITE_ROOT")

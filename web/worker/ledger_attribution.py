@@ -292,16 +292,13 @@ def _prefetch_period_prices(marks, original, events, dates):
     is best-effort and never changes price() validation semantics.
     """
     symbols = {row["symbol"] for row in original}
-    for _day, _timestamp, _audit_id, _kind, row in events:
+    for _event_day, _timestamp, _audit_id, _kind, row in events:
         if row.get("symbol"):
             symbols.add(row["symbol"])
         if row.get("target_symbol"):
             symbols.add(row["target_symbol"])
     marks.prefetch_prices(
-        (symbol, day, asset)
-        for symbol in symbols
-        for day in dates
-        for asset in ("stock", "fund")
+        (symbol, day, asset) for symbol in symbols for day in dates for asset in ("stock", "fund")
     )
 
 
@@ -422,5 +419,7 @@ def calculate_periods(tables, baseline, original, components, start, end, marks)
     periods = []
     for left, right in zip(dates, dates[1:], strict=False):
         computed = compute_period(rebuilder, events, marks, left, right)  # Phase 3 收益计算
-        periods.append(assemble_period(computed, rebuilder, components, marks, left, right))  # Phase 4 输出组装
+        periods.append(
+            assemble_period(computed, rebuilder, components, marks, left, right)
+        )  # Phase 4 输出组装
     return periods

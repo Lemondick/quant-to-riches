@@ -97,9 +97,7 @@ class RedemptionWindowTests(unittest.TestCase):
         result = execute_redemption(
             "fund.redemption_windows",
             {
-                "lots": [
-                    {"fund_code": "000001", "acquired_at": "2026-10-01", "amount": "10000"}
-                ],
+                "lots": [{"fund_code": "000001", "acquired_at": "2026-10-01", "amount": "10000"}],
                 "redemption_tiers": TIERS,
                 "days_ahead": 30,
             },
@@ -136,15 +134,27 @@ class RedemptionWindowTests(unittest.TestCase):
             redemption_windows([], 30, as_of=TODAY)
         with self.assertRaises(ValueError):
             redemption_windows(
-                [{"fund_code": "000001", "acquired_at": "2026-12-01", "amount": "1",
-                  "redemption_tiers": TIERS}],
+                [
+                    {
+                        "fund_code": "000001",
+                        "acquired_at": "2026-12-01",
+                        "amount": "1",
+                        "redemption_tiers": TIERS,
+                    }
+                ],
                 30,
                 as_of=TODAY,
             )
         with self.assertRaises(ValueError):
             redemption_windows(
-                [{"fund_code": "", "acquired_at": "2026-10-01", "amount": "1",
-                  "redemption_tiers": TIERS}],
+                [
+                    {
+                        "fund_code": "",
+                        "acquired_at": "2026-10-01",
+                        "amount": "1",
+                        "redemption_tiers": TIERS,
+                    }
+                ],
                 30,
                 as_of=TODAY,
             )

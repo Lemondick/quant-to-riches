@@ -36,7 +36,10 @@ _PAGE_SIZE = 20
 
 _KIND_PATTERNS = (
     ("dividend", re.compile(r"分红|分派|收益分配")),
-    ("manager_change", re.compile(r"基金经理.*(变更|增聘|解聘|离任)|增聘.*基金经理|解聘.*基金经理")),
+    (
+        "manager_change",
+        re.compile(r"基金经理.*(变更|增聘|解聘|离任)|增聘.*基金经理|解聘.*基金经理"),
+    ),
     (
         "liquidation_risk",
         re.compile(r"清盘|清算|终止运作|合同终止|连续\d+个工作日"),

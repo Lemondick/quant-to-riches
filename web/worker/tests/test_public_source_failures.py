@@ -5,7 +5,6 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -14,7 +13,7 @@ from public_source_failures import (
     alert_rounds_from_env,
 )
 
-from quant_assistant.providers.public_http import PublicHttp
+from quant_assistant.providers.public_http import PublicHttp, PublicHttpError
 
 
 class FailureTrackerTests(unittest.TestCase):
@@ -32,9 +31,7 @@ class FailureTrackerTests(unittest.TestCase):
         self.assertTrue(self.tracker.record("example.com", ok=False, error="http_500"))
         # Already alerting: no repeated trip signal.
         self.assertFalse(self.tracker.record("example.com", ok=False, error="http_500"))
-        self.assertEqual(
-            self.tracker.alerting_sources()["example.com"]["consecutive_failures"], 4
-        )
+        self.assertEqual(self.tracker.alerting_sources()["example.com"]["consecutive_failures"], 4)
 
     def test_success_resets(self):
         self.tracker.record("example.com", ok=False, error="x")
@@ -73,15 +70,11 @@ class FailureTrackerTests(unittest.TestCase):
 
     def test_alert_rounds_from_env(self):
         self.assertEqual(alert_rounds_from_env({}), 3)
-        self.assertEqual(
-            alert_rounds_from_env({"QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS": "5"}), 5
-        )
+        self.assertEqual(alert_rounds_from_env({"QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS": "5"}), 5)
         self.assertEqual(
             alert_rounds_from_env({"QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS": "nope"}), 3
         )
-        self.assertEqual(
-            alert_rounds_from_env({"QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS": "0"}), 1
-        )
+        self.assertEqual(alert_rounds_from_env({"QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS": "0"}), 1)
 
 
 class PublicHttpTrackerTests(unittest.TestCase):
@@ -121,7 +114,7 @@ class PublicHttpTrackerTests(unittest.TestCase):
     def test_terminal_failure_recorded_once_per_call(self):
         # fail_times=2: first attempt + 1 retry, both fail -> single record.
         http, _ = self._http(fail_times=2)
-        with self.assertRaises(Exception):
+        with self.assertRaises(PublicHttpError):
             http.get("https://example.com/data")
         entry = self.tracker.snapshot()["example.com"]
         self.assertEqual(entry["consecutive_failures"], 1)
@@ -129,18 +122,16 @@ class PublicHttpTrackerTests(unittest.TestCase):
 
     def test_success_resets_counter(self):
         http, _ = self._http(fail_times=2)
-        with self.assertRaises(Exception):
+        with self.assertRaises(PublicHttpError):
             http.get("https://example.com/data")
         http2, _ = self._http(fail_times=0)
         http2.get("https://example.com/data")
-        self.assertEqual(
-            self.tracker.snapshot()["example.com"]["consecutive_failures"], 0
-        )
+        self.assertEqual(self.tracker.snapshot()["example.com"]["consecutive_failures"], 0)
 
     def test_no_tracker_no_behavior_change(self):
         PublicHttp.set_default_failure_tracker(None)
         http, _ = self._http(fail_times=2)
-        with self.assertRaises(Exception):
+        with self.assertRaises(PublicHttpError):
             http.get("https://example.com/data")
 
 

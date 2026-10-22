@@ -85,8 +85,9 @@ class PublicQueryTests(unittest.TestCase):
 
     def test_worker_calls_keep_provider_cache_and_explicit_refresh_reloads_sources(self):
         public = import_module("public_operations")
-        public._detail_provider.cache_clear()
-        self.addCleanup(public._detail_provider.cache_clear)
+        cache = import_module("worker_cache")
+        cache.cache_invalidate("provider.fund_detail")
+        self.addCleanup(cache.cache_invalidate, "provider.fund_detail")
         first_provider, first_calls = self.provider()
         with patch(
             "quant_assistant.providers.fund_detail.PublicFundDetailProvider",

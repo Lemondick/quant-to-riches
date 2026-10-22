@@ -2,7 +2,7 @@
 
 Contract (batch2 §2): payload
 ``{funds: [{code, weight}], start, end,
-   rebalance: {mode: period|threshold, period?: "1M"|"3M", threshold_pct?},
+   rebalance?: {mode: period|threshold, period?: "1M"|"3M", threshold_pct?},
    dca?: {amount, freq}}``
 → ``{metrics, curve, rebalance_events: [...]}``.
 
@@ -11,8 +11,9 @@ Simulation (documented assumptions):
   [start, end] (a fund that did not exist yet cannot be invested in).
 - ``initial_capital`` (optional, default 100000) is invested on the first
   date at target weights; weights are normalized if they do not sum to 1.
-- ``dca`` adds a monthly inflow on the first trading day of each month,
-  allocated by target weight (``freq`` only supports ``"monthly"``).
+- ``dca`` adds an inflow on the first sampled trading day of each month
+  or ISO week, allocated by target weight (``freq`` monthly/weekly).
+- An omitted ``rebalance`` keeps holdings without scheduled rebalancing.
 - Rebalance ``mode=period``: on each 1M/3M anniversary (first trading day
   on/after it) rebalance unconditionally to target weights.
   ``mode=threshold``: each day, rebalance when any fund's weight deviates
@@ -83,7 +84,9 @@ def _targets(funds: Sequence[Mapping]) -> dict[str, Decimal]:
     return {code: weight / total for code, weight in weights.items()}
 
 
-def _rebalance_config(raw: Mapping | None) -> dict:
+def _rebalance_config(raw: Mapping | None) -> dict | None:
+    if raw is None:
+        return None
     if not isinstance(raw, Mapping):
         raise ValueError("rebalance must be a mapping")
     mode = raw.get("mode")
@@ -112,8 +115,8 @@ def _dca_config(raw: Mapping | None) -> dict | None:
     if amount <= 0:
         raise ValueError("dca.amount must be positive")
     freq = raw.get("freq", "monthly")
-    if freq != "monthly":
-        raise ValueError('dca.freq only supports "monthly"')
+    if freq not in ("monthly", "weekly"):
+        raise ValueError('dca.freq must be "monthly" or "weekly"')
     return {"amount": amount, "freq": freq}
 
 
@@ -136,7 +139,7 @@ def portfolio_backtest(
     funds: Sequence[Mapping],
     start: date,
     end: date,
-    rebalance: Mapping,
+    rebalance: Mapping | None = None,
     dca: Mapping | None = None,
     *,
     nav_series: dict[str, Sequence[tuple[date, Decimal]]] | None = None,
@@ -174,6 +177,7 @@ def portfolio_backtest(
     cashflows: list[tuple[date, Decimal]] = []
     events: list[dict] = []
     warnings: list[str] = []
+    values_total: list[Decimal] = []
 
     def buy(code: str, amount: Decimal, day: date) -> None:
         fee = charge_purchase_fee(schedule, amount)
@@ -198,7 +202,7 @@ def portfolio_backtest(
 
     period_anchors = (
         _period_dates(common[0], end, rebalance_cfg["period"])
-        if rebalance_cfg["mode"] == "period"
+        if rebalance_cfg is not None and rebalance_cfg["mode"] == "period"
         else set()
     )
     fired_anchors: set[date] = set()
@@ -209,16 +213,20 @@ def portfolio_backtest(
         invested += initial_capital
         cashflows.append((common[0], -initial_capital))
 
-    current_month = None
+    current_period = None
     for day in common:
-        month_key = (day.year, day.month)
-        if dca_cfg is not None and month_key != current_month:
-            current_month = month_key
+        period_key = (
+            day.isocalendar()[:2]
+            if dca_cfg and dca_cfg["freq"] == "weekly"
+            else (day.year, day.month)
+        )
+        if dca_cfg is not None and period_key != current_period:
+            current_period = period_key
             for code in codes:
                 buy(code, dca_cfg["amount"] * targets[code], day)
             invested += dca_cfg["amount"]
             cashflows.append((day, -dca_cfg["amount"]))
-        if rebalance_cfg["mode"] == "period":
+        if rebalance_cfg is not None and rebalance_cfg["mode"] == "period":
             anchor = next(
                 (anchor for anchor in sorted(period_anchors - fired_anchors) if anchor <= day),
                 None,
@@ -226,7 +234,7 @@ def portfolio_backtest(
             if anchor is not None:
                 fired_anchors.add(anchor)
                 do_rebalance(day, f"period:{rebalance_cfg['period']} 到期再平衡")
-        else:
+        elif rebalance_cfg is not None:
             values = portfolio_value(day)
             total = sum(values.values())
             if total > 0:
@@ -241,9 +249,10 @@ def portfolio_backtest(
                         f"threshold:{worst} 权重偏离 {deviation:.2f}% 超过阈值 "
                         f"{rebalance_cfg['threshold_pct']}%",
                     )
+        # Shares are mutable; preserve each close before the next day's trades.
+        values_total.append(sum(portfolio_value(day).values()))
 
     days = common
-    values_total = [sum(portfolio_value(day).values()) for day in days]
     flows = [Decimal("0")] * len(days)
     flow_map: dict[date, Decimal] = {}
     for flow_day, amount in cashflows:
@@ -251,28 +260,26 @@ def portfolio_backtest(
     for index, day in enumerate(days):
         flows[index] = flow_map.get(day, Decimal("0"))
     closes = [sum(nav_of[code][day] * targets[code] for code in codes) for day in days]
-    summary = performance_summary(
-        days, values_total, flows, [Decimal("0")] * len(days), closes
-    )
+    summary = performance_summary(days, values_total, flows, [Decimal("0")] * len(days), closes)
     final_value = values_total[-1]
     all_flows = [*cashflows, (days[-1], final_value)]
     curve = []
     invested_to_date = Decimal("0")
-    flow_by_month: dict[str, Decimal] = {}
-    for flow_day, amount in cashflows:
-        key = flow_day.strftime("%Y-%m")
-        flow_by_month[key] = flow_by_month.get(key, Decimal("0")) + (-amount)
+    unit_nav = 1.0
     seen_months: set[str] = set()
     for index, day in enumerate(days):
+        invested_to_date += flows[index]
+        if index:
+            unit_nav *= float((values_total[index] - flows[index]) / values_total[index - 1])
         key = day.strftime("%Y-%m")
         if key not in seen_months or day == days[-1]:
             seen_months.add(key)
-            invested_to_date += flow_by_month.get(key, Decimal("0"))
             curve.append(
                 {
                     "date": day.isoformat(),
                     "invested": str(invested_to_date),
                     "value": str(values_total[index].quantize(Decimal("0.01"))),
+                    "unit_nav": unit_nav,
                 }
             )
     return {
@@ -285,6 +292,8 @@ def portfolio_backtest(
             "final_value": str(final_value.quantize(Decimal("0.01"))),
             "xirr": None if (rate := xirr(all_flows)) is None else round(rate, 4),
             "max_drawdown": summary["max_drawdown"],
+            "total_return": summary["total_return"],
+            "sharpe_zero_rate": summary["sharpe_zero_rate"],
         },
         "curve": curve,
         "rebalance_events": events,
@@ -304,5 +313,7 @@ def execute_portfolio_backtest(kind: str, payload: dict) -> dict:
         parse_iso_date(payload.get("end"), "end"),
         payload.get("rebalance"),
         payload.get("dca"),
-        initial_capital=_DEFAULT_INITIAL_CAPITAL if initial is None else to_decimal(initial, "initial_capital"),
+        initial_capital=_DEFAULT_INITIAL_CAPITAL
+        if initial is None
+        else to_decimal(initial, "initial_capital"),
     )

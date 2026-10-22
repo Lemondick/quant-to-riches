@@ -80,9 +80,7 @@ def percentile_of(history: Sequence[float], current: float) -> float:
     return 100.0 * sum(1 for value in history if value <= current) / len(history)
 
 
-def trailing_percentile(
-    series: Sequence[tuple[date, float]], at: date, years: int
-) -> float | None:
+def trailing_percentile(series: Sequence[tuple[date, float]], at: date, years: int) -> float | None:
     """Percentile of the value at ``at`` inside its trailing ``years`` window."""
     window = [value for day, value in series if at - _years_ago(years) <= day <= at]
     current = next((value for day, value in series if day == at), None)
@@ -138,9 +136,7 @@ def _temperature(items: Sequence[Mapping]) -> dict:
         if heat is None:
             scores.append(0.5 * item["pe_pct"] + 0.5 * item["pb_pct"])
         else:
-            scores.append(
-                0.4 * item["pe_pct"] + 0.4 * item["pb_pct"] + 0.2 * heat
-            )
+            scores.append(0.4 * item["pe_pct"] + 0.4 * item["pb_pct"] + 0.2 * heat)
     if not scores:
         return {"score": None, "label": "数据不足"}
     score = round(sum(scores) / len(scores), 1)
@@ -157,7 +153,11 @@ def valuation_percentiles(
     """Core computation; ``source`` is injectable for deterministic tests."""
     if not isinstance(indices, Sequence) or isinstance(indices, str) or not indices:
         raise ValueError("indices must be a non-empty list")
-    if not isinstance(years, int) or isinstance(years, bool) or not _MIN_YEARS <= years <= _MAX_YEARS:
+    if (
+        not isinstance(years, int)
+        or isinstance(years, bool)
+        or not _MIN_YEARS <= years <= _MAX_YEARS
+    ):
         raise ValueError("years must be an integer between 1 and 30")
     provider = source or _default_source()
     items: list[dict] = []

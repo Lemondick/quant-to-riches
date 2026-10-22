@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from analysis_context import analytical_context, shanghai_now
+from analysis_context import analytical_context
 
 from quant_assistant.controllers import schemas
 from quant_assistant.services.benchmarks import BenchmarkService

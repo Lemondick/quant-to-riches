@@ -11,7 +11,7 @@ silently diverge from the other:
 import sys
 import unittest
 from datetime import date, datetime
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -81,20 +81,14 @@ class FeeCaliberTests(unittest.TestCase):
             subscription_fee(fund_schedule(), Decimal("10000")),
             half_up("147.78325123"),
         )
-        self.assertEqual(
-            subscription_fee(fund_schedule(), Decimal("10000")), Decimal("147.78")
-        )
+        self.assertEqual(subscription_fee(fund_schedule(), Decimal("10000")), Decimal("147.78"))
 
     def test_fund_fee_rounds_half_up_on_tie(self):
         schedule = fund_schedule(
             purchase_rate=Decimal("0"),
-            purchase_tiers=(
-                PurchaseTier(Decimal("0"), None, None, Decimal("2.345")),
-            ),
+            purchase_tiers=(PurchaseTier(Decimal("0"), None, None, Decimal("2.345")),),
         )
-        self.assertEqual(
-            subscription_fee(schedule, Decimal("10000")), Decimal("2.35")
-        )
+        self.assertEqual(subscription_fee(schedule, Decimal("10000")), Decimal("2.35"))
 
     def test_stock_fee_pinned_values(self):
         model = StockExecutionModel(stock_schedule())
@@ -118,9 +112,7 @@ class FeeCaliberTests(unittest.TestCase):
             )
         )
         # 100 * 0.00125 = 0.125 -> 0.13 under half-up (0.12 under banker's).
-        self.assertEqual(
-            model._calculate_fees(Decimal("100"), is_sell=False), Decimal("0.13")
-        )
+        self.assertEqual(model._calculate_fees(Decimal("100"), is_sell=False), Decimal("0.13"))
 
     def test_both_engines_agree_with_half_up(self):
         # Property: each engine's fee equals the independently rounded raw value.
@@ -154,9 +146,7 @@ class SettlementCaliberTests(unittest.TestCase):
         # Skips the Wednesday holiday: Mon +2 sessions = Tue, Thu.
         self.assertEqual(calendar.add(monday, 2), date(2026, 1, 8))
         # Skips weekends: Fri +1 session = next Monday.
-        self.assertEqual(
-            calendar.add(date(2026, 1, 9), 1), date(2026, 1, 12)
-        )
+        self.assertEqual(calendar.add(date(2026, 1, 9), 1), date(2026, 1, 12))
 
     def test_fund_submit_confirm_date_uses_session_counting(self):
         rule = FundSettlementRule(
@@ -196,9 +186,7 @@ class SettlementCaliberTests(unittest.TestCase):
         pending = model.submit(order, submitted_on, state)
         # T+1 confirmation lands on Tuesday (a trading session), not +1 day blindly.
         self.assertEqual(pending.confirm_on, date(2026, 1, 6))
-        self.assertEqual(
-            pending.confirm_on, self.calendar().add(submitted_on, 1)
-        )
+        self.assertEqual(pending.confirm_on, self.calendar().add(submitted_on, 1))
 
     def test_stock_t_plus_one_is_next_session(self):
         model = StockExecutionModel(stock_schedule())

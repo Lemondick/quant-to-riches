@@ -1,7 +1,7 @@
 """Named non-trading research projections and immutable study generation."""
 
 import hashlib
-from datetime import date, datetime
+from datetime import date
 
 from analysis_context import analytical_context, shanghai_now
 

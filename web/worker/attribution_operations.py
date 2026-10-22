@@ -3,7 +3,6 @@
 import hashlib
 import json
 from contextlib import ExitStack
-from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -363,9 +362,7 @@ def execute_attribution(_kind, payload):
         # (A plain `with` here would also catch main-logic ValueErrors that the
         # old code deliberately let propagate as invalid_request.)
         stack = ExitStack()
-        database, _queries, directory = stack.enter_context(
-            analytical_context(payload["snapshot"])
-        )
+        database, _queries, directory = stack.enter_context(analytical_context(payload["snapshot"]))
     except (OSError, ValueError):
         return {"status": "blocked", "blockers": ["账号分析资料或快照文件不能通过完整性校验。"]}
     try:
@@ -501,8 +498,7 @@ def execute_attribution(_kind, payload):
                     for name in ("transactions", "dividend_events")
                 }
                 frozen_ids = {
-                    name: {str(row["id"]) for row in frozen[name]}
-                    for name in targets_by_id
+                    name: {str(row["id"]) for row in frozen[name]} for name in targets_by_id
                 }
                 for correction in frozen["ledger_corrections"]:
                     name = (

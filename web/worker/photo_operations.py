@@ -6,7 +6,7 @@ from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
 
-from analysis_context import analytical_context, shanghai_now
+from analysis_context import analytical_context
 
 from quant_assistant.models.entities import AssetType
 from quant_assistant.services.photo_import import PhotoAccountImportService

@@ -5,6 +5,10 @@ Contract (batch2 §2): payload
 → ``{metrics: {total_invested, final_value, xirr, max_drawdown}, curve: [...]}``.
 
 Rules (documented; ``rules`` keys):
+- Saved ``low_pct_boost`` and ``high_pct_cut`` are adjustments: their
+  contribution multipliers are ``1 + low_pct_boost`` and ``1 - high_pct_cut``.
+  They take precedence over the legacy multiplier keys below. ``halt_pct``
+  is a percentage here; C# converts saved fractions at the worker boundary.
 - ``low_pct`` (default 30), ``boost`` (default 1.5): valuation percentile ≤
   low_pct → contribute ``base_amount × boost``;
 - ``high_pct`` (default 70), ``cut`` (default 0.5): percentile ≥ high_pct →
@@ -62,17 +66,22 @@ def _rules(raw: Mapping | None) -> dict:
         for key in ("low_pct", "high_pct", "halt_pct"):
             if key in raw:
                 value = float(raw[key])
-                if not 0 < value < 100:
-                    raise ValueError(f"rules.{key} must be within (0, 100)")
+                if not 0 < value <= 100 or (key != "halt_pct" and value == 100):
+                    raise ValueError(f"rules.{key} is outside its percentile range")
                 merged[key] = value
-        for key in ("boost", "cut"):
-            if key in raw:
+        for key, adjustment, sign in (("boost", "low_pct_boost", 1), ("cut", "high_pct_cut", -1)):
+            if adjustment in raw:
+                delta = to_decimal(raw[adjustment], f"rules.{adjustment}")
+                if delta < 0 or (sign == -1 and delta > 1):
+                    raise ValueError(f"rules.{adjustment} is outside its adjustment range")
+                merged[key] = Decimal("1") + sign * delta
+            elif key in raw:
                 value = to_decimal(raw[key], f"rules.{key}")
                 if value < 0:
                     raise ValueError(f"rules.{key} must be non-negative")
                 merged[key] = value
-    if not merged["low_pct"] < merged["high_pct"] < merged["halt_pct"]:
-        raise ValueError("rules require low_pct < high_pct < halt_pct")
+    if not merged["low_pct"] < merged["high_pct"]:
+        raise ValueError("rules require low_pct < high_pct")
     return merged
 
 
@@ -127,7 +136,8 @@ def smart_dca_backtest(
         raise ValueError("valuation_years must be positive")
 
     prices = sorted(
-        price_series if price_series is not None
+        price_series
+        if price_series is not None
         else _production_price_series(index_symbol.strip(), start, end)
     )
     prices = [(day, close) for day, close in prices if start <= day <= end]
@@ -238,17 +248,20 @@ def smart_dca_backtest(
         },
         "curve": curve,
         "contributions": contributions,
-        "warnings": [
-            "估值信号为价格分位代理（无 PE 历史源），非真实估值分位"
-        ] if basis == "price_proxy" else [],
+        "warnings": ["估值信号为价格分位代理（无 PE 历史源），非真实估值分位"]
+        if basis == "price_proxy"
+        else [],
     }
 
 
 def flow_at(day, contributions):
     iso = day.isoformat()
     return sum(
-        (Decimal(record["amount"]) for record in contributions
-         if record["date"] == iso and "amount" in record),
+        (
+            Decimal(record["amount"])
+            for record in contributions
+            if record["date"] == iso and "amount" in record
+        ),
         start=Decimal("0"),
     )
 
@@ -256,8 +269,11 @@ def flow_at(day, contributions):
 def fee_at(day, contributions):
     iso = day.isoformat()
     return sum(
-        (Decimal(record["fee"]) for record in contributions
-         if record["date"] == iso and "fee" in record),
+        (
+            Decimal(record["fee"])
+            for record in contributions
+            if record["date"] == iso and "fee" in record
+        ),
         start=Decimal("0"),
     )
 

@@ -5,6 +5,7 @@ import unittest
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -131,27 +132,32 @@ class PortfolioBacktestTests(unittest.TestCase):
 
     def test_invalid_inputs(self):
         with self.assertRaises(ValueError):
-            portfolio_backtest([], self.start, self.end, {"mode": "period"},
-                               nav_series=self.series)
+            portfolio_backtest([], self.start, self.end, {"mode": "period"}, nav_series=self.series)
         with self.assertRaises(ValueError):
-            portfolio_backtest(self.funds, self.start, self.end, {"mode": "bogus"},
-                               nav_series=self.series)
+            portfolio_backtest(
+                self.funds, self.start, self.end, {"mode": "bogus"}, nav_series=self.series
+            )
         with self.assertRaises(ValueError):
-            portfolio_backtest(self.funds, self.start, self.end,
-                               {"mode": "threshold"}, nav_series=self.series)
+            portfolio_backtest(
+                self.funds, self.start, self.end, {"mode": "threshold"}, nav_series=self.series
+            )
         with self.assertRaises(ValueError):
-            portfolio_backtest(self.funds, self.end, self.start,
-                               {"mode": "period"}, nav_series=self.series)
+            portfolio_backtest(
+                self.funds, self.end, self.start, {"mode": "period"}, nav_series=self.series
+            )
         with self.assertRaises(ValueError):
-            portfolio_backtest(self.funds, self.start, self.end,
-                               {"mode": "period"}, nav_series={"AAA": []})
+            portfolio_backtest(
+                self.funds, self.start, self.end, {"mode": "period"}, nav_series={"AAA": []}
+            )
         outcome = child_envelope(
             lambda: execute_portfolio_backtest("portfolio.backtest", {"funds": []})
         )
         self.assertEqual(outcome["error_code"], "invalid_request")
 
     def test_execute_dispatch(self):
-        try:
+        with patch(
+            "portfolio_backtest_operations._production_nav_series", return_value=self.series
+        ):
             result = execute(
                 "portfolio.backtest",
                 {
@@ -161,9 +167,6 @@ class PortfolioBacktestTests(unittest.TestCase):
                     "rebalance": {"mode": "period", "period": "1M"},
                 },
             )
-        except Exception:  # noqa: BLE001 - public fund feed unreachable in CI
-            self.skipTest("public fund feed unreachable")
-            return
         self.assertIn("rebalance_events", result)
 
 

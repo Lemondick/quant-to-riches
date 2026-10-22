@@ -96,9 +96,7 @@ def _valuation_provider(snapshot=None):
     return _cached_provider(
         "provider.fund_valuation",
         snapshot,
-        lambda: PublicReadCache(
-            EastmoneyFundValuationProvider(calendar=_calendar(snapshot)), 60
-        ),
+        lambda: PublicReadCache(EastmoneyFundValuationProvider(calendar=_calendar(snapshot)), 60),
     )
 
 

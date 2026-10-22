@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 
 HEALTH_CAPABILITIES = ("fund.health_check",)
@@ -46,11 +46,73 @@ _SCALE_WARN_RATIO = 0.30
 
 # (bucket, keywords) — first match wins; documented name-based heuristic.
 _HOLDING_BUCKETS = (
-    ("科技成长", ("芯片", "半导体", "集成电路", "软件", "计算机", "电子", "通信", "5G", "人工智能", "互联网", "光伏", "新能源", "电池", "锂电", "锂能", "储能", "电源", "机器人", "智能", "科技")),
-    ("大消费", ("茅台", "五粮液", "白酒", "食品", "饮料", "乳业", "家电", "家居", "零售", "商超", "餐饮", "旅游", "免税", "服装", "化妆品", "啤酒", "消费")),
+    (
+        "科技成长",
+        (
+            "芯片",
+            "半导体",
+            "集成电路",
+            "软件",
+            "计算机",
+            "电子",
+            "通信",
+            "5G",
+            "人工智能",
+            "互联网",
+            "光伏",
+            "新能源",
+            "电池",
+            "锂电",
+            "锂能",
+            "储能",
+            "电源",
+            "机器人",
+            "智能",
+            "科技",
+        ),
+    ),
+    (
+        "大消费",
+        (
+            "茅台",
+            "五粮液",
+            "白酒",
+            "食品",
+            "饮料",
+            "乳业",
+            "家电",
+            "家居",
+            "零售",
+            "商超",
+            "餐饮",
+            "旅游",
+            "免税",
+            "服装",
+            "化妆品",
+            "啤酒",
+            "消费",
+        ),
+    ),
     ("金融地产", ("银行", "证券", "券商", "保险", "信托", "地产", "房地产", "物业", "金融")),
     ("医药健康", ("医药", "医疗", "生物", "疫苗", "器械", "中药", "CXO", "创新药", "健康")),
-    ("周期制造", ("钢铁", "煤炭", "有色", "化工", "建材", "机械", "工程", "电力", "交运", "航运", "汽车", "重工", "制造")),
+    (
+        "周期制造",
+        (
+            "钢铁",
+            "煤炭",
+            "有色",
+            "化工",
+            "建材",
+            "机械",
+            "工程",
+            "电力",
+            "交运",
+            "航运",
+            "汽车",
+            "重工",
+            "制造",
+        ),
+    ),
 )
 _GROWTH_BUCKETS = {"科技成长", "医药健康"}
 _VALUE_BUCKETS = {"大消费", "金融地产", "周期制造"}
@@ -89,7 +151,9 @@ def _parse_scale(text: object) -> Decimal | None:
         return None
     value = Decimal(match.group(1))
     unit = match.group(2)
-    return value * (Decimal("1") if unit == "亿" else Decimal("0.0001") if unit == "万" else Decimal("1"))
+    return value * (
+        Decimal("1") if unit == "亿" else Decimal("0.0001") if unit == "万" else Decimal("1")
+    )
 
 
 def _check_scale(view: Mapping) -> dict:
@@ -100,8 +164,11 @@ def _check_scale(view: Mapping) -> dict:
             if not isinstance(entry, Mapping):
                 continue
             scale = entry.get("scale")
-            scale = _parse_scale(scale) if isinstance(scale, str) else (
-                Decimal(str(scale)) if scale is not None else None)
+            scale = (
+                _parse_scale(scale)
+                if isinstance(scale, str)
+                else (Decimal(str(scale)) if scale is not None else None)
+            )
             if scale is not None:
                 points.append((entry.get("label", ""), scale))
         if len(points) >= 2:
@@ -115,17 +182,24 @@ def _check_scale(view: Mapping) -> dict:
             if change is not None and abs(change) > _SCALE_WARN_RATIO:
                 direction = "缩水" if change < 0 else "激增"
                 return _finding(
-                    "scale_change", "warn",
-                    f"近一季度规模{direction}{abs(change):.1%}，超过±30%阈值", evidence)
+                    "scale_change",
+                    "warn",
+                    f"近一季度规模{direction}{abs(change):.1%}，超过±30%阈值",
+                    evidence,
+                )
             return _finding(
-                "scale_change", "info",
+                "scale_change",
+                "info",
                 f"近一季度规模变化{float(change):.1%}，处于正常范围"
-                if change is not None else "规模序列无法计算变化",
+                if change is not None
+                else "规模序列无法计算变化",
                 evidence,
             )
     latest = _parse_scale(_field(view, "latest_scale"))
     return _finding(
-        "scale_change", "info", "数据不足：无季度规模序列",
+        "scale_change",
+        "info",
+        "数据不足：无季度规模序列",
         {"latest_scale": str(_field(view, "latest_scale"))} if latest is not None else {},
     )
 
@@ -145,10 +219,13 @@ def _check_manager(view: Mapping, today: date) -> dict:
                 parts.append("新增：" + "、".join(joined))
             if left:
                 parts.append("离任：" + "、".join(left))
-            return _finding("manager_change", "critical", "经理变更，" + "；".join(parts),
-                            {"current": sorted(names), "previous": sorted(previous_names)})
-        return _finding("manager_change", "info", "基金经理未变更",
-                        {"managers": sorted(names)})
+            return _finding(
+                "manager_change",
+                "critical",
+                "经理变更，" + "；".join(parts),
+                {"current": sorted(names), "previous": sorted(previous_names)},
+            )
+        return _finding("manager_change", "info", "基金经理未变更", {"managers": sorted(names)})
     established = _field(view, "established_on")
     recent = []
     dated = 0
@@ -158,21 +235,27 @@ def _check_manager(view: Mapping, today: date) -> dict:
         if not name or not isinstance(start, date):
             continue
         dated += 1
-        newborn = isinstance(established, date) and (start - established).days <= _RECENT_MANAGER_DAYS
+        newborn = (
+            isinstance(established, date) and (start - established).days <= _RECENT_MANAGER_DAYS
+        )
         if (today - start).days <= _RECENT_MANAGER_DAYS and not newborn:
             recent.append({"name": name, "tenure_start": start.isoformat()})
     if recent:
         return _finding(
-            "manager_change", "critical",
-            "检测到近 180 天内基金经理变动：" + "、".join(
-                f"{item['name']}（{item['tenure_start']} 上任）" for item in recent),
+            "manager_change",
+            "critical",
+            "检测到近 180 天内基金经理变动："
+            + "、".join(f"{item['name']}（{item['tenure_start']} 上任）" for item in recent),
             {"recent": recent},
         )
     if dated == 0:
         return _finding("manager_change", "info", "数据不足：无基金经理任职起始日", {})
-    return _finding("manager_change", "info",
-                    f"基金经理稳定（现任 {len(names)} 人，近 180 天无变动）",
-                    {"managers": sorted(names)})
+    return _finding(
+        "manager_change",
+        "info",
+        f"基金经理稳定（现任 {len(names)} 人，近 180 天无变动）",
+        {"managers": sorted(names)},
+    )
 
 
 def _bucket_holding(name: str) -> str:
@@ -188,8 +271,7 @@ def _check_style(view: Mapping) -> dict:
     if not declared or not isinstance(declared, str):
         return _finding("style_drift", "info", "数据不足：未提供 declared_style", {})
     rows = [
-        (str(_field(holding, "name") or ""),
-         Decimal(str(_field(holding, "weight") or 0)))
+        (str(_field(holding, "name") or ""), Decimal(str(_field(holding, "weight") or 0)))
         for holding in holdings
     ]
     rows = [(name, weight) for name, weight in rows if name and weight > 0][:10]
@@ -212,13 +294,20 @@ def _check_style(view: Mapping) -> dict:
         "value_ratio": round(value_ratio, 3),
     }
     if "价值" in declared and growth_ratio >= 0.5:
-        return _finding("style_drift", "warn",
-                        f"宣称价值风格，但成长类持仓占比达 {growth_ratio:.0%}，疑似风格漂移", evidence)
+        return _finding(
+            "style_drift",
+            "warn",
+            f"宣称价值风格，但成长类持仓占比达 {growth_ratio:.0%}，疑似风格漂移",
+            evidence,
+        )
     if "成长" in declared and value_ratio >= 0.6:
-        return _finding("style_drift", "warn",
-                        f"宣称成长风格，但价值类持仓占比达 {value_ratio:.0%}，疑似风格漂移", evidence)
-    return _finding("style_drift", "info",
-                    f"持仓风格与宣称（{declared}）基本一致", evidence)
+        return _finding(
+            "style_drift",
+            "warn",
+            f"宣称成长风格，但价值类持仓占比达 {value_ratio:.0%}，疑似风格漂移",
+            evidence,
+        )
+    return _finding("style_drift", "info", f"持仓风格与宣称（{declared}）基本一致", evidence)
 
 
 def _check_fee(view: Mapping) -> dict:
@@ -254,18 +343,20 @@ def _check_fee(view: Mapping) -> dict:
     }
     if total > ceiling:
         return _finding(
-            "fee_level", "warn",
-            f"管理费+托管费合计 {total:.2%}，高于同类参考上限 {ceiling:.2%}", evidence)
+            "fee_level",
+            "warn",
+            f"管理费+托管费合计 {total:.2%}，高于同类参考上限 {ceiling:.2%}",
+            evidence,
+        )
     return _finding(
-        "fee_level", "info",
-        f"管理费+托管费合计 {total:.2%}，处于同类正常水平", evidence)
+        "fee_level", "info", f"管理费+托管费合计 {total:.2%}，处于同类正常水平", evidence
+    )
 
 
 def _detail_to_view(detail: object) -> dict:
     def seq(items, names):
-        return [
-            {name: _field(item, name) for name in names} for item in (items or ())
-        ]
+        return [{name: _field(item, name) for name in names} for item in (items or ())]
+
     return {
         "latest_scale": _field(detail, "latest_scale"),
         "established_on": _field(detail, "established_on"),
@@ -315,10 +406,12 @@ def health_check(
                 for kind in ("scale_change", "manager_change", "style_drift", "fee_level")
             ]
         else:
-            merged = {**view,
-                      "scale_history": fund.get("scale_history", view.get("scale_history")),
-                      "previous_managers": fund.get("previous_managers", view.get("previous_managers")),
-                      "declared_style": fund.get("declared_style", view.get("declared_style"))}
+            merged = {
+                **view,
+                "scale_history": fund.get("scale_history", view.get("scale_history")),
+                "previous_managers": fund.get("previous_managers", view.get("previous_managers")),
+                "declared_style": fund.get("declared_style", view.get("declared_style")),
+            }
             if name is None:
                 name = view.get("name")
             findings = [

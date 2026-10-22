@@ -41,9 +41,7 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual([nav for _, nav in points], [1.0, 1.1, 1.2])
 
     def test_accepts_pairs_and_sorts_by_date(self):
-        points = normalize_nav_series(
-            [("2026-02-01", 1.2), ("2026-01-01", 1.0)]
-        )
+        points = normalize_nav_series([("2026-02-01", 1.2), ("2026-01-01", 1.0)])
         self.assertEqual(points[0][0], date(2026, 1, 1))
 
     def test_rejects_empty_and_non_positive(self):
@@ -66,9 +64,7 @@ class RiskMetricsTests(unittest.TestCase):
         result = risk_metrics(_series(values))
         returns = [values[i] / values[i - 1] - 1 for i in range(1, len(values))]
         self.assertAlmostEqual(result["var95"], round(_expected_var95(returns), 6))
-        self.assertAlmostEqual(
-            result["ann_volatility"], round(stdev(returns) * math.sqrt(252), 6)
-        )
+        self.assertAlmostEqual(result["ann_volatility"], round(stdev(returns) * math.sqrt(252), 6))
         self.assertAlmostEqual(
             result["sharpe"],
             round((mean(returns) * 252 - 0.02) / (stdev(returns) * math.sqrt(252)), 6),
@@ -136,7 +132,9 @@ class StressTestTests(unittest.TestCase):
         result = stress_test(portfolio_value=100000.0, beta=1.0)
         first = result["scenarios"][0]
         self.assertAlmostEqual(first["est_loss_pct"], first["index_drop_pct"])
-        self.assertAlmostEqual(first["est_loss_amount"], 100000.0 * first["index_drop_pct"], places=2)
+        self.assertAlmostEqual(
+            first["est_loss_amount"], 100000.0 * first["index_drop_pct"], places=2
+        )
         half = stress_test(portfolio_value=100000.0, beta=0.5)["scenarios"][0]
         self.assertAlmostEqual(half["est_loss_pct"], first["index_drop_pct"] * 0.5)
         self.assertIn("disclaimer", result)
@@ -154,7 +152,9 @@ class StressTestTests(unittest.TestCase):
 
 class ExecuteRiskTests(unittest.TestCase):
     def test_dispatch_metrics_via_registry(self):
-        result = execute("risk.metrics", {"nav_series": _series([1.0 + 0.001 * i for i in range(40)])})
+        result = execute(
+            "risk.metrics", {"nav_series": _series([1.0 + 0.001 * i for i in range(40)])}
+        )
         self.assertIn("sharpe", result)
 
     def test_dispatch_stress_via_registry(self):

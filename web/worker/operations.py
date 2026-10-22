@@ -5,22 +5,22 @@ from __future__ import annotations
 from advisor_preflight import execute_preflight
 from attribution_operations import ATTRIBUTION_CAPABILITIES, execute_attribution
 from calendar_generation import CALENDAR_CAPABILITIES, execute_calendar
-from smart_dca_backtest_operations import DCA_CAPABILITIES, execute_smart_dca
-from portfolio_backtest_operations import PORTFOLIO_CAPABILITIES, execute_portfolio_backtest
 from catalog_validate_operations import CATALOG_VALIDATE_CAPABILITIES, execute_catalog_validate
 from cost_operations import COST_CAPABILITIES, execute_cost
+from goal_operations import GOAL_CAPABILITIES, execute_goal
 from nav_operations import NAV_CAPABILITIES, execute_nav
 from paid_operations import PAID_CAPABILITIES, execute_paid
 from photo_operations import PHOTO_CAPABILITIES, execute_photo
+from portfolio_backtest_operations import PORTFOLIO_CAPABILITIES, execute_portfolio_backtest
 from public_operations import IN_PROCESS_CAPABILITIES, execute_public
 from read_operations import READ_CAPABILITIES, execute_read
 from redemption_operations import REDEMPTION_CAPABILITIES, execute_redemption
 from replay_operations import REPLAY_CAPABILITIES, execute_replay
-from goal_operations import GOAL_CAPABILITIES, execute_goal
 from research_fetch_operations import RESEARCH_FETCH_CAPABILITIES, execute_research_fetch
 from research_operations import RESEARCH_CAPABILITIES, execute_research
 from risk_operations import RISK_CAPABILITIES, execute_risk
 from sentiment_operations import SENTIMENT_CAPABILITIES, execute_sentiment
+from smart_dca_backtest_operations import DCA_CAPABILITIES, execute_smart_dca
 from strategy_operations import STRATEGY_CAPABILITIES, execute_strategy
 
 from quant_assistant.reporting.fund_execution_study import replay as replay_fund_orders

@@ -55,7 +55,7 @@ _NEWS_BODY = (
     '{"date":"2026-10-20 09:00:00","title":"基金调仓",'
     '"content":"多只基金调整持仓。",'
     '"mediaName":"上海证券报","url":"http://finance.eastmoney.com/a/1.html"}'
-    ']}});'
+    "]}});"
 )
 
 
@@ -121,8 +121,9 @@ class ResearchFetchTests(unittest.TestCase):
 
 class ExecuteResearchFetchTests(unittest.TestCase):
     def test_dispatch_via_registry(self):
-        import research_fetch_operations as module
         from unittest import mock
+
+        import research_fetch_operations as module
 
         with mock.patch.object(module.requests, "get", side_effect=_fake_http):
             result = execute("research.fetch", {"symbols": ["000001"], "kinds": ["news"]})

@@ -72,10 +72,12 @@ class HealthCheckTests(unittest.TestCase):
         self.assertEqual(_finding(report, "fee_level")["severity"], "info")
 
     def test_scale_surge_warns(self):
-        view = _view(scale_history=[
-            {"label": "2026Q2", "scale": Decimal("10")},
-            {"label": "2026Q3", "scale": Decimal("15")},
-        ])
+        view = _view(
+            scale_history=[
+                {"label": "2026Q2", "scale": Decimal("10")},
+                {"label": "2026Q3", "scale": Decimal("15")},
+            ]
+        )
         result = health_check([{"code": "000001"}], fetcher=_fetcher({"000001": view}), as_of=TODAY)
         finding = _finding(result["reports"][0], "scale_change")
         self.assertEqual(finding["severity"], "warn")
@@ -83,10 +85,12 @@ class HealthCheckTests(unittest.TestCase):
         self.assertEqual(finding["evidence"]["change_ratio"], 0.5)
 
     def test_scale_stable_is_info(self):
-        view = _view(scale_history=[
-            {"label": "2026Q2", "scale": Decimal("10")},
-            {"label": "2026Q3", "scale": Decimal("11")},
-        ])
+        view = _view(
+            scale_history=[
+                {"label": "2026Q2", "scale": Decimal("10")},
+                {"label": "2026Q3", "scale": Decimal("11")},
+            ]
+        )
         result = health_check([{"code": "000001"}], fetcher=_fetcher({"000001": view}), as_of=TODAY)
         self.assertEqual(_finding(result["reports"][0], "scale_change")["severity"], "info")
 
@@ -116,11 +120,13 @@ class HealthCheckTests(unittest.TestCase):
         self.assertIn("王五", finding["detail"])
 
     def test_style_drift_warns(self):
-        view = _view(holdings=[
-            {"name": "亿纬锂能", "weight": Decimal("9.0")},
-            {"name": "澜起科技", "weight": Decimal("8.0")},
-            {"name": "中微半导体", "weight": Decimal("7.5")},
-        ])
+        view = _view(
+            holdings=[
+                {"name": "亿纬锂能", "weight": Decimal("9.0")},
+                {"name": "澜起科技", "weight": Decimal("8.0")},
+                {"name": "中微半导体", "weight": Decimal("7.5")},
+            ]
+        )
         result = health_check(
             [{"code": "000001", "declared_style": "大盘价值"}],
             fetcher=_fetcher({"000001": view}),
@@ -139,10 +145,12 @@ class HealthCheckTests(unittest.TestCase):
         self.assertIn("数据不足", finding["detail"])
 
     def test_fee_level_warns(self):
-        view = _view(fees=[
-            {"fee_type": "管理费", "rate": Decimal("0.015")},
-            {"fee_type": "托管费", "rate": Decimal("0.01")},
-        ])
+        view = _view(
+            fees=[
+                {"fee_type": "管理费", "rate": Decimal("0.015")},
+                {"fee_type": "托管费", "rate": Decimal("0.01")},
+            ]
+        )
         result = health_check([{"code": "000001"}], fetcher=_fetcher({"000001": view}), as_of=TODAY)
         finding = _finding(result["reports"][0], "fee_level")
         self.assertEqual(finding["severity"], "warn")

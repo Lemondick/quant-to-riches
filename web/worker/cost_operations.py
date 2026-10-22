@@ -26,9 +26,9 @@ Methodology (documented assumptions):
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Mapping, Sequence
 
 COST_CAPABILITIES = ("cost.positions",)
 
@@ -191,7 +191,9 @@ def cost_positions(funds: object, *, as_of: date | None = None) -> dict:
             # Position-level fallback from average_cost: we know cost but not the
             # real purchase dates, so an XIRR would be fabricated — leave null.
             annual_return = None
-            warnings.append(f"{fund_code}: 无逐笔交易明细，年化收益率无法计算（按平均成本估算成本）")
+            warnings.append(
+                f"{fund_code}: 无逐笔交易明细，年化收益率无法计算（按平均成本估算成本）"
+            )
         else:
             cashflows = [(lot["_acquired_at"], -lot["_cost"]) for lot in lots]
             cashflows.append((today, value))
@@ -214,11 +216,11 @@ def cost_positions(funds: object, *, as_of: date | None = None) -> dict:
                 "floating_pnl": str(pnl),
                 "floating_pnl_pct": round(float(pnl / cost), 6) if cost > 0 else None,
                 "est_redemption_fee": str(fee) if fee_known else None,
-                "annual_return_xirr": round(annual_return, 6) if annual_return is not None else None,
+                "annual_return_xirr": round(annual_return, 6)
+                if annual_return is not None
+                else None,
                 "breakeven_nav": str(breakeven),
-                "breakeven_note": (
-                    "含预估赎回费" if fee_known else "无费率数据，未含赎回费"
-                ),
+                "breakeven_note": ("含预估赎回费" if fee_known else "无费率数据，未含赎回费"),
                 "as_of": today.isoformat(),
             }
         )
@@ -239,25 +241,23 @@ def cost_positions(funds: object, *, as_of: date | None = None) -> dict:
         "method": (
             "浮动盈亏 = 份额×当前净值 − 买入总成本；赎回费按 FundFeeSchedule 赎回档位"
             "（持有天数匹配）估算；年化收益率为 XIRR 简化版（每笔买入为流出、期末市值为流入，"
-            "复用 backtest_shared.xirr 二分求解，忽略期间分红）；回本净值线 = (成本+预估赎回费)/份额"
+            "复用 backtest_shared.xirr 二分求解，忽略期间分红）；"
+            "回本净值线 = (成本+预估赎回费)/份额"
         ),
         "as_of": today.isoformat(),
         "warnings": warnings,
     }
 
 
-def _funds_from_db(database, user_id: str) -> list[dict]:
-    """Rebuild per-fund lots from transactions (FIFO) + positions current NAV."""
+def _funds_from_db(database) -> list[dict]:
+    """Rebuild FIFO lots from the authenticated, account-isolated snapshot."""
     with database.connection() as connection:
         position_rows = connection.execute(
-            "SELECT symbol, quantity, average_cost, market_value, as_of_date "
-            "FROM positions WHERE user_id = ?",
-            (user_id,),
+            "SELECT symbol, quantity, average_cost, market_value, as_of_date FROM positions",
         ).fetchall()
         txn_rows = connection.execute(
             "SELECT symbol, action, quantity, price, fees, traded_at "
-            "FROM transactions WHERE user_id = ? ORDER BY traded_at",
-            (user_id,),
+            "FROM transactions ORDER BY traded_at",
         ).fetchall()
 
     txns: dict[str, list[dict]] = {}
@@ -321,9 +321,7 @@ def _funds_from_db(database, user_id: str) -> list[dict]:
                     "_no_txn_detail": True,
                 }
             ]
-        funds.append(
-            {"fund_code": symbol, "current_nav": str(current_nav), "lots": lots}
-        )
+        funds.append({"fund_code": symbol, "current_nav": str(current_nav), "lots": lots})
     return funds
 
 
@@ -342,7 +340,7 @@ def execute_cost(kind: str, payload: dict) -> dict:
         from analysis_context import analytical_context
 
         with analytical_context(payload["snapshot"]) as (database, _queries, _directory):
-            funds = _funds_from_db(database, portfolio_id.strip())
+            funds = _funds_from_db(database)
         if not funds:
             return {
                 "funds": [],

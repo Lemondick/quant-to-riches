@@ -20,7 +20,9 @@ NAV_SYMBOLS_DEFAULT_MAX = 50
 
 def _nav_symbols_max():
     try:
-        return max(1, int(os.environ.get("QUANT_WORKER_NAV_SYMBOLS_MAX", str(NAV_SYMBOLS_DEFAULT_MAX))))
+        return max(
+            1, int(os.environ.get("QUANT_WORKER_NAV_SYMBOLS_MAX", str(NAV_SYMBOLS_DEFAULT_MAX)))
+        )
     except (TypeError, ValueError):
         return NAV_SYMBOLS_DEFAULT_MAX
 

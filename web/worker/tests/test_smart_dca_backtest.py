@@ -5,6 +5,7 @@ import unittest
 from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -60,7 +61,9 @@ class SmartDcaBacktestTests(unittest.TestCase):
         halted = [c for c in contribs if c["paused"]]
         self.assertTrue(len(halted) > len(contribs) / 2)
         metrics = result["metrics"]
-        self.assertEqual(Decimal(metrics["total_invested"]), Decimal("1000") * (len(contribs) - len(halted)))
+        self.assertEqual(
+            Decimal(metrics["total_invested"]), Decimal("1000") * (len(contribs) - len(halted))
+        )
         self.assertGreater(Decimal(metrics["final_value"]), 0)
         self.assertIsNotNone(metrics["xirr"])
         self.assertLessEqual(metrics["max_drawdown"], 0)
@@ -105,25 +108,36 @@ class SmartDcaBacktestTests(unittest.TestCase):
     def test_invalid_inputs(self):
         prices = _price_series(self.days, 1.0)
         with self.assertRaises(ValueError):
-            smart_dca_backtest("000300", self.end, self.start, Decimal("1000"), None,
-                               price_series=prices)
+            smart_dca_backtest(
+                "000300", self.end, self.start, Decimal("1000"), None, price_series=prices
+            )
         with self.assertRaises(ValueError):
-            smart_dca_backtest("000300", self.start, self.end, Decimal("0"), None,
-                               price_series=prices)
+            smart_dca_backtest(
+                "000300", self.start, self.end, Decimal("0"), None, price_series=prices
+            )
         with self.assertRaises(ValueError):
-            smart_dca_backtest("000300", self.start, self.end, Decimal("1000"),
-                               {"low_pct": 80, "high_pct": 70, "halt_pct": 90},
-                               price_series=prices)
+            smart_dca_backtest(
+                "000300",
+                self.start,
+                self.end,
+                Decimal("1000"),
+                {"low_pct": 80, "high_pct": 70, "halt_pct": 90},
+                price_series=prices,
+            )
         with self.assertRaises(ValueError):
-            smart_dca_backtest("000300", self.start, self.end, Decimal("1000"), None,
-                               price_series=[])
+            smart_dca_backtest(
+                "000300", self.start, self.end, Decimal("1000"), None, price_series=[]
+            )
         outcome = child_envelope(
             lambda: execute_smart_dca("dca.smart_plan_backtest", {"index_symbol": "x"})
         )
         self.assertEqual(outcome["error_code"], "invalid_request")
 
     def test_execute_dispatch(self):
-        try:
+        with patch(
+            "smart_dca_backtest_operations._production_price_series",
+            return_value=_price_series(self.days, 1.0),
+        ):
             result = execute(
                 "dca.smart_plan_backtest",
                 {
@@ -131,12 +145,15 @@ class SmartDcaBacktestTests(unittest.TestCase):
                     "start": self.start.isoformat(),
                     "end": self.end.isoformat(),
                     "base_amount": "1000",
-                    "rules": {"low_pct": 30, "boost": 1.5, "high_pct": 70, "cut": 0.5, "halt_pct": 90},
+                    "rules": {
+                        "low_pct": 30,
+                        "boost": 1.5,
+                        "high_pct": 70,
+                        "cut": 0.5,
+                        "halt_pct": 90,
+                    },
                 },
             )
-        except Exception:  # noqa: BLE001 - public quote feed unreachable in CI
-            self.skipTest("public quote feed unreachable")
-            return
         self.assertIn("metrics", result)
 
 

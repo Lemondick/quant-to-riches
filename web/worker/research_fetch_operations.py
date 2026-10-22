@@ -95,7 +95,9 @@ def _fetch_reports(symbols: Sequence[str], http_get) -> list[dict]:
                 published_at = date.fromisoformat(published_raw[:10]).isoformat()
             except ValueError:
                 published_at = None
-            summary_bits = [part for part in (org, f"评级：{rating}" if rating else "", title) if part]
+            summary_bits = [
+                part for part in (org, f"评级：{rating}" if rating else "", title) if part
+            ]
             items.append(
                 {
                     "title": title,
@@ -191,11 +193,7 @@ def fetch_research(
     http_get=None,
 ) -> dict:
     """Core computation; ``http_get`` injectable for deterministic tests."""
-    if (
-        not isinstance(symbols, Sequence)
-        or isinstance(symbols, (str, bytes))
-        or not symbols
-    ):
+    if not isinstance(symbols, Sequence) or isinstance(symbols, (str, bytes)) or not symbols:
         raise ValueError("symbols must be a non-empty list")
     clean_symbols = []
     for position, raw in enumerate(symbols):

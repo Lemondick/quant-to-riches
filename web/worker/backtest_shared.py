@@ -11,7 +11,7 @@ Conventions reused from the existing engines (F8 口径一致性):
 from __future__ import annotations
 
 from datetime import date
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 
 import pandas as pd
 
@@ -72,9 +72,7 @@ def xirr(cashflows: list[tuple[date, Decimal]]) -> float | None:
         return None
     base = cashflows[0][0]
     points = [((day - base).days / 365.0, float(amount)) for day, amount in cashflows]
-    if not any(amount > 0 for _, amount in points) or not any(
-        amount < 0 for _, amount in points
-    ):
+    if not any(amount > 0 for _, amount in points) or not any(amount < 0 for _, amount in points):
         return None
 
     def npv(rate: float) -> float:

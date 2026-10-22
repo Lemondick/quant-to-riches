@@ -36,9 +36,7 @@ def alert_rounds_from_env(environment=None):
     try:
         rounds = int(raw)
     except (TypeError, ValueError):
-        _logger.warning(
-            "invalid QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS=%r; using 3", raw
-        )
+        _logger.warning("invalid QUANT_PUBLIC_SOURCE_FAIL_ALERT_ROUNDS=%r; using 3", raw)
         return 3
     return max(1, rounds)
 
@@ -73,9 +71,7 @@ class PublicSourceFailureTracker:
                 continue
             try:
                 sources[str(host)] = {
-                    "consecutive_failures": max(
-                        0, int(entry.get("consecutive_failures", 0))
-                    ),
+                    "consecutive_failures": max(0, int(entry.get("consecutive_failures", 0))),
                     "last_failure_at": entry.get("last_failure_at"),
                     "last_error": entry.get("last_error"),
                 }

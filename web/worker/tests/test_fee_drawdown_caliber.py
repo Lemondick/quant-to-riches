@@ -24,7 +24,9 @@ from quant_assistant.funds.fees import (
 )
 from quant_assistant.portfolio.drawdown_control import validate_drawdown
 
-FIXTURE = Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "fee-drawdown-caliber-vectors.json"
+FIXTURE = (
+    Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "fee-drawdown-caliber-vectors.json"
+)
 
 
 def load_fixture():
@@ -72,8 +74,11 @@ class FeeCaliberTests(unittest.TestCase):
         schedule = build_schedule(data["schedule"])
         self.assertGreater(len(data["fee_cases"]), 0)
         for case in data["fee_cases"]:
-            with self.subTest(amount=case["amount"], days=case["holding_days"],
-                              nav_inc=case["nav_includes_service_fee"]):
+            with self.subTest(
+                amount=case["amount"],
+                days=case["holding_days"],
+                nav_inc=case["nav_includes_service_fee"],
+            ):
                 est = estimate_cost_breakdown(
                     schedule,
                     Decimal(case["amount"]),
@@ -85,7 +90,9 @@ class FeeCaliberTests(unittest.TestCase):
                 self.assertEqual(est.purchase_fee, Decimal(exp["purchase_fee"]))
                 self.assertEqual(est.redemption_fee, Decimal(exp["redemption_fee"]))
                 self.assertEqual(est.service_fee_estimate, Decimal(exp["service_fee_estimate"]))
-                self.assertEqual(est.expected_service_refund, Decimal(exp["expected_service_refund"]))
+                self.assertEqual(
+                    est.expected_service_refund, Decimal(exp["expected_service_refund"])
+                )
                 self.assertEqual(est.net_cost_estimate, Decimal(exp["net_cost_estimate"]))
 
 

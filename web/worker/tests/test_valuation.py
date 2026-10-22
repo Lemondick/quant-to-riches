@@ -132,9 +132,7 @@ class ValuationOpTests(unittest.TestCase):
 
     def test_short_history_skipped_with_warning(self):
         source = _FakeSource({"000300": _monthly_series(12, 10.0, 12.0, 1.0, 1.2)})
-        result = valuation_percentiles(
-            [{"symbol": "000300", "market": "CN"}], 10, source=source
-        )
+        result = valuation_percentiles([{"symbol": "000300", "market": "CN"}], 10, source=source)
         self.assertEqual(result["items"], [])
         self.assertTrue(any("不足" in warning for warning in result["warnings"]))
 

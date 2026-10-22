@@ -15,31 +15,21 @@ import quant_assistant.providers.market_calendar as market_calendar_module
 
 
 def builtin_2026(market):
-    path = (
-        Path(market_calendar_module.__file__).parent / "exchange_calendars.json"
-    )
+    path = Path(market_calendar_module.__file__).parent / "exchange_calendars.json"
     payload = json.loads(path.read_text("utf-8"))
     for row in payload["calendars"]:
         if row["market"] == market and row["year"] == 2026:
-            return {
-                day
-                for day in row["holidays"]
-                if date.fromisoformat(day).weekday() < 5
-            }
+            return {day for day in row["holidays"] if date.fromisoformat(day).weekday() < 5}
     raise AssertionError(f"no builtin 2026 calendar for {market}")
 
 
 class CalendarGenerationTests(unittest.TestCase):
     def generate(self, market, year):
-        return execute_calendar(
-            "calendar.generate_next_year", {"market": market, "year": year}
-        )
+        return execute_calendar("calendar.generate_next_year", {"market": market, "year": year})
 
     def test_op_is_registered(self):
         self.assertIn("calendar.generate_next_year", CAPABILITIES)
-        result = execute(
-            "calendar.generate_next_year", {"market": "US", "year": 2027}
-        )
+        result = execute("calendar.generate_next_year", {"market": "US", "year": 2027})
         self.assertEqual(result["market"], "US")
 
     def test_response_shape(self):
@@ -53,9 +43,7 @@ class CalendarGenerationTests(unittest.TestCase):
         self.assertEqual(result["source"], "lunar_algorithm")
         self.assertEqual(result["confidence"], "medium")
         self.assertTrue(result["notes"])
-        self.assertEqual(
-            result["holidays"], sorted(set(result["holidays"]))
-        )
+        self.assertEqual(result["holidays"], sorted(set(result["holidays"])))
 
     def test_source_and_confidence_enums(self):
         expected = {
@@ -73,12 +61,8 @@ class CalendarGenerationTests(unittest.TestCase):
         for market in ("CN", "US", "JP", "HK"):
             result = self.generate(market, 2027)
             days = [date.fromisoformat(day) for day in result["holidays"]]
-            self.assertTrue(
-                all(day.weekday() < 5 for day in days), market
-            )
-            self.assertTrue(
-                all(day.year == 2027 for day in days), market
-            )
+            self.assertTrue(all(day.weekday() < 5 for day in days), market)
+            self.assertTrue(all(day.year == 2027 for day in days), market)
             # Sanity bounds: every market closes a handful of weekdays a year,
             # never anywhere near half of them.
             self.assertGreaterEqual(len(days), 4, market)

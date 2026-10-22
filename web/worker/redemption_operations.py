@@ -89,7 +89,9 @@ def _tier_view(tier: RedemptionTier) -> dict:
     }
 
 
-def _schedule_for(fund_code: str, tiers: tuple[RedemptionTier, ...], today: date) -> FundFeeSchedule:
+def _schedule_for(
+    fund_code: str, tiers: tuple[RedemptionTier, ...], today: date
+) -> FundFeeSchedule:
     # The schedule is a caliber carrier for the redemption tiers only;
     # purchase/service legs are zeroed because this op never prices them.
     return FundFeeSchedule(
@@ -154,9 +156,7 @@ def redemption_windows(
         days_left = (next_tier_at - today).days
         if days_left > days_ahead:
             continue
-        save_estimate = (amount * (current_rate - nxt.rate)).quantize(
-            CENT, rounding=ROUND_HALF_UP
-        )
+        save_estimate = (amount * (current_rate - nxt.rate)).quantize(CENT, rounding=ROUND_HALF_UP)
         current_tier = next(
             tier for tier in schedule.redemption_tiers if tier.includes(holding_days)
         )

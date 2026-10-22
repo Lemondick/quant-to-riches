@@ -61,7 +61,9 @@ class AnnouncementTests(unittest.TestCase):
         self.assertEqual(classify_kind("基金经理变更公告"), "manager_change")
         self.assertEqual(classify_kind("增聘基金经理的公告"), "manager_change")
         self.assertEqual(classify_kind("基金合同终止及清算的公告"), "liquidation_risk")
-        self.assertEqual(classify_kind("连续60个工作日基金资产净值低于5000万元的提示"), "liquidation_risk")
+        self.assertEqual(
+            classify_kind("连续60个工作日基金资产净值低于5000万元的提示"), "liquidation_risk"
+        )
         self.assertEqual(classify_kind("2026年第三季度报告"), "other")
 
     def test_fetch_and_mapping(self):
@@ -75,7 +77,9 @@ class AnnouncementTests(unittest.TestCase):
         self.assertEqual(kinds["2026年第三季度报告"], "other")
         # newest first
         self.assertEqual(items[0]["published_at"], "2026-10-20")
-        self.assertTrue(items[0]["source_url"].startswith("https://fund.eastmoney.com/gonggao/000001,"))
+        self.assertTrue(
+            items[0]["source_url"].startswith("https://fund.eastmoney.com/gonggao/000001,")
+        )
         self.assertEqual(items[0]["fund_code"], "000001")
         self.assertEqual(result["warnings"], [])
 
