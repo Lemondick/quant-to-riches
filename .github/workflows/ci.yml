@@ -60,6 +60,8 @@ jobs:
       - run: npm run build
       - name: Install native Chromium for browser regression
         run: npx playwright install --with-deps chromium
+      - name: Verify authenticated page contracts and account transitions
+        run: npm run test:browser:contracts
       - name: Verify the supplied native Vue pages and local interactions
         run: npm run verify:ui
         env:

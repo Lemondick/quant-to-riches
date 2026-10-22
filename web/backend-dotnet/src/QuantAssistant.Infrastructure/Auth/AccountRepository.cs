@@ -632,13 +632,13 @@ public sealed class AccountRepository(string connectionString, string auditHashA
         return list;
     }
 
-    public void MarkRecoveryCodeUsed(long id)
+    public bool MarkRecoveryCodeUsed(long id)
     {
         using var conn = Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "UPDATE user_totp_recovery SET used_at=now() WHERE id=$1 AND used_at IS NULL";
         cmd.Parameters.AddWithValue(id);
-        cmd.ExecuteNonQuery();
+        return cmd.ExecuteNonQuery() == 1;
     }
 
     public void CreateTotpChallenge(string tokenHash, string userId, DateTime now, DateTime expires)

@@ -33,6 +33,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from datetime import date
 from decimal import Decimal
+from math import isfinite
 
 from backtest_shared import (
     charge_purchase_fee,
@@ -293,7 +294,9 @@ def portfolio_backtest(
             "xirr": None if (rate := xirr(all_flows)) is None else round(rate, 4),
             "max_drawdown": summary["max_drawdown"],
             "total_return": summary["total_return"],
-            "sharpe_zero_rate": summary["sharpe_zero_rate"],
+            "sharpe_zero_rate": (
+                sharpe if isfinite(sharpe := summary["sharpe_zero_rate"]) else None
+            ),
         },
         "curve": curve,
         "rebalance_events": events,

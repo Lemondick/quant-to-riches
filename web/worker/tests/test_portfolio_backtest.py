@@ -104,6 +104,21 @@ class PortfolioBacktestTests(unittest.TestCase):
         )
         self.assertEqual(result["rebalance_events"], [])
 
+    def test_short_and_flat_backtests_cross_the_json_boundary(self):
+        for count, drift in ((2, 1.01), (30, 1.0)):
+            with self.subTest(count=count, drift=drift):
+                days = self.days[:count]
+                outcome = child_envelope(
+                    lambda days=days, drift=drift: portfolio_backtest(
+                        [{"code": "AAA", "weight": "1"}],
+                        days[0],
+                        days[-1],
+                        nav_series={"AAA": _nav_series(days, 1.0, drift)},
+                    )
+                )
+                self.assertIsNone(outcome["error_code"])
+                self.assertIsNone(outcome["result"]["metrics"]["sharpe_zero_rate"])
+
     def test_dca_cashflows(self):
         result = portfolio_backtest(
             self.funds,

@@ -271,8 +271,7 @@ public sealed class AuthService(
         {
             if (hasher.Verify(hash, normalized.ToUpperInvariant()))
             {
-                repository.MarkRecoveryCodeUsed(id);
-                return account;
+                return repository.MarkRecoveryCodeUsed(id) ? account : null;
             }
         }
         return null;

@@ -31,6 +31,7 @@ export type RebalanceState = {
   as_of?: string | null
   configured?: boolean
   suggestions?: string[]
+  breaches?: Partial<Record<AllocationClass, boolean>>
 }
 
 export type ClassAdvice = {
@@ -168,7 +169,7 @@ export function buildRebalanceAdvice(state: RebalanceState): { advices: ClassAdv
     const targetPct = state.target[`${cls}_pct`]
     const currentPct = Number(current.classes[cls]) || 0
     const diffPct = currentPct - targetPct
-    const alert = Math.abs(diffPct) >= threshold
+    const alert = state.breaches?.[cls] ?? Math.abs(diffPct) > threshold
     let suggestion: string | null = null
     if (alert && total > 0) {
       const amount = Math.abs(diffPct) / 100 * total
@@ -339,13 +340,14 @@ export function rebalanceTargetBody(target: RebalanceTarget) {
 export async function loadRebalance(api: AccountReader, signal?: AbortSignal): Promise<RebalanceState> {
   const { targets } = await api.read<{ targets: RebalanceTargetsWire | null }>('/rebalance/targets', signal)
   if (!targets) return { configured: false, target: { equity_pct: 0, bond_pct: 0, cash_pct: 0, max_industry_pct: 30, deviation_threshold_pct: 5 }, current: null }
-  const result = await api.post<{ as_of: string; total_value: string; targets: RebalanceTargetsWire; allocation: { stock: string; bond: string; cash: string }; industry: { top: string | null; ratio: string }; suggestions: { note: string }[] }>('/rebalance/evaluate')
+  const result = await api.post<{ as_of: string; total_value: string; targets: RebalanceTargetsWire; allocation: { stock: string; bond: string; cash: string }; industry: { top: string | null; ratio: string }; drifts: { asset_class: 'stock' | 'bond' | 'cash'; breached: boolean }[]; suggestions: { note: string }[] }>('/rebalance/evaluate')
   const total = Number(result.total_value)
   const pct = (value: string) => String(total > 0 ? Number(value) / total * 100 : 0)
   return { configured: true, target: rebalanceTarget(result.targets), as_of: result.as_of, current: { total_value: result.total_value,
     classes: { equity: pct(result.allocation.stock), bond: pct(result.allocation.bond), cash: pct(result.allocation.cash) },
     industries: result.industry.top ? [{ name: result.industry.top, pct: String(Number(result.industry.ratio) * 100) }] : [] },
-    suggestions: result.suggestions.map(item => item.note) }
+    suggestions: result.suggestions.map(item => item.note),
+    breaches: { equity: false, bond: false, cash: false, ...Object.fromEntries(result.drifts.map(item => [item.asset_class === 'stock' ? 'equity' : item.asset_class, item.breached])) } }
 }
 export async function loadValuation(api: AccountReader, signal?: AbortSignal): Promise<ValuationSnapshot> {
   const { result } = await api.read<{ cached: boolean; result: ValuationSnapshot }>('/valuation', signal)

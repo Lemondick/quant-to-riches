@@ -2,7 +2,7 @@
 
 日期：2026-10-22。仓库：Lemondick/quant-to-riches。
 
-六个待合并分支已整合到本地 `codex/branch-integration-fixes`。审查确认的登录、账户隔离、任务协议、计算及页面契约问题已修复，并通过下面的验证。此次没有推送或修改 GitHub 分支。
+六个待合并分支已整合到 `codex/branch-integration-fixes`。首轮完成本地修复；用户随后授权再次拉取、复审并在验证通过后推送。第二轮结果见文末。
 
 ## 工作区与整合范围
 
@@ -58,3 +58,30 @@ NYSE 周六元旦不向前占用上一年 12 月 31 日交易日的边界已纠�
 此次完成本地修复与验证，尚未在 GitHub 对修复提交运行远程 CI，也未部署。Linux 专用父进程保护需要由 Linux CI 执行；真实付费模型与 SMTP 投递未实测。源码检查通过并不代表生产准入通过，本地合成安装仍缺少真实策略/部署证据。
 
 `npm audit --audit-level=high` 返回成功，但 ECharts 5.6.0 仍受 [GHSA-fgmj-fm8m-jvvx](https://github.com/advisories/GHSA-fgmj-fm8m-jvvx) 的 moderate 公告影响。审计建议升级到具有破坏性变更的 6.1.0；本次未扩大为图表库主版本迁移。
+
+## 第二轮拉取、复审与推送
+
+再次从 GitHub 拉取全部分支，main 与六个待整合分支的提交未变化，均已包含在当前分支中。后端、Worker、前端分别进行了独立只读复审；确认并修复以下六项遗漏，均有先失败后通过的回归证据：
+
+1. 短区间或零波动组合的夏普比率为 NaN，导致 Worker JSON 边界拒绝合法回测。现在输出 null。
+2. 通知事务晚提交会落在已推进的邮件游标之前。现在保留兼容旧格式的固定扫描下界，按通知持久化成功/跳过回执；分页与晚提交均不会遗漏或反复投递。首次启动仍不补发历史邮件。回执应随可扫描通知保留，不能单独定时删除。
+3. 两个登录挑战并发使用同一恢复码时，第二个条件更新虽未成功仍可登录。现在仅实际消费恢复码的请求通过验证。
+4. 赎回提醒可能使用持仓已变化的旧批次。现在复用同一数据库快照中的批次对账检查，使用对应主账本 NAV，撤下失效提醒。
+5. 退出或切换账户后，回测面板保留上一账户的本地结果和输入。现在验证期间卸载面板，新账户按会话分区重新挂载。
+6. 再平衡页面把后端逐步调整金额加倍，并把等于阈值判为超限。现在展示保存目标的服务端建议和超限标记；未持仓账户不会凭空产生超限告警。未保存的表单编辑不改变已保存目标的评估结果。
+
+补修后独立复核确认上述问题关闭，没有剩余 Critical/Important 阻断项。接口浏览器回归已接入现有 GitHub Actions。
+
+| 本轮检查 | 结果 |
+| --- | --- |
+| .NET Release / PostgreSQL 全套 | 构建 0 警告、0 错误；571/571 通过，0 跳过 |
+| Worker 全套 / TradingAgents runner | 332/332、3/3 通过，0 跳过 |
+| Python 业务 / 原生 PostgreSQL 工具 | 526 通过、1 项 Windows 不适用跳过；17/17 通过 |
+| 前端单元 / 接口浏览器 | 128/128、16/16 通过，0 跳过 |
+| 页面与生产构建 | 52 项页面检查、指数条/基金目录/板块质量脚本、演示与连接后端构建通过 |
+| 门禁 | lint、format、类型检查、Ruff 89 文件、源码检查、69 个 SQL 解析和 CI 计数器回归通过；已发布迁移 SQL 未修改 |
+| 依赖 | npm high 阈值通过，现有 ECharts moderate 公告仍保留 |
+
+本轮日志使用 `.superpowers/branch-repair/rereview-*` 前缀，新增失败复现日志含 `backtest-red`、`backend-red`、`email-red`、`frontend-red`、`empty-rebalance-red`；最终结果含 `dotnet-final.trx`、`worker-final.json`、`frontend-tests-final.log`、`frontend-browser-final.log`。此前说明的 Linux、付费模型、真实 SMTP 和生产部署边界仍适用。
+
+推送目标为远程同名修复分支 [codex/branch-integration-fixes](https://github.com/Lemondick/quant-to-riches/tree/codex/branch-integration-fixes)，采用普通推送并核对远程提交；main 的合并和部署不属于本轮推送操作。原工作目录的 571 项未提交状态保留。

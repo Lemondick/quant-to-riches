@@ -42,7 +42,7 @@ public interface IAccountRepository
     void ClearTotp(string userId);
     void ReplaceRecoveryCodes(string userId, IReadOnlyList<string> codeHashes, DateTime now);
     IReadOnlyList<(long Id, string CodeHash)> ListUnusedRecoveryCodes(string userId);
-    void MarkRecoveryCodeUsed(long id);
+    bool MarkRecoveryCodeUsed(long id);
     void CreateTotpChallenge(string tokenHash, string userId, DateTime now, DateTime expires);
     string? ConsumeTotpChallenge(string tokenHash, DateTime now);
 }

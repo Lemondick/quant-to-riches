@@ -403,6 +403,104 @@ test('successful live backtest renders actual worker metrics, null XIRR and warn
   await visible(page.getByText('period:1M 到期再平衡', { exact: true }))
 })
 
+for (const change of ['switch', 'logout']) {
+  test(`backtest hides prior account inputs and results during ${change}`, async (t) => {
+    let changed = false,
+      release
+    const verification = new Promise((resolve) => {
+      release = resolve
+    })
+    const { page } = await pageFor(t, async ({ path }) => {
+      if (path === '/auth/session' && changed) {
+        await verification
+        return change === 'logout'
+          ? { status: 401, body: { error_code: 'authentication_required' } }
+          : { body: { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' } }
+      }
+      if (path === '/backtest/portfolio')
+        return {
+          body: {
+            metrics: {
+              total_return: 0.1,
+              xirr: null,
+              max_drawdown: 0,
+              sharpe_zero_rate: null,
+              total_invested: '100',
+              final_value: '110',
+            },
+            curve: [],
+            rebalance_events: [],
+            warnings: ['合成账户专属回测'],
+          },
+        }
+    })
+    await page.goto(origin + '/portfolio-backtest')
+    await page.getByRole('button', { name: '开始回测', exact: true }).click()
+    await visible(page.getByText('合成账户专属回测', { exact: true }))
+    await page.getByLabel('基金名称', { exact: true }).first().fill('账户私有组合名称')
+    changed = true
+    try {
+      await page.evaluate(() => globalThis.window.dispatchEvent(new Event('focus')))
+      await page.waitForFunction(() => !globalThis.document.body.textContent.includes('合成账户专属回测'), undefined, {
+        timeout: 2000,
+      })
+      assert.equal(await page.getByLabel('基金名称', { exact: true }).count(), 0)
+    } finally {
+      release()
+    }
+    if (change === 'switch') {
+      await visible(page.getByRole('button', { name: '开始回测', exact: true }))
+      assert.notEqual(await page.getByLabel('基金名称', { exact: true }).first().inputValue(), '账户私有组合名称')
+    } else await visible(page.getByRole('form', { name: '登录后端账户' }))
+    assert.equal(await page.getByText('合成账户专属回测', { exact: true }).count(), 0)
+  })
+}
+
+test('live rebalance displays server gradual advice and respects exact threshold', async (t) => {
+  let atThreshold = false
+  const targets = {
+    stock_ratio: '0.6',
+    bond_ratio: '0.3',
+    cash_ratio: '0.1',
+    industry_concentration_limit: '0.3',
+    deviation_threshold: '0.05',
+    updated_at: '2026-10-22',
+  }
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/rebalance/targets') return { body: { targets } }
+    if (path === '/rebalance/evaluate')
+      return {
+        body: {
+          as_of: '2026-10-22',
+          total_value: '10000',
+          targets,
+          allocation: { stock: atThreshold ? '6500' : '8000', bond: atThreshold ? '2500' : '1000', cash: '1000' },
+          industry: { top: null, ratio: '0', breached: false },
+          drifts: ['stock', 'bond', 'cash'].map((asset_class) => ({
+            asset_class,
+            breached: !atThreshold && asset_class !== 'cash',
+          })),
+          breached: !atThreshold,
+          suggestions: atThreshold ? [] : [{ note: '卖出股票类资产约 1000 元' }, { note: '买入债券类资产约 1000 元' }],
+        },
+      }
+  })
+  await page.goto(origin + '/rebalance')
+  await visible(page.getByText('卖出股票类资产约 1000 元', { exact: true }))
+  await visible(page.getByText('买入债券类资产约 1000 元', { exact: true }))
+  assert.doesNotMatch(
+    await page
+      .locator('.suggestion')
+      .allTextContents()
+      .then((items) => items.join(' ')),
+    /2,000|2000/,
+  )
+  atThreshold = true
+  await page.reload()
+  await visible(page.getByText('当前配置在偏离阈值范围内，无需调仓。', { exact: true }))
+  assert.equal(await page.getByText('超阈值', { exact: true }).count(), 0)
+})
+
 test('failed live backtest reports the HTTP failure without a demo result', async (t) => {
   const { page } = await pageFor(t, ({ path }) =>
     path === '/backtest/portfolio' ? { status: 404, body: { error_code: 'missing' } } : undefined,

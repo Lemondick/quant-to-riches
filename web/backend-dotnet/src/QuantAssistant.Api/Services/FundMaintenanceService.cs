@@ -15,9 +15,9 @@ namespace QuantAssistant.Api.Services;
 ///   next_tier_at 距今 ≤ QUANT_REDEMPTION_REMIND_DAYS（默认14天）时写 user_alert_center 提醒（kind=redemption_window）。
 /// 基金体检：按 QUANT_HEALTH_CHECK_CRON（默认"0 6 * * 1"周一06:00，北京时间）调 fund.health_check，
 ///   结果 JSON 存 site_settings（key=fund_health_check_latest:{userId}，避免新迁移）；critical 发现同步写用户告警。
-/// 口径假设（commit 注明）：批次取每只基金最新快照（fund_lot_snapshots 最新 id）的剩余份额；cron 解析仅支持数字与 *。
+/// 批次仅取与主账本持仓仍对账一致的最新快照；cron 解析仅支持数字与 *。
 /// </summary>
-public sealed class FundMaintenanceService(AccountDatabase database, ComputeService compute, QuantOptions options, FundFeeRepository fees)
+public sealed class FundMaintenanceService(AccountDatabase database, ComputeService compute, QuantOptions options, FundFeeRepository fees, FundLotRepository fundLots)
 {
     private DateOnly _lastRedemptionCheck = DateOnly.MinValue;
     private DateOnly _lastHealthRun = DateOnly.MinValue;
@@ -51,19 +51,19 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
             ORDER BY s.symbol, l.confirmed_on, l.lot_id
             """, userId).OfType<JsonObject>();
             var verified = new List<JsonObject>();
+            var reconciled = new Dictionary<string, bool>();
             foreach (var row in rows)
             {
                 var symbol = row["fund_code"]!.GetValue<string>();
                 try
                 {
+                    if (!reconciled.TryGetValue(symbol, out var valid))
+                        reconciled[symbol] = valid = fundLots.List(sql, userId, symbol)["status"]!.GetValue<string>() == "reconciled";
+                    if (!valid) continue;
                     var schedule = fees.Current(sql, userId, symbol, FundFeeRepository.Today());
                     var nav = sql.Scalar("""
-                    SELECT sum(market_value)/NULLIF(sum(quantity),0) FROM (
-                      SELECT quantity,market_value FROM positions WHERE user_id=$1 AND symbol=$2 AND quantity>0
-                      UNION ALL SELECT p.quantity,p.market_value FROM account_positions p
-                      JOIN portfolio_accounts a ON a.user_id=p.user_id AND a.account_id=p.account_id
-                      WHERE p.user_id=$1 AND p.symbol=$2 AND p.quantity>0 AND a.status='active'
-                    ) held
+                    SELECT market_value/quantity FROM positions
+                    WHERE user_id=$1 AND symbol=$2 AND asset_type='fund' AND quantity>0
                     """, userId, symbol);
                     if (nav is not decimal currentNav || currentNav <= 0) continue;
                     row["amount"] = (decimal.Parse(row["amount"]!.GetValue<string>(), CultureInfo.InvariantCulture) * currentNav).ToString(CultureInfo.InvariantCulture);
@@ -74,7 +74,11 @@ public sealed class FundMaintenanceService(AccountDatabase database, ComputeServ
             }
             return verified;
         });
-        if (lots.Count == 0) return;
+        if (lots.Count == 0)
+        {
+            database.WriteNonLedger(userId, sql => sql.Execute("UPDATE user_alert_center SET active=false WHERE user_id=$1 AND kind='redemption_window' AND active", userId));
+            return;
+        }
         var payload = new JsonObject
         {
             ["lots"] = new JsonArray(lots.Select(l => (JsonNode)new JsonObject

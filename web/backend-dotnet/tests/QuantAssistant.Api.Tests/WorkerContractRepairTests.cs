@@ -154,11 +154,11 @@ public sealed class WorkerContractRepairTests
             [new(0, 6, 0.015m), new(7, null, 0m)], today, today.AddDays(-20), EvidenceReference: "synthetic evidence"));
         database.WriteNonLedger(user.Id, sql =>
         {
-            var id = sql.Scalar("INSERT INTO fund_lot_snapshots(user_id,symbol,position_fingerprint,request_fingerprint,verified_on,evidence_reference,created_at) VALUES($1,'510300','p','r',$2,'synthetic',now()) RETURNING id", user.Id, today)!;
-            sql.Execute("INSERT INTO fund_holding_lots(user_id,snapshot_id,lot_id,confirmed_on,remaining_units) VALUES($1,$2,'lot',$3,100)", user.Id, id, today.AddDays(-6));
             sql.Execute("INSERT INTO positions(user_id,symbol,asset_type,quantity,average_cost,market_value,as_of_date) VALUES($1,'510300','fund',100,1,200,$2)", user.Id, today);
             return 0;
         });
+        var lots = factory.Services.GetRequiredService<FundLotRepository>();
+        lots.Save(user.Id, "510300", [new("lot", today.AddDays(-6), 100)], today, "synthetic", lots.List(user.Id, "510300")["position_fingerprint"]!.GetValue<string>(), true);
         try
         {
             var reminder = Task.Run(factory.Services.GetRequiredService<FundMaintenanceService>().CheckRedemptionReminders);
@@ -172,6 +172,43 @@ public sealed class WorkerContractRepairTests
             var detail = JsonNode.Parse((string)user.Query("SELECT detail::text FROM user_alert_center WHERE user_id=$1 AND kind='redemption_window'", user.Id)!)!;
             Assert.Equal("0.015", detail["current_tier"]!["rate"]!.GetValue<string>());
             Assert.Contains("1.5%", detail["message"]!.GetValue<string>());
+        }
+        finally
+        {
+            foreach (var table in new[] { "user_alert_center", "fund_holding_lots", "fund_lot_snapshots", "fund_fee_schedules" })
+                user.Execute($"DELETE FROM {table} WHERE user_id=$1", user.Id);
+        }
+    }
+
+    [PgFact]
+    public async Task RedemptionReminder_WithdrawsStaleLotsWithoutRequestingNumericalAdvice()
+    {
+        using var user = new PgTestUser();
+        using var factory = Factory(user.Connection);
+        using var client = factory.CreateTestClient();
+        var today = FundFeeRepository.Today();
+        var lots = factory.Services.GetRequiredService<FundLotRepository>();
+        factory.Services.GetRequiredService<FundFeeRepository>().Save(user.Id, new FundFeeSchedule("510300", "A", 0, 0,
+            [new(0, 6, 0.015m), new(7, null, 0m)], today, today.AddDays(-20), EvidenceReference: "synthetic evidence"));
+        user.Execute("INSERT INTO positions(user_id,symbol,asset_type,quantity,average_cost,market_value,as_of_date) VALUES($1,'510300','fund',100,1,200,$2)", user.Id, today);
+        lots.Save(user.Id, "510300", [new("lot", today.AddDays(-6), 100)], today, "synthetic", lots.List(user.Id, "510300")["position_fingerprint"]!.GetValue<string>(), true);
+        user.Execute("UPDATE positions SET quantity=50,market_value=100,updated_at=now() WHERE user_id=$1 AND symbol='510300'", user.Id);
+        Assert.Equal("stale", lots.List(user.Id, "510300")["status"]!.GetValue<string>());
+        user.Execute("INSERT INTO user_alert_center(user_id,id,kind,subject,detail,first_seen,last_seen,active,acknowledged) VALUES($1,'stale','redemption_window','510300:lot','{}',now(),now(),true,false)", user.Id);
+        try
+        {
+            var reminder = Task.Run(factory.Services.GetRequiredService<FundMaintenanceService>().CheckRedemptionReminders);
+            var jobs = new ComputeJobRepository(user.Connection);
+            ComputeJob? unexpected = null;
+            for (var attempt = 0; attempt < 100 && !reminder.IsCompleted; attempt++)
+            {
+                unexpected = await jobs.ClaimAsync("stale-lots-" + user.Id, ["fund.redemption_windows"]);
+                if (unexpected is not null) { await Finish(jobs, unexpected, "{\"windows\":[]}"); break; }
+                await Task.Delay(25);
+            }
+            await reminder.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Null(unexpected);
+            Assert.Equal(0L, user.Query("SELECT count(*) FROM user_alert_center WHERE user_id=$1 AND kind='redemption_window' AND active", user.Id));
         }
         finally
         {

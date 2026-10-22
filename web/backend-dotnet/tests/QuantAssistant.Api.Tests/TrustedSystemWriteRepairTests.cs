@@ -140,6 +140,7 @@ public sealed class TrustedSystemWriteRepairTests
             user.Execute("DELETE FROM advisor_notifications WHERE user_id=$1", user.Id);
             user.Execute("DELETE FROM market_advisor_reports WHERE user_id=$1", user.Id);
             user.Execute("DELETE FROM email_send_log WHERE user_id=$1", user.Id);
+            user.Execute("DELETE FROM site_settings WHERE key LIKE $1", "email.dispatch.report_sent:" + user.Id + ":%");
             if (cursor is null) user.Execute("DELETE FROM site_settings WHERE key='email.dispatch.report_cursor'");
             else user.Execute("UPDATE site_settings SET value=$1 WHERE key='email.dispatch.report_cursor'", cursor);
         }

@@ -68,6 +68,25 @@ test('a user without rebalance targets gets an explicit unconfigured form and no
   assert.equal(state.current, null)
 })
 
+test('saved rebalance targets without holdings do not invent drift breaches', async () => {
+  const state = await batch2.loadRebalance(
+    client({
+      'GET /rebalance/targets': { targets },
+      'POST /rebalance/evaluate': {
+        targets,
+        total_value: '0',
+        as_of: '2026-10-22',
+        allocation: { stock: '0', bond: '0', cash: '0' },
+        drifts: [],
+        industry: { top: null, ratio: '0', breached: false },
+        suggestions: [],
+        breached: false,
+      },
+    }),
+  )
+  assert.equal(batch2.buildRebalanceAdvice(state).hasAlert, false)
+})
+
 test('valuation unwraps result, preserves missing temperature, converts ERP to percent and keeps warnings', async () => {
   const snapshot = await batch2.loadValuation(
     client({

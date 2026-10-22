@@ -45,7 +45,11 @@
     <div class="panel card-pad">
       <div class="card-title">调仓建议</div>
       <p class="subtle">仅建议方向与金额，不下单。</p>
-      <div class="row-list">
+      <div v-if="!demo" class="row-list">
+        <div v-for="suggestion in state.suggestions ?? []" :key="suggestion" class="row"><b class="suggestion">{{ suggestion }}</b></div>
+        <p v-if="!state.suggestions?.length" class="subtle">暂无调仓建议。</p>
+      </div>
+      <div v-else class="row-list">
         <div v-for="advice in adviceResult.advices" :key="advice.class" class="row">
           <span>{{ advice.name }}</span>
           <b v-if="advice.suggestion" class="suggestion">{{ advice.suggestion }}</b>
@@ -89,7 +93,7 @@ const formError = ref('')
 watch(() => props.state.target, value => Object.assign(draft, value))
 function resetDraft() { Object.assign(draft, props.state.target); formError.value = '' }
 
-const liveTarget = computed(() => ({ ...props.state.target, ...draft }))
+const liveTarget = computed(() => props.demo ? { ...props.state.target, ...draft } : props.state.target)
 const adviceResult = computed(() => buildRebalanceAdvice({ ...props.state, target: liveTarget.value }))
 const totalValue = computed(() => Math.round(Number(props.state.current?.total_value) || 0).toLocaleString('zh-CN'))
 

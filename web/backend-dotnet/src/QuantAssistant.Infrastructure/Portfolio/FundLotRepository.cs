@@ -49,6 +49,7 @@ public sealed class FundLotRepository(AccountDatabase database, FundFeeRepositor
     }
 
     public JsonObject List(string userId, string symbol) => database.Read(sql => View(sql, userId, FundFeeRepository.Symbol(symbol)));
+    public JsonObject List(AccountSql sql, string userId, string symbol) => View(sql, userId, FundFeeRepository.Symbol(symbol));
 
     public JsonObject Save(string userId, string symbol, FundLot[] items, DateOnly verifiedOn, string reference, string fingerprint, bool confirmed)
     {
