@@ -34,7 +34,7 @@ public sealed class NetWorthService(ILedgerRepository ledger, AccountDatabase da
             ["net_worth"] = total.ToString(CultureInfo.InvariantCulture),
             ["liabilities_recorded"] = false,
             ["calculation_scope"] = "positions_only",
-            ["liabilities_note"] = "系统暂无负债登记，负债按 0 计；净资产=总资产-负债。",
+            ["liabilities_note"] = "系统暂无负债登记，当前仅展示账本持仓市值，不能确认净资产。",
             ["as_of_date"] = asOf?.ToString("yyyy-MM-dd"),
             ["history"] = history,
         };

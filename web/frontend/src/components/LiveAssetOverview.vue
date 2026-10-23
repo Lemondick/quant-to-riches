@@ -8,19 +8,19 @@
   <template v-if="data">
     <div class="page-context"><span class="data-badge">{{ session?.user.username }}</span><span>持仓、组合与账本同步 · 持仓日期 {{ data.portfolio.as_of_date ?? '暂无记录' }}</span></div>
     <div class="stats-grid">
-      <StatCard label="总资产" :value="showMoney(total)" :delta="'现金 ' + showMoney(Number(data.portfolio.cash))" note="当前账户" :icon="Wallet" />
-      <StatCard label="今日估算收益" :updated-at="oldestUpdate([...data.quotes.items, ...data.valuations.items])" :value="daily === null ? '—' : showMoney(daily, true)" :delta="daily === null ? '等待有效行情' : hidden ? '金额已隐藏' : '最近有效行情'" note="较昨收" tone="red" :icon="ChartNoAxesColumnIncreasing" />
-      <StatCard label="持仓浮动收益" :value="showMoney(profit, true)" :delta="hidden ? '金额已隐藏' : cost ? percent(profit / cost * 100) : '—'" note="相对持仓成本" tone="green" :icon="TrendingUp" />
+      <StatCard :label="financialSummaryAvailable ? '账本资产（CNY）' : '账本资产'" :value="hidden ? '••••' : financialSummaryAvailable ? showMoney(total) : '—'" :delta="financialSummaryAvailable ? '现金 ' + showMoney(Number(data.portfolio.cash)) : '请查看本币折算'" :note="financialSummaryAvailable ? '人民币账本口径' : '币种待核对，暂不合并'" :icon="Wallet" />
+      <StatCard label="今日估算收益" :updated-at="oldestUpdate([...data.quotes.items, ...data.valuations.items])" :value="!financialSummaryAvailable || daily === null ? '—' : showMoney(daily, true)" :delta="!financialSummaryAvailable ? '未合并不同币种' : daily === null ? '等待有效行情' : hidden ? '金额已隐藏' : '最近有效行情'" note="较昨收" tone="red" :icon="ChartNoAxesColumnIncreasing" />
+      <StatCard label="持仓浮动收益" :value="financialSummaryAvailable ? showMoney(profit, true) : '—'" :delta="!financialSummaryAvailable ? '未合并不同币种' : hidden ? '金额已隐藏' : cost ? percent(profit / cost * 100) : '—'" note="相对持仓成本" tone="green" :icon="TrendingUp" />
       <StatCard label="持仓标的" :value="String(positions.length)" :delta="fundCount + ' 只基金 · ' + (positions.length - fundCount) + ' 只股票'" note="" tone="purple" :icon="PieChart" />
     </div>
     <div class="dashboard-grid">
       <ChartCard v-model:range="range" title="组合走势" :updated-at="history.data.value?.points.at(-1)?.as_of_date ?? null" :subtitle="hidden ? '金额与收益已隐藏' : '已确认组合净值的实际记录'" :observations="hidden ? emptyChart : observations" variant="portfolio" />
-      <div class="panel donut-panel"><div class="panel-head"><div><h2>持仓构成</h2><p>按当前市值计算，包含账户现金<span data-update-time> · {{ updateTime(data.portfolio.as_of_date) }}</span></p></div><span class="tag blue">按市值</span></div><Donut :center="String(positions.length)" label="个持仓标的" :items="hidden ? maskedAllocation : allocation" /></div>
+      <div class="panel donut-panel"><div class="panel-head"><div><h2>持仓构成</h2><p>{{ financialSummaryAvailable ? '按人民币市值计算，包含账户现金' : '币种待核对，暂不合并计算配置比例' }}<span data-update-time> · {{ updateTime(data.portfolio.as_of_date) }}</span></p></div><span class="tag blue">按市值</span></div><Donut v-if="financialSummaryAvailable" :center="String(positions.length)" label="个持仓标的" :items="hidden ? maskedAllocation : allocation" /><p v-else class="feedback card-pad">请先核对各持仓币种，并查看本币折算明细。</p></div>
     </div>
     <div class="insight-strip"><span>今日收益主要来源：<b>{{ hidden ? '已隐藏' : positions.length ? '查看持仓明细' : '暂无持仓' }}</b></span><RouterLink to="/portfolio" class="text-action">查看收益贡献 <ArrowUpRight :size="13" aria-hidden="true" /></RouterLink></div>
     <LiveValuationWidget />
     <LiveRiskWidget />
-    <LiveNetWorthWidget />
+    <LiveNetWorthWidget v-if="!hidden" />
     <p v-if="data.unavailable.length" class="feedback" role="status">部分公开数据暂不可用，已保留账户持仓。</p>
     <p v-if="stale || refreshing && data" class="feedback" role="status">正在更新，当前显示最近一次有效数据。</p>
     <div class="panel table-panel section-space">
@@ -109,8 +109,9 @@ const category = ref('全部'), query = ref('')
 const emptyChart = { labels: [], series: [] }
 const showMoney = (value: number, signed = false) => hidden.value ? '••••' : money(value, signed)
 const fundCount = computed(() => positions.value.filter(item => item.asset_type === 'fund').length)
+const financialSummaryAvailable = computed(() => positions.value.every(item => currencyOf(item.symbol, item.asset_type) === 'CNY'))
 const maskedAllocation = computed(() => allocation.value.map(item => ({ ...item, value: '••••', pct: '••••', weight: 0 })))
-const headers = ['名称', '代码', '现价 / 净值', '持仓金额', '持仓数量', '仓位', '今日盈亏', '浮动收益', '操作']
+const headers = ['名称', '代码', '现价 / 净值', '持仓金额（原币）', '持仓数量', '仓位', '今日盈亏（原币）', '浮动收益（原币）', '操作']
 const rows = computed(() => positions.value.filter(item => (category.value === '全部' || item.asset_type === (category.value === '基金' ? 'fund' : 'stock')) && (item.name + ' ' + item.symbol).toLowerCase().includes(query.value.trim().toLowerCase())).map(item => {
   const value = Number(item.market_value), quantity = Number(item.quantity)
   const quote = data.value?.valuations.items.find(quote => quote.symbol === item.symbol) ?? data.value?.quotes.items.find(quote => quote.symbol === item.symbol && quote.asset_type === item.asset_type)
@@ -118,8 +119,15 @@ const rows = computed(() => positions.value.filter(item => (category.value === '
   const rate = usable ? Number(quote.change_rate) / 100 : null
   const observedPrice = usable ? Number('estimate_nav' in quote ? quote.estimate_nav : quote.price) : null
   const dailyValue = rate !== null && rate > -1 && observedPrice !== null ? quantity * observedPrice * rate / (1 + rate) : null
-  return [item.name, item.symbol, hidden.value ? '••••' : quantity ? (value / quantity).toFixed(4) : '—', hidden.value ? '••••' : item.market_value, hidden.value ? '••••' : item.quantity, hidden.value ? '••••' : percent(total.value ? value / total.value * 100 : 0, false), dailyValue === null ? '—' : showMoney(dailyValue, true), showMoney(value - Number(item.average_cost) * quantity, true), item.symbol]
+  const currency = currencyOf(item.symbol, item.asset_type)
+  return [item.name, item.symbol, hidden.value ? '••••' : quantity ? (value / quantity).toFixed(4) : '—', holdingMoney(value, currency), hidden.value ? '••••' : item.quantity, hidden.value ? '••••' : financialSummaryAvailable.value ? percent(total.value ? value / total.value * 100 : 0, false) : '—', dailyValue === null ? '—' : holdingMoney(dailyValue, currency, true), holdingMoney(value - Number(item.average_cost) * quantity, currency, true), item.symbol]
 }))
+function holdingMoney(value: number, currency: string | null, signed = false) {
+  if (hidden.value) return '••••'
+  if (currency === 'CNY') return money(value, signed)
+  const amount = (signed && value >= 0 ? '+' : '') + value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return currency ? `${currency} ${amount}` : `${amount}（币种未知）`
+}
 function exportHoldings() { if (!hidden.value) downloadCsv('观澜-持仓明细.csv', headers.slice(0, -1), rows.value.map(row => row.slice(0, -1))) }
 
 // F7: 汇率录入/拉取配置 + 持仓本币折算。持仓币种取自行情币种字段（Quote.currency），

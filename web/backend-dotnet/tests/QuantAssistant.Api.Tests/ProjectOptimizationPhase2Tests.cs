@@ -40,6 +40,7 @@ public sealed class ProjectOptimizationPhase2Tests
         Assert.Equal("positions_only", summary.GetProperty("calculation_scope").GetString());
         Assert.Equal(summary.GetProperty("total_assets").GetString(), summary.GetProperty("net_worth").GetString());
         Assert.Contains("负债", summary.GetProperty("liabilities_note").GetString());
+        Assert.DoesNotContain("按 0 计", summary.GetProperty("liabilities_note").GetString());
     }
 
     private static object PortfolioBody(decimal weight = 100) => new
@@ -146,6 +147,27 @@ public sealed class ProjectOptimizationPhase2Tests
         var state = await Json(await client.DeleteAsync($"/api/v1/compute/tasks/{id}"));
         Assert.Equal("completed", state.GetProperty("status").GetString());
         Assert.Equal(42, state.GetProperty("result").GetProperty("synthetic_result").GetInt32());
+    }
+
+    [PgFact]
+    public async Task Cancel_RacingWorkerCompletionKeepsExactlyOneTerminalOutcome()
+    {
+        using var user = new PgTestUser();
+        using var factory = Factory(user.Connection);
+        using var client = factory.CreateTestClient();
+        PgTestUser.AttachSession(client, user.Connection, user.Id);
+        var repo = new ComputeJobRepository(user.Connection);
+        var id = await Enqueue(user);
+        var lease = (await repo.ClaimAsync("synthetic-phase2-worker", ["portfolio.backtest"]))!;
+        Assert.Equal(id, lease.JobId);
+        var finishing = repo.FinishAsync(user.Id, id, lease.Attempt, lease.OwnerToken, "{\"synthetic_result\":42}", null);
+        var cancelling = client.DeleteAsync($"/api/v1/compute/tasks/{id}");
+        await Task.WhenAll(finishing, cancelling);
+        var state = await Json(await cancelling);
+        Assert.Equal(await finishing ? "completed" : "cancelled", state.GetProperty("status").GetString());
+        if (await finishing) Assert.Equal(42, state.GetProperty("result").GetProperty("synthetic_result").GetInt32());
+        else Assert.Equal(JsonValueKind.Null, state.GetProperty("result").ValueKind);
+        Assert.Equal(state.GetProperty("status").GetString(), (await repo.ReadAsync(user.Id, id)).Status);
     }
 
     [PgTheory]

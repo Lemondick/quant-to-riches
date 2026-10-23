@@ -354,6 +354,10 @@ export async function loadRebalance(api: AccountReader, signal?: AbortSignal): P
 }
 export async function loadValuation(api: AccountReader, signal?: AbortSignal): Promise<ValuationSnapshot> {
   const { result } = await api.read<{ cached: boolean; result: ValuationSnapshot }>('/valuation', signal)
+  return normalizeValuation(result)
+}
+export function normalizeValuation(value: unknown): ValuationSnapshot {
+  const result = (value && typeof value === 'object' && 'result' in value ? value.result : value) as ValuationSnapshot
   if (!Array.isArray(result?.items) || !result.temperature) throw new Error('估值数据格式不正确。')
   return { ...result, items: result.items.map(item => ({ ...item, name: item.name || VALUATION_INDEX_NAMES[item.symbol] || VALUATION_INDEX_NAMES[`${item.symbol}.SH`] || VALUATION_INDEX_NAMES[`${item.symbol}.SZ`] || item.symbol, erp: item.erp === null ? null : Number(item.erp) * 100 })) }
 }

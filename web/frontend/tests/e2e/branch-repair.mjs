@@ -93,6 +93,231 @@ async function pageFor(t, handler) {
 }
 const visible = (locator) => locator.waitFor({ state: 'visible', timeout: 8000 })
 
+const backgroundResult = {
+  metrics: {
+    total_return: 0.1,
+    xirr: null,
+    max_drawdown: 0,
+    sharpe_zero_rate: null,
+    total_invested: '100',
+    final_value: '110',
+  },
+  curve: [],
+  rebalance_events: [],
+  warnings: ['合成后台回测结果'],
+}
+const backgroundTask = (status = 'queued', result = null, kind = 'portfolio.backtest') => ({
+  job_id: 'synthetic-task-1',
+  kind,
+  status,
+  created_at: new Date().toISOString(),
+  deadline: new Date(Date.now() + 600000).toISOString(),
+  completed_at: null,
+  result,
+  error_code: null,
+})
+
+test('background backtest shows actual queue states and the completed result', async (t) => {
+  let reads = 0
+  const { page, calls } = await pageFor(t, ({ path, method }) => {
+    if (path.startsWith('/backtest/portfolio') && method === 'POST') return { status: 202, body: backgroundTask() }
+    if (path === '/compute/tasks/synthetic-task-1')
+      return { body: ++reads === 1 ? backgroundTask('running') : backgroundTask('completed', backgroundResult) }
+  })
+  await page.goto(origin + '/portfolio-backtest')
+  await page.getByRole('button', { name: '开始回测', exact: true }).click()
+  await visible(page.getByText('排队中', { exact: true }))
+  await visible(page.getByText('计算中', { exact: true }))
+  await visible(page.getByText('合成后台回测结果', { exact: true }))
+  assert.match(await page.locator('.metric-card').first().innerText(), /10.00%/)
+  assert.equal(
+    calls.filter((call) => call.method === 'POST' && call.path === '/backtest/portfolio?background=true').length,
+    1,
+  )
+})
+
+test('background backtest resumes after reload without resubmitting inputs', async (t) => {
+  let complete = false
+  const { page, calls } = await pageFor(t, ({ path, method }) => {
+    if (path.startsWith('/backtest/portfolio') && method === 'POST')
+      return { status: 202, body: backgroundTask('running') }
+    if (path === '/compute/tasks/synthetic-task-1')
+      return { body: complete ? backgroundTask('completed', backgroundResult) : backgroundTask('running') }
+  })
+  await page.goto(origin + '/portfolio-backtest')
+  await page.getByRole('button', { name: '开始回测', exact: true }).click()
+  await visible(page.getByText('计算中', { exact: true }))
+  const stored = await page.evaluate(() =>
+    Object.entries(globalThis.sessionStorage).filter(([key]) => key.startsWith('guanlan.compute-task.v1:')),
+  )
+  assert.equal(stored.length, 1)
+  assert.equal(stored[0][1], 'synthetic-task-1')
+  assert.doesNotMatch(JSON.stringify(stored), /funds|weight|metrics/)
+  await page.reload()
+  await visible(page.getByText('计算中', { exact: true }))
+  complete = true
+  await visible(page.getByText('合成后台回测结果', { exact: true }))
+  await page.reload()
+  await visible(page.getByText('合成后台回测结果', { exact: true }))
+  assert.equal(calls.filter((call) => call.method === 'POST' && call.path.startsWith('/backtest/portfolio')).length, 1)
+  assert.equal(calls.filter((call) => call.method === 'DELETE').length, 0)
+})
+
+test('background cancellation ignores an older completed poll response', async (t) => {
+  let release, observed
+  const waiting = new Promise((resolve) => {
+    release = resolve
+  })
+  const seen = new Promise((resolve) => {
+    observed = resolve
+  })
+  const { page, calls } = await pageFor(t, async ({ path, method }) => {
+    if (path.startsWith('/backtest/portfolio')) return { status: 202, body: backgroundTask('running') }
+    if (path === '/compute/tasks/synthetic-task-1') {
+      if (method === 'DELETE') return { body: backgroundTask('cancelled') }
+      observed()
+      await waiting
+      return { body: backgroundTask('completed', backgroundResult) }
+    }
+  })
+  t.after(() => release())
+  await page.goto(origin + '/portfolio-backtest')
+  await page.getByRole('button', { name: '开始回测', exact: true }).click()
+  await visible(page.getByRole('button', { name: '取消任务', exact: true }))
+  await seen
+  await page.getByRole('button', { name: '取消任务', exact: true }).click()
+  await visible(page.getByText('已取消', { exact: true }))
+  release()
+  await page.evaluate(
+    () => new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve))),
+  )
+  assert.equal(await page.getByText('合成后台回测结果', { exact: true }).count(), 0)
+  assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1)
+})
+
+test('background query failure can resume without another POST', async (t) => {
+  let fail = true
+  const { page, calls } = await pageFor(t, ({ path }) => {
+    if (path.startsWith('/backtest/portfolio')) return { status: 202, body: backgroundTask() }
+    if (path === '/compute/tasks/synthetic-task-1')
+      return fail
+        ? { status: 503, body: { error_code: 'temporary' } }
+        : { body: backgroundTask('completed', backgroundResult) }
+  })
+  await page.goto(origin + '/portfolio-backtest')
+  await page.getByRole('button', { name: '开始回测', exact: true }).click()
+  await visible(page.getByRole('button', { name: '继续查询', exact: true }))
+  fail = false
+  await page.getByRole('button', { name: '继续查询', exact: true }).click()
+  await visible(page.getByText('合成后台回测结果', { exact: true }))
+  assert.equal(calls.filter((call) => call.method === 'POST' && call.path.startsWith('/backtest/portfolio')).length, 1)
+})
+
+test('background expired authentication clears the task and requests login', async (t) => {
+  let authenticated = true
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/auth/session')
+      return authenticated ? { body: session } : { status: 401, body: { error_code: 'authentication_required' } }
+    if (path.startsWith('/backtest/portfolio')) return { status: 202, body: backgroundTask() }
+    if (path === '/compute/tasks/synthetic-task-1') {
+      authenticated = false
+      return { status: 401, body: { error_code: 'authentication_required' } }
+    }
+  })
+  await page.goto(origin + '/portfolio-backtest')
+  await page.getByRole('button', { name: '开始回测', exact: true }).click()
+  await visible(page.getByText('排队中', { exact: true }))
+  await visible(page.getByRole('form', { name: '登录后端账户' }))
+  assert.equal(await page.getByRole('button', { name: '取消任务', exact: true }).count(), 0)
+})
+
+for (const change of ['switch', 'logout']) {
+  test(`background poll cannot cross a ${change} boundary`, async (t) => {
+    let current = session,
+      release,
+      observed
+    const waiting = new Promise((resolve) => {
+      release = resolve
+    })
+    const seen = new Promise((resolve) => {
+      observed = resolve
+    })
+    const { page, calls } = await pageFor(t, async ({ path }) => {
+      if (path === '/auth/session')
+        return current ? { body: current } : { status: 401, body: { error_code: 'authentication_required' } }
+      if (path.startsWith('/backtest/portfolio')) return { status: 202, body: backgroundTask() }
+      if (path === '/compute/tasks/synthetic-task-1') {
+        observed()
+        await waiting
+        return { body: backgroundTask('completed', backgroundResult) }
+      }
+    })
+    t.after(() => release())
+    await page.goto(origin + '/portfolio-backtest')
+    await page.getByRole('button', { name: '开始回测', exact: true }).click()
+    await visible(page.getByText('排队中', { exact: true }))
+    await seen
+    current =
+      change === 'logout'
+        ? null
+        : { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' }
+    await page.evaluate(() => globalThis.window.dispatchEvent(new Event('quant-auth-invalidated')))
+    await visible(
+      change === 'logout'
+        ? page.getByRole('form', { name: '登录后端账户' })
+        : page.getByRole('button', { name: '开始回测', exact: true }),
+    )
+    release()
+    await page.evaluate(
+      () => new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve))),
+    )
+    assert.equal(await page.getByText('合成后台回测结果', { exact: true }).count(), 0)
+    assert.equal(calls.filter((call) => call.method === 'DELETE').length, 0)
+  })
+}
+
+test('background work remains usable when session storage is denied', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path.startsWith('/backtest/portfolio')) return { status: 202, body: backgroundTask() }
+    if (path === '/compute/tasks/synthetic-task-1') return { body: backgroundTask('completed', backgroundResult) }
+  })
+  await page.addInitScript(() =>
+    Object.defineProperty(globalThis, 'sessionStorage', {
+      get() {
+        throw new DOMException('synthetic storage denial', 'SecurityError')
+      },
+    }),
+  )
+  await page.goto(origin + '/portfolio-backtest')
+  await page.getByRole('button', { name: '开始回测', exact: true }).click()
+  await visible(page.getByText('合成后台回测结果', { exact: true }))
+  await visible(page.getByText('当前浏览器无法保存任务，刷新后无法自动恢复。', { exact: true }))
+})
+
+test('background valuation uses short task creation and normalizes the final snapshot', async (t) => {
+  const { page, calls } = await pageFor(t, ({ path }) => {
+    if (path.startsWith('/valuation'))
+      return { status: 202, body: backgroundTask('queued', null, 'valuation.percentiles') }
+    if (path === '/compute/tasks/synthetic-task-1')
+      return {
+        body: backgroundTask(
+          'completed',
+          {
+            as_of: '2026-10-23',
+            items: [],
+            temperature: { score: null, label: '数据不足' },
+            warnings: ['合成后台估值结果'],
+          },
+          'valuation.percentiles',
+        ),
+      }
+  })
+  await page.goto(origin + '/valuation')
+  await visible(page.getByText('排队中', { exact: true }))
+  await visible(page.getByText('合成后台估值结果', { exact: true }))
+  assert.equal(calls.filter((call) => call.path === '/valuation?background=true').length, 1)
+})
+
 test('asset conversion excludes unknown currencies and quotes of another asset type', async (t) => {
   const { page } = await pageFor(t, ({ path }) => {
     if (path === '/dashboard/summary?separateNav=true')
@@ -188,6 +413,9 @@ test('asset conversion excludes unknown currencies and quotes of another asset t
   await visible(panel.getByText('币种未知，未计入折算值', { exact: true }))
   await visible(panel.getByText('缺汇率，未计入折算值', { exact: true }))
   assert.doesNotMatch(await panel.innerText(), /500,000/)
+  assert.doesNotMatch(await page.locator('.stats-grid').first().innerText(), /620,150/)
+  await page.getByRole('button', { name: '隐藏金额', exact: true }).click()
+  assert.equal(await page.locator('.widget-total b').count(), 0)
 })
 
 test('live net worth does not present unrecorded debt as confirmed zero', async (t) => {
@@ -211,6 +439,8 @@ test('live net worth does not present unrecorded debt as confirmed zero', async 
   await visible(page.getByText('未计算', { exact: true }))
   await visible(page.getByRole('heading', { name: '持仓市值历史曲线', exact: true }))
   assert.doesNotMatch(await page.locator('.stats-grid').innerText(), /¥\s*0\.00/)
+  assert.doesNotMatch(await page.locator('.stats-grid').innerText(), /负债按\s*0\s*计/)
+  assert.doesNotMatch(await page.locator('.stats-grid').innerText(), /¥/)
 })
 
 for (const change of ['switch', 'logout']) {
@@ -687,7 +917,7 @@ test('CNY holdings and live net worth widgets render actual contracts without an
           ],
         },
       }
-    if (path === '/valuation')
+    if (path.startsWith('/valuation'))
       return {
         body: {
           cached: true,
@@ -718,12 +948,12 @@ test('CNY holdings and live net worth widgets render actual contracts without an
   })
   await page.goto(origin + '/')
   await visible(page.getByText('¥ 120,000.00 · 本币原值', { exact: true }))
-  await visible(page.locator('.widget-total').getByText('¥ 120,000.00', { exact: true }))
+  await visible(page.locator('.widget-total').getByText('120,000.00', { exact: true }))
   await visible(page.getByText('PE/PB 历史数据源未接入', { exact: true }))
   assert.match(await page.locator('.widget-bars').innerText(), /基金[\s\S]*66.7%[\s\S]*股票[\s\S]*33.3%/)
   assert.equal(await page.getByRole('img', { name: /市场温度计/ }).count(), 0)
   await page.goto(origin + '/net-worth')
-  await visible(page.getByText('系统暂无负债登记，负债按 0 计', { exact: true }))
+  await visible(page.getByText('负债信息不完整，无法确认净资产', { exact: true }))
   assert.match(await page.locator('.donut-panel').innerText(), /基金[\s\S]*股票/)
 })
 
@@ -731,7 +961,7 @@ test('unconfigured rebalance and missing valuation data have explicit states', a
   const { page } = await pageFor(t, ({ path }) =>
     path === '/rebalance/targets'
       ? { body: { targets: null } }
-      : path === '/valuation'
+      : path.startsWith('/valuation')
         ? {
             body: {
               cached: true,
@@ -755,7 +985,7 @@ test('unconfigured rebalance and missing valuation data have explicit states', a
 
 test('successful live backtest renders actual worker metrics, null XIRR and warnings', async (t) => {
   const { page } = await pageFor(t, ({ path }) =>
-    path === '/backtest/portfolio'
+    path.startsWith('/backtest/portfolio')
       ? {
           body: {
             metrics: {
@@ -799,7 +1029,7 @@ for (const change of ['switch', 'logout']) {
           ? { status: 401, body: { error_code: 'authentication_required' } }
           : { body: { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' } }
       }
-      if (path === '/backtest/portfolio')
+      if (path.startsWith('/backtest/portfolio'))
         return {
           body: {
             metrics: {
@@ -885,7 +1115,7 @@ test('live rebalance displays server gradual advice and respects exact threshold
 
 test('failed live backtest reports the HTTP failure without a demo result', async (t) => {
   const { page } = await pageFor(t, ({ path }) =>
-    path === '/backtest/portfolio' ? { status: 404, body: { error_code: 'missing' } } : undefined,
+    path.startsWith('/backtest/portfolio') ? { status: 404, body: { error_code: 'missing' } } : undefined,
   )
   await page.goto(origin + '/portfolio-backtest')
   await page.getByRole('button', { name: '开始回测', exact: true }).click()

@@ -1,6 +1,6 @@
 # 资产口径与后台计算 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 未知币种与未登记负债明确展示，长计算可查询、恢复和取消。
 
@@ -31,11 +31,11 @@
 
 **Interfaces:** `Fx.convert` 的未知币种返回 missing=true；净资产响应增加 `liabilities_recorded:false` 与 `calculation_scope:positions_only`，保留原数字字段。适配器传递 liabilities_recorded，旧连接响应缺此字段视为未登记；演示 snapshot 未指定则保持演示行为。
 
-- [ ] 添加未知币种/空币种/已知本币单元与浏览器回归，以及负债范围字段测试。
-- [ ] 运行专项测试并观察缺失行为导致失败。
-- [ ] 最小实现：未知币种按数量说明并排除，缺汇率排除，明确折算仅含持仓；净资产页面和卡片显示范围及未计算状态。
-- [ ] 运行 `npm test`、浏览器专项、后端专项、types/lint。Expected: 全部通过。
-- [ ] 提交 `fix: make asset conversion and unrecorded liabilities explicit`。
+- [x] 添加未知币种/空币种/已知本币单元与浏览器回归，以及负债范围字段测试。
+- [x] 运行专项测试并观察缺失行为导致失败。
+- [x] 最小实现：未知币种按数量说明并排除，缺汇率排除，明确折算仅含持仓；净资产页面和卡片显示范围及未计算状态。
+- [x] 运行 `npm test`、浏览器专项、后端专项、types/lint。Expected: 全部通过。
+- [x] 提交 `fix: make asset conversion and unrecorded liabilities explicit`。
 
 ### Task 2: 账户后台任务协议
 
@@ -43,11 +43,11 @@
 
 **Interfaces:** `UserComputeTasks.StartAsync(userId,kind,JsonNode,CancellationToken)`、`ReadAsync(userId,id,CancellationToken)`、`CancelAsync(userId,id,CancellationToken)` 返回 spec 中的 JsonObject。仅 portfolio.backtest / valuation.percentiles / dca.smart_plan_backtest。后台端点返回 202 和 Location/Retry-After；同步响应不变。
 
-- [ ] 添加后台创建、无效参数零任务、去重、跨账户/内部类型404、匿名401、CSRF、排队及运行取消、迟到发布被拒、完成保留、期限/租约失效和三端点集成测试。
-- [ ] 运行 `dotnet test --filter FullyQualifiedName~ProjectOptimizationPhase2Tests`。Expected: 新协议用例失败且原同步契约继续通过。
-- [ ] 实现持久化状态/取消服务，复用既有队列与租约；控制器先验证和鉴权再入队，返回固定形状且无内部凭据。
-- [ ] 更新机器可读路由清单并导出 OpenAPI 比对。Expected: 新增 GET/DELETE 两路由且完全一致。
-- [ ] 运行后端专项并提交 `feat: expose owned background compute task status and cancellation`。
+- [x] 添加后台创建、无效参数零任务、去重、跨账户/内部类型404、匿名401、CSRF、排队及运行取消、迟到发布被拒、完成保留、期限/租约失效和三端点集成测试。
+- [x] 运行 `dotnet test --filter FullyQualifiedName~ProjectOptimizationPhase2Tests`。Expected: 新协议用例失败且原同步契约继续通过。
+- [x] 实现持久化状态/取消服务，复用既有队列与租约；控制器先验证和鉴权再入队，返回固定形状且无内部凭据。
+- [x] 更新机器可读路由清单并导出 OpenAPI 比对。Expected: 新增 GET/DELETE 两路由且完全一致。
+- [x] 运行后端专项并提交 `feat: expose owned background compute task status and cancellation`。
 
 ### Task 3: 长任务界面恢复与验证
 

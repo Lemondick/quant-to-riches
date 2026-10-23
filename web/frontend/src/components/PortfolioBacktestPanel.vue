@@ -46,6 +46,7 @@
   </div>
 
   <template v-if="result">
+    <p v-if="taskResult" class="feedback" role="status">以下为已提交任务的结果，修改表单后可重新回测。</p>
     <p v-for="warning in result.warnings ?? []" :key="warning" class="feedback">{{ warning }}</p>
     <div class="kpi-grid section-space">
       <div class="panel metric-card"><span class="metric-label">累计收益</span><div class="metric-value" :class="result.metrics.total_return_pct >= 0 ? 'up' : 'down'">{{ signed(result.metrics.total_return_pct) }}%</div><div class="metric-note">区间总回报</div></div>
@@ -84,7 +85,9 @@ import { mockBacktestFunds } from '../data/batch2'
 
 const props = withDefaults(defineProps<{
   demo?: boolean
-  runBacktest: (request: BacktestRequest) => Promise<BacktestResult>
+  runBacktest: (request: BacktestRequest) => Promise<BacktestResult | null>
+  taskResult?: BacktestResult | null
+  taskRunning?: boolean
   initialFunds?: { code: string; name: string; weight: number }[]
 }>(), { demo: false, initialFunds: () => mockBacktestFunds() })
 
@@ -96,14 +99,16 @@ const rebalanceMode = ref<'period' | 'threshold'>('period')
 const period = ref<'1M' | '3M'>('3M')
 const thresholdPct = ref(5)
 const dcaEnabled = ref(false), dcaAmount = ref(1000), dcaFreq = ref<'monthly' | 'weekly'>('monthly')
-const running = ref(false), formError = ref(''), runError = ref('')
-const result = ref<BacktestResult | null>(null)
+const submitting = ref(false), formError = ref(''), runError = ref('')
+const running = computed(() => submitting.value || props.taskRunning)
+const localResult = ref<BacktestResult | null>(null)
+const result = computed(() => props.taskResult !== undefined ? props.taskResult : localResult.value)
 const observations = computed(() => result.value ? backtestCurveObservations(result.value) : undefined)
 
 function signed(value: number): string { return (value >= 0 ? '+' : '') + value.toFixed(2) }
 
 async function run() {
-  formError.value = ''; runError.value = ''; result.value = null
+  formError.value = ''; runError.value = ''; localResult.value = null
   const request: BacktestRequest = {
     funds: funds.value.map(f => ({ code: f.code.trim(), name: f.name.trim() || undefined, weight: f.weight })),
     start: start.value, end: end.value,
@@ -112,13 +117,13 @@ async function run() {
   }
   formError.value = validateBacktestRequest(request) ?? ''
   if (formError.value) return
-  running.value = true
+  submitting.value = true
   try {
-    result.value = await props.runBacktest(request)
+    localResult.value = await props.runBacktest(request)
   } catch (failure) {
     runError.value = failure instanceof Error ? failure.message : '回测失败。'
   } finally {
-    running.value = false
+    submitting.value = false
   }
 }
 </script>

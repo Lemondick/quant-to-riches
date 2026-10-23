@@ -1536,6 +1536,48 @@
         }
       }
     },
+    "/api/v1/compute/tasks/{id}": {
+      "get": {
+        "tags": [
+          "ComputeTasks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ComputeTasks"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/runtime/costs": {
       "get": {
         "tags": [
@@ -1871,6 +1913,14 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "background",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -4668,6 +4718,16 @@
         "tags": [
           "PortfolioBacktest"
         ],
+        "parameters": [
+          {
+            "name": "background",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -6085,6 +6145,14 @@
               ],
               "format": "int32",
               "default": 10
+            }
+          },
+          {
+            "name": "background",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -8784,6 +8852,9 @@
     },
     {
       "name": "Calendar"
+    },
+    {
+      "name": "ComputeTasks"
     },
     {
       "name": "Cost"
