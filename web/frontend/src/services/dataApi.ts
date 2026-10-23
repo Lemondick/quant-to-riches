@@ -36,8 +36,11 @@ export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
     const abort = () => controller.abort()
     signal?.addEventListener('abort', abort, { once: true })
     if (signal?.aborted) controller.abort()
-    // Strategy validation/preview runs within the gateway's 60-second job lease.
-    const timeoutMs = /^\/research\/strategy-settings(?:\/preview)?$/.test(path) ? 65000 : 15000
+    // Known synchronous jobs need their gateway lease plus response time.
+    const requestPath = path.split('?', 1)[0]
+    const timeoutMs = method === 'POST' && requestPath === '/backtest/portfolio' ? 605000
+      : method === 'POST' && /^\/dca\/smart\/[^/]+\/backtest$/.test(requestPath) ? 305000
+      : /^\/research\/strategy-settings(?:\/preview)?$/.test(requestPath) ? 65000 : 15000
     const timeout = setTimeout(abort, timeoutMs)
     const url = `${root}${path}`
     const isGet = body === undefined
