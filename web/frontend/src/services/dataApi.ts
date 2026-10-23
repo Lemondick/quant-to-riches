@@ -71,7 +71,7 @@ export function createDataApi(base: string, fetcher: typeof fetch = fetch) {
       throw error
     } finally { clearTimeout(timeout); signal?.removeEventListener('abort', abort) }
   }
-  return { read: <T>(path: string, signal?: AbortSignal, scope?: string) => request<T>(path, signal, undefined, 'GET', undefined, scope), write: <T>(path: string, body: unknown, csrf: string, scope: string, method = 'POST') => request<T>(path, undefined, body, method, csrf, scope), login: (username: string, password: string) => request<LoginResult>('/auth/login', undefined, { username, password }), verifyTwoFactor: (pendingToken: string, code: string) => request<LoginSession>('/auth/2fa/verify', undefined, { pending_token: pendingToken, code }) }
+  return { read: <T>(path: string, signal?: AbortSignal, scope?: string) => request<T>(path, signal, undefined, 'GET', undefined, scope), write: <T>(path: string, body: unknown, csrf: string, scope: string, method = 'POST', signal?: AbortSignal) => request<T>(path, signal, body, method, csrf, scope), login: (username: string, password: string) => request<LoginResult>('/auth/login', undefined, { username, password }), verifyTwoFactor: (pendingToken: string, code: string) => request<LoginSession>('/auth/2fa/verify', undefined, { pending_token: pendingToken, code }) }
 }
 export type LoginSession = { user: { id: string; username: string; role: string }; csrf_token: string; expires_at: string }
 export type LoginResult = LoginSession | { two_factor_required: true; pending_token: string }

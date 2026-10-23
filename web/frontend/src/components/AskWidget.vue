@@ -8,6 +8,7 @@
         <div><b>智能问答</b><span class="subtle">{{ liveBackend ? '账本问答 · 模板命中走确定性查询' : '演示模式' }}</span></div>
         <button class="icon-btn" aria-label="关闭智能问答" @click="open = false"><X :size="15" aria-hidden="true" /></button>
       </div>
+      <template v-if="!liveBackend || verifiedSession">
       <div ref="scrollBox" class="ask-messages" aria-live="polite">
         <div v-for="(message, index) in messages" :key="index" class="ask-msg" :class="message.role">
           <span class="ask-bubble">{{ message.text }}</span>
@@ -22,11 +23,13 @@
         <input v-model.trim="draft" placeholder="输入问题，如：今年收益如何？" aria-label="输入问题" :disabled="sending" maxlength="200" />
         <button class="btn primary" type="submit" :disabled="sending || !draft" aria-label="发送问题"><Send :size="14" aria-hidden="true" /></button>
       </form>
+      </template>
+      <p v-else class="feedback" role="status">{{ session ? '正在验证账户会话…' : '请先登录后端账户。' }}</p>
     </div>
   </div>
 </template>
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onMounted, onScopeDispose, ref, watch } from 'vue'
 import { MessageCircleQuestion, Send, X } from 'lucide-vue-next'
 import { createDataApi, ApiError } from '../services/dataApi'
 import { useAccountResource } from '../composables/useAccountResource'
@@ -35,7 +38,7 @@ import { mockAskAnswer } from '../data/batch2'
 
 const liveBackend = !!import.meta.env.VITE_API_BASE_URL?.trim()
 /** 会话仅用于取 csrf/scope；实际问答走直连 POST，避免触发全局缓存失效。 */
-const { session } = useAccountResource('ask', (api, signal) => api.read<unknown>('/auth/session', signal))
+const { session, data: verifiedSession } = useAccountResource('ask', (api, signal) => api.read<unknown>('/auth/session', signal))
 
 type Message = { role: 'user' | 'assistant'; text: string; note?: string }
 const open = ref(false)
@@ -45,30 +48,54 @@ const scrollBox = ref<HTMLElement>()
 const messages = ref<Message[]>([
   { role: 'assistant', text: '你好，我是观澜智能问答。点击下方高频问题，或直接输入你想了解的账户问题。' },
 ])
+let generation = 0
+let pending: AbortController | undefined
+
+function resetConversation() {
+  generation++
+  pending?.abort()
+  pending = undefined
+  messages.value = [{ role: 'assistant', text: '你好，我是观澜智能问答。点击下方高频问题，或直接输入你想了解的账户问题。' }]
+  draft.value = ''
+  sending.value = false
+  open.value = false
+}
+watch(() => session.value ? `${session.value.user.id}:${session.value.cache_scope}` : null, resetConversation, { flush: 'sync' })
+onMounted(() => window.addEventListener('quant-auth-invalidated', resetConversation))
+onScopeDispose(() => {
+  window.removeEventListener('quant-auth-invalidated', resetConversation)
+  resetConversation()
+})
 
 watch(messages, () => {
   void nextTick(() => { if (scrollBox.value) scrollBox.value.scrollTop = scrollBox.value.scrollHeight })
 }, { deep: true })
 
-async function postAsk(question: string): Promise<AskResponse> {
+async function postAsk(question: string, signal: AbortSignal): Promise<AskResponse> {
   const current = session.value
   if (!current) throw new ApiError(401, '请先登录后端账户。')
   const client = createDataApi(import.meta.env.VITE_API_BASE_URL ?? '')
-  return client.write<AskResponse>('/ask', { question }, current.csrf_token, current.cache_scope, 'POST')
+  return client.write<AskResponse>('/ask', { question }, current.csrf_token, current.cache_scope, 'POST', signal)
 }
 
 async function ask(question: string) {
   const text = question.trim()
   if (!text || sending.value) return
+  const currentGeneration = ++generation
+  const controller = new AbortController()
+  pending = controller
+  const isCurrent = () => generation === currentGeneration && !controller.signal.aborted
   draft.value = ''
   messages.value.push({ role: 'user', text })
   sending.value = true
   try {
     if (liveBackend) {
       try {
-        const response = await postAsk(text)
+        const response = await postAsk(text, controller.signal)
+        if (!isCurrent()) return
         messages.value.push({ role: 'assistant', text: response.answer, note: response.cost_note ?? (response.matched_template ? `命中模板：${response.matched_template}` : undefined) })
       } catch (failure) {
+        if (!isCurrent()) return
         if (failure instanceof ApiError && failure.status === 404) {
           messages.value.push({ role: 'assistant', text: mockAskAnswer(text), note: '后端问答接口尚未就绪（A 并行开发中），当前为演示答案。' })
         } else {
@@ -77,12 +104,14 @@ async function ask(question: string) {
       }
     } else {
       await new Promise(resolve => setTimeout(resolve, 300))
+      if (!isCurrent()) return
       messages.value.push({ role: 'assistant', text: mockAskAnswer(text) })
     }
   } catch (failure) {
+    if (!isCurrent()) return
     messages.value.push({ role: 'assistant', text: failure instanceof Error ? failure.message : '问答失败，请稍后重试。' })
   } finally {
-    sending.value = false
+    if (generation === currentGeneration) { sending.value = false; pending = undefined }
   }
 }
 

@@ -93,6 +93,145 @@ async function pageFor(t, handler) {
 }
 const visible = (locator) => locator.waitFor({ state: 'visible', timeout: 8000 })
 
+for (const change of ['switch', 'logout']) {
+  test(`ask clears account history and draft after ${change}`, async (t) => {
+    let current = session
+    const { page } = await pageFor(t, ({ path }) => {
+      if (path === '/auth/session')
+        return current ? { body: current } : { status: 401, body: { error_code: 'authentication_required' } }
+      if (path === '/goals') return { body: { items: [] } }
+      if (path === '/ask')
+        return {
+          body: { answer: '合成账户 A 的私有回答', matched: true, template: 'position_pnl_ranking', model_calls: 0 },
+        }
+    })
+    await page.goto(origin + '/goals')
+    await page.getByRole('button', { name: '打开智能问答' }).click()
+    await page.getByRole('button', { name: '盈亏排名', exact: true }).click()
+    await visible(page.getByText('合成账户 A 的私有回答', { exact: true }))
+    await page.getByRole('textbox', { name: '输入问题', exact: true }).fill('合成账户 A 的草稿')
+
+    const checked = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await checked
+    assert.equal(await page.getByText('合成账户 A 的私有回答', { exact: true }).count(), 1)
+    await visible(page.getByRole('textbox', { name: '输入问题', exact: true }))
+    assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).inputValue(), '合成账户 A 的草稿')
+
+    current =
+      change === 'logout'
+        ? null
+        : { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' }
+    const changed = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
+    await page.evaluate(() => window.dispatchEvent(new Event('quant-auth-invalidated')))
+    await changed
+    await page.waitForFunction(() => !document.body.textContent.includes('合成账户 A 的私有回答'), undefined, {
+      timeout: 2000,
+    })
+    if (await page.getByRole('button', { name: '打开智能问答' }).count())
+      await page.getByRole('button', { name: '打开智能问答' }).click()
+    assert.equal(await page.getByText('合成账户 A 的私有回答', { exact: true }).count(), 0)
+    if (change === 'switch') {
+      await visible(page.getByRole('textbox', { name: '输入问题', exact: true }))
+      assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).inputValue(), '')
+    } else assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).count(), 0)
+  })
+}
+
+test('ask hides private content while checking the same session and restores it after verification', async (t) => {
+  let verifying = false,
+    release
+  const checked = new Promise((resolve) => {
+    release = resolve
+  })
+  const { page } = await pageFor(t, async ({ path }) => {
+    if (path === '/auth/session' && verifying) {
+      await checked
+      return { body: session }
+    }
+    if (path === '/goals') return { body: { items: [] } }
+    if (path === '/ask')
+      return { body: { answer: '同一账户的已验证回答', matched: true, template: 'cash_ratio', model_calls: 0 } }
+  })
+  t.after(() => release())
+  await page.goto(origin + '/goals')
+  await page.getByRole('button', { name: '打开智能问答' }).click()
+  await page.getByRole('button', { name: '现金比例', exact: true }).click()
+  await visible(page.getByText('同一账户的已验证回答', { exact: true }))
+  await page.getByRole('textbox', { name: '输入问题', exact: true }).fill('同一账户的草稿')
+  verifying = true
+  try {
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.waitForFunction(() => !document.body.textContent.includes('同一账户的已验证回答'), undefined, {
+      timeout: 2000,
+    })
+    assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).count(), 0)
+  } finally {
+    release()
+  }
+  await visible(page.getByText('同一账户的已验证回答', { exact: true }))
+  assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).inputValue(), '同一账户的草稿')
+})
+
+for (const outcome of ['success', 'failure']) {
+  test(`ask ignores a prior session's late ${outcome} response`, async (t) => {
+    let current = session,
+      release,
+      received,
+      finished
+    const responseGate = new Promise((resolve) => {
+      release = resolve
+    })
+    const requestStarted = new Promise((resolve) => {
+      received = resolve
+    })
+    const responseFinished = new Promise((resolve) => {
+      finished = resolve
+    })
+    const { page } = await pageFor(t, ({ path }) => {
+      if (path === '/auth/session') return { body: current }
+      if (path === '/goals') return { body: { items: [] } }
+    })
+    t.after(() => release())
+    let first = true
+    await page.route('**/api/v1/ask', async (route) => {
+      if (!first)
+        return route.fulfill({
+          json: { answer: '合成账户 B 的新回答', matched: true, template: 'cash_ratio', model_calls: 0 },
+        })
+      first = false
+      received()
+      await responseGate
+      try {
+        await route.fulfill(
+          outcome === 'success'
+            ? { json: { answer: '合成账户 A 的迟到私有回答', matched: true, template: 'year_return', model_calls: 0 } }
+            : { status: 503, json: { error_code: 'worker_unavailable' } },
+        )
+      } finally {
+        finished()
+      }
+    })
+    await page.goto(origin + '/goals')
+    await page.getByRole('button', { name: '打开智能问答' }).click()
+    await page.getByRole('button', { name: '今年收益', exact: true }).click()
+    await requestStarted
+    current = { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' }
+    const changed = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
+    await page.evaluate(() => window.dispatchEvent(new Event('quant-auth-invalidated')))
+    await changed
+    release()
+    await responseFinished
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    if (await page.getByRole('button', { name: '打开智能问答' }).count())
+      await page.getByRole('button', { name: '打开智能问答' }).click()
+    assert.equal(await page.getByText('合成账户 A 的迟到私有回答', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('数据暂不可用，后台准备完成后可再次刷新。', { exact: true }).count(), 0)
+    await page.getByRole('button', { name: '现金比例', exact: true }).click()
+    await visible(page.getByText('合成账户 B 的新回答', { exact: true }))
+  })
+}
+
 test('risk chart draws nonempty NAV and negative drawdowns with readable tooltips at both widths', async (t) => {
   const { page } = await pageFor(t, ({ path }) => {
     if (path === '/risk/metrics')
