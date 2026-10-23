@@ -112,7 +112,7 @@ for (const change of ['switch', 'logout']) {
     await page.getByRole('textbox', { name: '输入问题', exact: true }).fill('合成账户 A 的草稿')
 
     const checked = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.evaluate(() => globalThis.window.dispatchEvent(new Event('focus')))
     await checked
     assert.equal(await page.getByText('合成账户 A 的私有回答', { exact: true }).count(), 1)
     await visible(page.getByRole('textbox', { name: '输入问题', exact: true }))
@@ -123,11 +123,15 @@ for (const change of ['switch', 'logout']) {
         ? null
         : { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' }
     const changed = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
-    await page.evaluate(() => window.dispatchEvent(new Event('quant-auth-invalidated')))
+    await page.evaluate(() => globalThis.window.dispatchEvent(new Event('quant-auth-invalidated')))
     await changed
-    await page.waitForFunction(() => !document.body.textContent.includes('合成账户 A 的私有回答'), undefined, {
-      timeout: 2000,
-    })
+    await page.waitForFunction(
+      () => !globalThis.document.body.textContent.includes('合成账户 A 的私有回答'),
+      undefined,
+      {
+        timeout: 2000,
+      },
+    )
     if (await page.getByRole('button', { name: '打开智能问答' }).count())
       await page.getByRole('button', { name: '打开智能问答' }).click()
     assert.equal(await page.getByText('合成账户 A 的私有回答', { exact: true }).count(), 0)
@@ -161,10 +165,14 @@ test('ask hides private content while checking the same session and restores it 
   await page.getByRole('textbox', { name: '输入问题', exact: true }).fill('同一账户的草稿')
   verifying = true
   try {
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
-    await page.waitForFunction(() => !document.body.textContent.includes('同一账户的已验证回答'), undefined, {
-      timeout: 2000,
-    })
+    await page.evaluate(() => globalThis.window.dispatchEvent(new Event('focus')))
+    await page.waitForFunction(
+      () => !globalThis.document.body.textContent.includes('同一账户的已验证回答'),
+      undefined,
+      {
+        timeout: 2000,
+      },
+    )
     assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).count(), 0)
   } finally {
     release()
@@ -218,11 +226,13 @@ for (const outcome of ['success', 'failure']) {
     await requestStarted
     current = { ...session, user: { ...session.user, id: 'synthetic-bob' }, cache_scope: 'scope-bob' }
     const changed = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
-    await page.evaluate(() => window.dispatchEvent(new Event('quant-auth-invalidated')))
+    await page.evaluate(() => globalThis.window.dispatchEvent(new Event('quant-auth-invalidated')))
     await changed
     release()
     await responseFinished
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    await page.evaluate(
+      () => new Promise((resolve) => globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve))),
+    )
     if (await page.getByRole('button', { name: '打开智能问答' }).count())
       await page.getByRole('button', { name: '打开智能问答' }).click()
     assert.equal(await page.getByText('合成账户 A 的迟到私有回答', { exact: true }).count(), 0)
