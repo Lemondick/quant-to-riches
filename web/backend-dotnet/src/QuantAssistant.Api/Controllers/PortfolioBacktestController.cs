@@ -15,7 +15,7 @@ namespace QuantAssistant.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/backtest/portfolio")]
-public sealed class PortfolioBacktestController(ComputeService compute) : ControllerBase
+public sealed class PortfolioBacktestController(ComputeService compute, UserComputeTasks tasks) : ControllerBase
 {
     public sealed record FundWeight(string Code, decimal Weight);
     public sealed record RebalanceBody(string Mode, string? Period = null, double? ThresholdPct = null);
@@ -26,7 +26,7 @@ public sealed class PortfolioBacktestController(ComputeService compute) : Contro
     private string Id => User.FindFirst("sub")?.Value ?? throw new AuthFailure("authentication_required");
 
     [HttpPost]
-    public async Task<IActionResult> Run([FromBody] BacktestBody body, CancellationToken cancellation = default)
+    public async Task<IActionResult> Run([FromBody] BacktestBody body, CancellationToken cancellation = default, [FromQuery] bool background = false)
     {
         try
         {
@@ -53,6 +53,12 @@ public sealed class PortfolioBacktestController(ComputeService compute) : Contro
         }
         if (body.Dca is not null)
             payload["dca"] = new JsonObject { ["amount"] = (double)body.Dca.Amount, ["freq"] = body.Dca.Freq };
+        if (background)
+        {
+            var task = await tasks.StartAsync(Id, "portfolio.backtest", payload, cancellation);
+            Response.Headers.RetryAfter = "2";
+            return Accepted($"/api/v1/compute/tasks/{task["job_id"]!.GetValue<string>()}", task);
+        }
         var result = await compute.Run(Id, "portfolio.backtest", payload, cancellation, seconds: 600);
         return Ok(result ?? throw new ApplicationFailure("worker_unavailable", 503, "回测计算未完成，请稍后重试。"));
     }

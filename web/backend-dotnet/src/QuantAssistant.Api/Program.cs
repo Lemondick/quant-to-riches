@@ -166,6 +166,7 @@ builder.Services.AddSingleton<TransactionService>();
 builder.Services.AddSingleton(_ => new QuantAssistant.Infrastructure.Documents.UserDocumentRepository(connectionString));
 builder.Services.AddSingleton(_ => new ComputeJobRepository(connectionString));
 builder.Services.AddSingleton(_ => new AccountDatabase(connectionString));
+builder.Services.AddSingleton<QuantAssistant.Api.Services.UserComputeTasks>();
 // E5：Api 层只依赖 IAccountDatabase 抽象（依赖倒置）；具体类保留供 CLI 同步适配器使用。
 builder.Services.AddSingleton<IAccountDatabase>(sp => sp.GetRequiredService<AccountDatabase>());
 builder.Services.AddSingleton<ModelCostRepository>(sp => new ModelCostRepository(sp.GetRequiredService<AccountDatabase>(),

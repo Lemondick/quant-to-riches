@@ -80,11 +80,16 @@ public sealed class DcaSmartController(SmartDcaRepository repo, SmartDcaService 
     }
 
     [HttpPost("{id}/backtest")]
-    public async Task<IActionResult> Backtest(string id, [FromBody] BacktestBody body, CancellationToken cancellation = default)
+    public async Task<IActionResult> Backtest(string id, [FromBody] BacktestBody body, CancellationToken cancellation = default, [FromQuery] bool background = false)
     {
         try
         {
-            var result = await service.BacktestAsync(Id, id, body.Start, body.End, cancellation);
+            var result = await service.BacktestAsync(Id, id, body.Start, body.End, cancellation, background);
+            if (background)
+            {
+                Response.Headers.RetryAfter = "2";
+                return Accepted($"/api/v1/compute/tasks/{result!["job_id"]!.GetValue<string>()}", result);
+            }
             return Ok(new { result });
         }
         catch (ArgumentException error)

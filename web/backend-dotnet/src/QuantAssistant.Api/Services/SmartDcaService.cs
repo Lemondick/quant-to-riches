@@ -12,9 +12,9 @@ namespace QuantAssistant.Api.Services;
 /// 估值分档假设（commit 注明）：pe_pct>=halt_pct→暂停；pe_pct>=70→高估削减；pe_pct<=30→低估加投；其余按基准。
 /// 提醒写入 user_alert_center（kind=smart_dca_reminder），到期提醒发出后按 frequency 推进 next_run_date。
 /// </summary>
-public sealed class SmartDcaService(SmartDcaRepository plans, ComputeService compute, AccountDatabase database)
+public sealed class SmartDcaService(SmartDcaRepository plans, ComputeService compute, AccountDatabase database, UserComputeTasks tasks)
 {
-    public async Task<JsonNode?> BacktestAsync(string userId, string planId, DateOnly start, DateOnly end, CancellationToken cancellation)
+    public async Task<JsonNode?> BacktestAsync(string userId, string planId, DateOnly start, DateOnly end, CancellationToken cancellation, bool background = false)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(8));
         if (start >= end || start < new DateOnly(1990, 1, 1) || end > today)
@@ -31,6 +31,7 @@ public sealed class SmartDcaService(SmartDcaRepository plans, ComputeService com
             ["base_amount"] = decimal.Parse(plan["base_amount"]!.GetValue<string>(), CultureInfo.InvariantCulture),
             ["rules"] = rules,
         };
+        if (background) return await tasks.StartAsync(userId, "dca.smart_plan_backtest", payload, cancellation);
         var result = await compute.Run(userId, "dca.smart_plan_backtest", payload, cancellation, seconds: 300);
         return result ?? throw new ApplicationFailure("worker_unavailable", 503, "回测计算未完成，请稍后重试。");
     }

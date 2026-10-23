@@ -18,13 +18,13 @@ namespace QuantAssistant.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/valuation")]
-public sealed class ValuationController(ComputeService compute, IMemoryCache cache, QuantOptions options) : ControllerBase
+public sealed class ValuationController(ComputeService compute, IMemoryCache cache, QuantOptions options, UserComputeTasks tasks) : ControllerBase
 {
     private string Id => User.FindFirst("sub")?.Value ?? throw new AuthFailure("authentication_required");
 
     [HttpGet]
     public async Task<IActionResult> Get([FromQuery] string? indices = null, [FromQuery] int years = 10,
-        CancellationToken cancellation = default)
+        CancellationToken cancellation = default, [FromQuery] bool background = false)
     {
         if (years is < 3 or > 30) throw new ArgumentException("years 须在 3 到 30 之间。");
         var list = ParseIndices(indices);
@@ -36,6 +36,12 @@ public sealed class ValuationController(ComputeService compute, IMemoryCache cac
         var key = "valuation:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload.ToJsonString())));
         if (cache.TryGetValue(key, out JsonNode? hit) && hit is not null)
             return Ok(new JsonObject { ["cached"] = true, ["result"] = hit.DeepClone() });
+        if (background)
+        {
+            var task = await tasks.StartAsync(Id, "valuation.percentiles", payload, cancellation);
+            Response.Headers.RetryAfter = "2";
+            return Accepted($"/api/v1/compute/tasks/{task["job_id"]!.GetValue<string>()}", task);
+        }
         var result = (await compute.Run(Id, "valuation.percentiles", payload, cancellation, seconds: 180))?.AsObject()
             ?? throw new QuantAssistant.Core.Errors.ApplicationFailure("worker_unavailable", 503, "估值计算未完成，请稍后重试。");
         cache.Set(key, result.DeepClone(), new MemoryCacheEntryOptions

@@ -230,10 +230,23 @@
 更新方式：重新导出 openapi.json 后，按 `METHOD 空格 path`、字母序逐行替换
 两个清单区标记注释之间的内容。
 
+### 可恢复后台计算
+
+组合回测 `POST /api/v1/backtest/portfolio`、估值 `GET /api/v1/valuation`、智能定投回测 `POST /api/v1/dca/smart/{id}/backtest` 可传 `background=true`。参数与账户校验先于入队；现有不带该参数的同步响应不变。有效估值缓存可以直接返回原 200 响应。
+
+后台返回 202，`Location` 指向 `/api/v1/compute/tasks/{job_id}`，`Retry-After: 2`。响应字段为 `job_id`、`kind`、`status`、`created_at`、`deadline`、`completed_at`、`result`、`error_code`。状态含 queued、running、completed、failed、cancelled、interrupted；仅 completed 返回结果，其余状态 result 为 null。
+
+- `GET /api/v1/compute/tasks/{id}`：查询当前账户上述三类任务。不存在、其他账户或其他内部任务均为 404；不返回输入、Worker 租约或内部异常。
+- `DELETE /api/v1/compute/tasks/{id}`：需要现有 Origin、CSRF 和会话校验。队列及运行任务持久化为 cancelled，撤销发布权限；已完成任务保持其结果，重复取消不改变终态。外部阻塞调用不保证即时退出。
+- 过期或租约失效的活动任务返回 interrupted。相同输入复用既有入队去重，查询和取消响应使用 no-store。
+- 净资产响应新增 `liabilities_recorded:false`、`calculation_scope:positions_only`。旧数值字段保留为账本持仓兼容口径，不能据此视为已确认零负债或完整净资产。
+
 <!-- routes-start -->
+DELETE /api/v1/compute/tasks/{id}
 DELETE /api/v1/dca/smart/{id}
 DELETE /api/v1/goals/{id}
 DELETE /api/v1/research/funds/execution-replays/{id}
+GET /api/v1/compute/tasks/{id}
 GET /api/v1/admin/audit
 GET /api/v1/admin/audit/verify
 GET /api/v1/admin/calendar
