@@ -135,6 +135,7 @@ export type NetWorthSnapshot = {
   net_assets: number
   as_of: string | null
   liabilities_note?: string
+  liabilities_recorded?: boolean
   allocation_items?: { name: string; value: number }[]
   /** 四类配置金额（股/债/现金/其他）。 */
   allocation: Record<NetWorthAllocationClass, number>
@@ -296,11 +297,11 @@ export async function loadGoals(api: AccountReader, signal?: AbortSignal, monthl
 }
 export async function loadNetWorth(api: AccountReader, signal?: AbortSignal): Promise<NetWorthSnapshot> {
   const [summary, allocation] = await Promise.all([
-    api.read<{ total_assets: string; net_worth: string; as_of_date: string | null; liabilities_note: string; history: { date: string; total_value: string }[] }>('/net-worth?history_days=90', signal),
+    api.read<{ total_assets: string; net_worth: string; as_of_date: string | null; liabilities_note: string; liabilities_recorded?: boolean; history: { date: string; total_value: string }[] }>('/net-worth?history_days=90', signal),
     api.read<{ items: { name: string; value: string }[] }>('/net-worth/allocation', signal),
   ])
   if (!Array.isArray(summary.history) || !Array.isArray(allocation.items)) throw new Error('净资产数据格式不正确。')
-  return { total_assets: Number(summary.total_assets), net_assets: Number(summary.net_worth), as_of: summary.as_of_date, liabilities_note: summary.liabilities_note,
+  return { total_assets: Number(summary.total_assets), net_assets: Number(summary.net_worth), as_of: summary.as_of_date, liabilities_note: summary.liabilities_note, liabilities_recorded: summary.liabilities_recorded === true,
     allocation: { equity: 0, bond: 0, cash: 0, other: 0 }, allocation_items: allocation.items.map(item => ({ name: item.name, value: Number(item.value) })),
     history: summary.history.map(item => ({ date: item.date, net_assets: Number(item.total_value) })) }
 }

@@ -20,6 +20,15 @@ function storedFx(t, initial = {}) {
 }
 const jpyRate = (rate) => ({ from: 'JPY', rate, source: 'synthetic fixture', observed_at: '2026-10-23T00:00:00Z' })
 
+test('unknown or invalid holding currency is never treated as the base currency', (t) => {
+  const fx = storedFx(t).open()
+  for (const currency of [null, undefined, '', '   ', 'CN', '????']) {
+    assert.equal(fx.convert(100, currency).missing, true, String(currency))
+  }
+  assert.equal(fx.convert(100, ' cny ').missing, false)
+  assert.equal(fx.convert(100, ' cny ').value, 100)
+})
+
 test('changing base currency cannot reinterpret a CNY rate as USD', (t) => {
   const fx = storedFx(t).open()
   fx.upsertRate(jpyRate(0.05))

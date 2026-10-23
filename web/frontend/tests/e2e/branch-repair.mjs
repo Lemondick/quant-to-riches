@@ -93,6 +93,126 @@ async function pageFor(t, handler) {
 }
 const visible = (locator) => locator.waitFor({ state: 'visible', timeout: 8000 })
 
+test('asset conversion excludes unknown currencies and quotes of another asset type', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/dashboard/summary?separateNav=true')
+      return {
+        body: {
+          user_id: session.user.id,
+          generated_at: '2026-10-23',
+          unavailable: [],
+          portfolio: {
+            positions: [
+              {
+                symbol: 'SAME',
+                asset_type: 'fund',
+                name: '合成本币基金',
+                quantity: '1',
+                average_cost: '1',
+                market_value: '120000',
+                as_of_date: '2026-10-23',
+              },
+              {
+                symbol: 'SAME',
+                asset_type: 'stock',
+                name: '合成未知币种股票',
+                quantity: '1',
+                average_cost: '1',
+                market_value: '500000',
+                as_of_date: '2026-10-23',
+              },
+              {
+                symbol: 'USD',
+                asset_type: 'stock',
+                name: '合成美元股票',
+                quantity: '1',
+                average_cost: '1',
+                market_value: '100',
+                as_of_date: '2026-10-23',
+              },
+              {
+                symbol: 'EUR',
+                asset_type: 'stock',
+                name: '合成欧元股票',
+                quantity: '1',
+                average_cost: '1',
+                market_value: '50',
+                as_of_date: '2026-10-23',
+              },
+            ],
+            total_value: '620150',
+            cash: '0',
+            as_of_date: '2026-10-23',
+          },
+          preferences: { watchlist: [] },
+          valuations: { items: [], unavailable: [] },
+          quotes: {
+            items: [
+              { symbol: 'SAME', asset_type: 'fund', currency: 'CNY', price: '1', change_rate: '0' },
+              { symbol: 'USD', asset_type: 'stock', currency: 'USD', price: '1', change_rate: '0' },
+              { symbol: 'EUR', asset_type: 'stock', currency: 'EUR', price: '1', change_rate: '0' },
+            ],
+            unavailable: [],
+          },
+        },
+      }
+    if (path.startsWith('/portfolio/history')) return { body: { points: [] } }
+    if (path.startsWith('/net-worth?'))
+      return {
+        body: {
+          total_assets: '620150',
+          net_worth: '620150',
+          as_of_date: '2026-10-23',
+          liabilities_recorded: false,
+          liabilities_note: '负债未登记',
+          history: [],
+        },
+      }
+    if (path === '/net-worth/allocation') return { body: { items: [] } }
+    if (path.startsWith('/valuation'))
+      return { body: { result: { items: [], temperature: { score: null, label: '数据不足' } } } }
+  })
+  await page.addInitScript(() =>
+    globalThis.localStorage.setItem(
+      'guanlan.fx.rates.v1',
+      JSON.stringify([
+        { from: 'USD', to: 'CNY', rate: 7, source: 'synthetic', observed_at: '2026-10-23', updated_at: '2026-10-23' },
+      ]),
+    ),
+  )
+  await page.goto(origin + '/')
+  const panel = page.locator('.panel').filter({ has: page.getByRole('heading', { name: '本币折算', exact: true }) })
+  await visible(panel.getByText('已折算持仓市值（CNY）', { exact: true }))
+  assert.match(await panel.innerText(), /120,700\.00/)
+  await visible(panel.getByText('币种未知（1 项持仓）', { exact: true }))
+  await visible(panel.getByText('币种未知，未计入折算值', { exact: true }))
+  await visible(panel.getByText('缺汇率，未计入折算值', { exact: true }))
+  assert.doesNotMatch(await panel.innerText(), /500,000/)
+})
+
+test('live net worth does not present unrecorded debt as confirmed zero', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path.startsWith('/net-worth?'))
+      return {
+        body: {
+          total_assets: '120000',
+          net_worth: '120000',
+          liabilities_recorded: false,
+          calculation_scope: 'positions_only',
+          liabilities_note: '系统暂无负债登记，负债按 0 计',
+          as_of_date: '2026-10-23',
+          history: [],
+        },
+      }
+    if (path === '/net-worth/allocation') return { body: { items: [] } }
+  })
+  await page.goto(origin + '/net-worth')
+  await visible(page.getByText('未登记', { exact: true }))
+  await visible(page.getByText('未计算', { exact: true }))
+  await visible(page.getByRole('heading', { name: '持仓市值历史曲线', exact: true }))
+  assert.doesNotMatch(await page.locator('.stats-grid').innerText(), /¥\s*0\.00/)
+})
+
 for (const change of ['switch', 'logout']) {
   test(`ask clears account history and draft after ${change}`, async (t) => {
     let current = session

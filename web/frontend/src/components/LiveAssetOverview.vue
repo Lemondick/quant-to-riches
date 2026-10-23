@@ -27,14 +27,16 @@
       <div class="panel-head"><div><h2>本币折算</h2><p>按配置汇率把各币种持仓折算为{{ baseCurrency }}。{{ sourcesNote }}</p></div><button class="btn" @click="fxOpen = true"><Coins :size="14" aria-hidden="true" />汇率设置</button></div>
       <div class="card-pad">
         <div class="row-list">
-          <div class="row"><span>折算后总资产（{{ baseCurrency }}）</span><b>{{ showMoney(fxTotal) }}</b></div>
+          <div class="row"><span>已折算持仓市值（{{ baseCurrency }}）</span><b>{{ showMoney(fxTotal) }}</b></div>
           <div v-for="group in fxBreakdown" :key="group.currency" class="row">
-            <span>{{ group.currency }} {{ hidden ? '••••' : money(group.amount) }}</span>
-            <span v-if="group.missing" class="tag red">缺汇率，未计入折算总值</span>
+            <span v-if="group.unknown">币种未知（{{ group.count }} 项持仓）</span>
+            <span v-else>{{ group.currency }} {{ hidden ? '••••' : money(group.amount) }}</span>
+            <span v-if="group.unknown" class="tag red">币种未知，未计入折算值</span>
+            <span v-else-if="group.missing" class="tag red">缺汇率，未计入折算值</span>
             <span v-else class="subtle">{{ hidden ? '••••' : money(group.value) }} · {{ group.rate ? `1 ${group.currency} = ${group.rate.rate} ${baseCurrency}` : '本币原值' }}</span>
           </div>
         </div>
-        <p class="subtle section-space">汇率来源与时点：<span v-for="group in fxBreakdown.filter(item => !item.missing && item.rate)" :key="group.currency">{{ group.currency }}（{{ group.rate!.source }} · {{ group.rate!.observed_at.slice(0, 16).replace('T', ' ') }}）</span><span v-if="!fxBreakdown.some(item => item.rate)">暂无</span>。持仓币种取自行情币种字段，未匹配到的持仓按本币计；折算汇率保存在浏览器本地，`fx_rates` 表由后端 0030 迁移建立，待后端提供读写接口后可同步。</p>
+        <p class="subtle section-space">仅汇总已确认币种且有可用汇率的非现金持仓，不包含账户现金；币种未知或缺汇率的持仓保留在明细中。汇率来源与时点：<span v-for="group in fxBreakdown.filter(item => !item.missing && item.rate)" :key="group.currency">{{ group.currency }}（{{ group.rate!.source }} · {{ group.rate!.observed_at.slice(0, 16).replace('T', ' ') }}）</span><span v-if="!fxBreakdown.some(item => item.rate)">暂无</span>。汇率配置保存在当前浏览器。</p>
       </div>
     </div>
     <div class="panel table-panel">
@@ -128,15 +130,21 @@ const fxOpen = ref(false), fxFormError = ref('')
 const fxDraft = reactive({ from: '', rate: '', source: '', observed_at: '' })
 function currencyOf(symbol: string, assetType: string) {
   const quote = data.value?.quotes.items.find(item => item.symbol === symbol && (!assetType || item.asset_type === assetType))
-  return (quote?.currency ?? '').trim().toUpperCase() || null
+  const currency = (quote?.currency ?? '').trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(currency) ? currency : null
 }
 const fxBreakdown = computed(() => {
-  const groups = new Map<string, number>()
+  const groups = new Map<string, { amount: number; count: number }>()
   for (const item of positions.value) {
-    const currency = currencyOf(item.symbol, item.asset_type) ?? baseCurrency.value
-    groups.set(currency, (groups.get(currency) ?? 0) + Number(item.market_value))
+    const currency = currencyOf(item.symbol, item.asset_type) ?? ''
+    const group = groups.get(currency) ?? { amount: 0, count: 0 }
+    group.amount += Number(item.market_value); group.count++
+    groups.set(currency, group)
   }
-  return [...groups.entries()].map(([currency, amount]) => { const c = fxConvert(amount, currency); return { currency, amount, value: c.value, rate: c.rate, missing: c.missing } })
+  return [...groups.entries()].map(([currency, { amount, count }]) => {
+    const c = fxConvert(amount, currency)
+    return { currency, amount, count, unknown: !currency, value: c.value, rate: c.rate, missing: c.missing }
+  })
 })
 const fxTotal = computed(() => fxBreakdown.value.reduce((sum, group) => sum + (group.missing ? 0 : group.value), 0))
 function saveFxRate() {

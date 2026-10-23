@@ -51,7 +51,8 @@ export function useFxRates() {
   /** 把 amount（原币种）折算为本币；返回折算值、所用汇率条目与是否缺汇率。 */
   function convert(amount: number, currency: string | null | undefined) {
     const code = (currency ?? '').trim().toUpperCase()
-    if (!code || code === normalizeCurrency(baseCurrency.value)) return { value: amount, rate: null as FxRateEntry | null, missing: false, currency: code || baseCurrency.value }
+    if (!currencyCode(code)) return { value: amount, rate: null as FxRateEntry | null, missing: true, currency: code }
+    if (code === normalizeCurrency(baseCurrency.value)) return { value: amount, rate: null as FxRateEntry | null, missing: false, currency: code }
     const rate = rateOf(code)
     if (!rate) return { value: amount, rate: null as FxRateEntry | null, missing: true, currency: code }
     return { value: amount * rate.rate, rate, missing: false, currency: code }
