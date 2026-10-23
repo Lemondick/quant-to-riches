@@ -19,6 +19,7 @@ export function useComputeTask<T>(kind: string, session: Readonly<Ref<BackendSes
   const busy = computed(() => requesting.value || !!task.value && activeStates.has(task.value.status))
   let key: string | null = null, serial = 0, controller: AbortController | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
+  let preserveResult = false
 
   function stop() {
     serial++
@@ -40,9 +41,10 @@ export function useComputeTask<T>(kind: string, session: Readonly<Ref<BackendSes
         || !activeStates.has(next.status) && !terminalStates.has(next.status)) throw new Error('计算任务数据格式不正确。')
       if (!legacyAllowed && next.job_id !== taskId.value) throw new Error('计算任务标识不一致。')
       task.value = next; taskId.value = next.job_id; persist(next.job_id)
-      if (next.status === 'completed') result.value = normalize(next.result)
+      if (next.status === 'completed') { result.value = normalize(next.result); preserveResult = false }
       else {
-        result.value = null
+        if (!activeStates.has(next.status) || !preserveResult) result.value = null
+        if (!activeStates.has(next.status)) preserveResult = false
         if (next.status === 'failed') error.value = new Error(next.error_code === 'invalid_request' ? '计算参数或证据无效，请核对后重新运行。' : '计算失败，请检查数据和计算服务后重新运行。')
         if (next.status === 'interrupted') error.value = new Error('任务已超时或中断，请重新运行。')
       }
@@ -50,6 +52,7 @@ export function useComputeTask<T>(kind: string, session: Readonly<Ref<BackendSes
     } else {
       if (!legacyAllowed) throw new Error('计算任务数据格式不正确。')
       result.value = normalize(value); task.value = null; taskId.value = null; persist(null)
+      preserveResult = false
     }
   }
   async function perform(request: ComputeRequest, mode: 'start' | 'read' | 'cancel') {
@@ -83,9 +86,11 @@ export function useComputeTask<T>(kind: string, session: Readonly<Ref<BackendSes
       if (active()) { submitting.value = false; checking.value = false; cancelling.value = false; controller = undefined }
     }
   }
-  async function start(request: ComputeRequest) {
+  async function start(request: ComputeRequest, keepResult = false) {
     if (busy.value) return
-    task.value = null; result.value = null; taskId.value = null; persist(null)
+    preserveResult = keepResult
+    task.value = null; if (!keepResult) result.value = null
+    taskId.value = null; persist(null)
     await perform(request, 'start')
   }
   async function refresh() {
@@ -98,6 +103,7 @@ export function useComputeTask<T>(kind: string, session: Readonly<Ref<BackendSes
 
   watch(() => session.value ? `guanlan.compute-task.v1:${JSON.stringify([session.value.user.id, session.value.cache_scope, kind])}` : null, next => {
     stop(); key = next
+    preserveResult = false
     task.value = null; result.value = null; error.value = undefined; notice.value = ''; taskId.value = null
     if (!next) return
     let saved: string | null = null
@@ -107,7 +113,7 @@ export function useComputeTask<T>(kind: string, session: Readonly<Ref<BackendSes
       taskId.value = saved
       const restoring = refresh(), restoreSerial = serial
       void restoring.then(() => {
-        if (serial === restoreSerial && key === next && autoRequest && task.value?.status === 'completed' && !error.value) void start(autoRequest)
+        if (serial === restoreSerial && key === next && autoRequest && task.value?.status === 'completed' && !error.value) void start(autoRequest, true)
       })
     } else if (autoRequest) void start(autoRequest)
   }, { immediate: true, flush: 'sync' })

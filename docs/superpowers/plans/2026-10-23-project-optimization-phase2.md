@@ -55,9 +55,11 @@
 
 **Interfaces:** `useComputeTask<T>(kind, verifiedSessionRef, normalize, autoRequest?)` 提供 task/result/error/busy/start/cancel/refresh，每个网络请求限定当前 scope 和 generation。保留原同步结果适配。任务 ID 持久化含 userId/scope/kind，不保存输入或结果；估值完成任务在重新进入时重新查询有效缓存。
 
-- [ ] 添加真实 Vue 浏览器回归：后台回测、刷新恢复、取消、暂时失败后继续查询、401失效、跨账户迟到响应、存储拒绝、估值后台与旧200兼容。
-- [ ] 运行浏览器用例，观察新功能断言失败。
-- [ ] 实现轮询、状态展示与清理；仅本地停止轮询不会发取消，取消由明确按钮发 DELETE。刷新/查询失败不重复 POST。
-- [ ] 运行前端143项基线及新增项、浏览器全套、真实 PG .NET 全套、lint/format/types、双构建和既有页面脚本。Expected: 全部通过且无跳过冒充成功。
-- [ ] 提交实现与用户文档，完成独立整分支审查；逐项裁定审查边界，保留证据。
-- [ ] 推送分支，等待精确提交的 Linux CI；正常快进合并 main，桌面干净时快进同步并核对 SHA。Expected: 本地与远程 main 相同，原备份仍在。
+- [x] 添加真实 Vue 浏览器回归：后台回测、刷新恢复、取消、暂时失败后继续查询、401失效、跨账户迟到响应、存储拒绝、估值后台与旧200兼容。
+- [x] 运行浏览器用例，观察新功能断言失败。
+- [x] 实现轮询、状态展示与清理；仅本地停止轮询不会发取消，取消由明确按钮发 DELETE。刷新/查询失败不重复 POST。
+- [x] 完成独立整分支审查，对 3 项 Important 作一次修复，并补查现金币种；8 条复现回归 RED → GREEN，增加刷新保留结果和取消不重启用例。
+
+**交付门禁：** 前端144项、浏览器46项、真实 PG .NET584项、lint/format/types、双构建、既有页面脚本与视觉检查全部通过后提交验收记录；等待精确提交的 Linux CI，再正常快进 main 并同步桌面。最终 SHA、CI 链接及两处工作区状态由交付消息记录，原备份和 stash 保留。
+
+**验收记录：** `web/docs/refactor/project-optimization-phase2-acceptance-20261023.md`；详细本地原始日志位于 `.superpowers/project-optimization-phase2-20261023/`。

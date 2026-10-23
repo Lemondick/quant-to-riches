@@ -27,13 +27,13 @@
       <div class="panel-head"><div><h2>本币折算</h2><p>按配置汇率把各币种持仓折算为{{ baseCurrency }}。{{ sourcesNote }}</p></div><button class="btn" @click="fxOpen = true"><Coins :size="14" aria-hidden="true" />汇率设置</button></div>
       <div class="card-pad">
         <div class="row-list">
-          <div class="row"><span>已折算持仓市值（{{ baseCurrency }}）</span><b>{{ showMoney(fxTotal) }}</b></div>
+          <div class="row"><span>已折算持仓市值（{{ baseCurrency }}）</span><b>{{ holdingMoney(fxTotal, baseCurrency.trim().toUpperCase()) }}</b></div>
           <div v-for="group in fxBreakdown" :key="group.currency" class="row">
             <span v-if="group.unknown">币种未知（{{ group.count }} 项持仓）</span>
-            <span v-else>{{ group.currency }} {{ hidden ? '••••' : money(group.amount) }}</span>
+            <span v-else>{{ holdingMoney(group.amount, group.currency) }}</span>
             <span v-if="group.unknown" class="tag red">币种未知，未计入折算值</span>
             <span v-else-if="group.missing" class="tag red">缺汇率，未计入折算值</span>
-            <span v-else class="subtle">{{ hidden ? '••••' : money(group.value) }} · {{ group.rate ? `1 ${group.currency} = ${group.rate.rate} ${baseCurrency}` : '本币原值' }}</span>
+            <span v-else class="subtle">{{ holdingMoney(group.value, baseCurrency.trim().toUpperCase()) }} · {{ group.rate ? `1 ${group.currency} = ${group.rate.rate} ${baseCurrency}` : '本币原值' }}</span>
           </div>
         </div>
         <p class="subtle section-space">仅汇总已确认币种且有可用汇率的非现金持仓，不包含账户现金；币种未知或缺汇率的持仓保留在明细中。汇率来源与时点：<span v-for="group in fxBreakdown.filter(item => !item.missing && item.rate)" :key="group.currency">{{ group.currency }}（{{ group.rate!.source }} · {{ group.rate!.observed_at.slice(0, 16).replace('T', ' ') }}）</span><span v-if="!fxBreakdown.some(item => item.rate)">暂无</span>。汇率配置保存在当前浏览器。</p>
@@ -109,7 +109,12 @@ const category = ref('全部'), query = ref('')
 const emptyChart = { labels: [], series: [] }
 const showMoney = (value: number, signed = false) => hidden.value ? '••••' : money(value, signed)
 const fundCount = computed(() => positions.value.filter(item => item.asset_type === 'fund').length)
-const financialSummaryAvailable = computed(() => positions.value.every(item => currencyOf(item.symbol, item.asset_type) === 'CNY'))
+const financialSummaryAvailable = computed(() => {
+  const cash = data.value?.portfolio.positions.filter(item => item.asset_type === 'cash') ?? []
+  return positions.value.every(item => currencyOf(item.symbol, item.asset_type) === 'CNY')
+    && cash.every(item => item.symbol.trim().toUpperCase() === 'CNY')
+    && (Number(data.value?.portfolio.cash ?? 0) === 0 || cash.length > 0)
+})
 const maskedAllocation = computed(() => allocation.value.map(item => ({ ...item, value: '••••', pct: '••••', weight: 0 })))
 const headers = ['名称', '代码', '现价 / 净值', '持仓金额（原币）', '持仓数量', '仓位', '今日盈亏（原币）', '浮动收益（原币）', '操作']
 const rows = computed(() => positions.value.filter(item => (category.value === '全部' || item.asset_type === (category.value === '基金' ? 'fund' : 'stock')) && (item.name + ' ' + item.symbol).toLowerCase().includes(query.value.trim().toLowerCase())).map(item => {

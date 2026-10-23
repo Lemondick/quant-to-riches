@@ -117,6 +117,218 @@ const backgroundTask = (status = 'queued', result = null, kind = 'portfolio.back
   error_code: null,
 })
 
+const emptyDashboard = () => ({
+  user_id: session.user.id,
+  generated_at: '2026-10-23',
+  unavailable: [],
+  portfolio: { positions: [], total_value: '0', cash: '0', as_of_date: '2026-10-23' },
+  preferences: { watchlist: [] },
+  valuations: { items: [], unavailable: [] },
+  quotes: { items: [], unavailable: [] },
+})
+const valuationResult = (warning) => ({
+  as_of: '2026-10-23',
+  items: [],
+  temperature: { score: null, label: '数据不足' },
+  warnings: [warning],
+})
+function emptyAssetResponse(path) {
+  if (path.startsWith('/dashboard/summary')) return { body: emptyDashboard() }
+  if (path.startsWith('/portfolio/history')) return { body: { points: [] } }
+  if (path.startsWith('/net-worth?'))
+    return {
+      body: {
+        total_assets: '0',
+        net_worth: '0',
+        liabilities_recorded: false,
+        liabilities_note: '负债未登记',
+        as_of_date: '2026-10-23',
+        history: [],
+      },
+    }
+  if (path === '/net-worth/allocation') return { body: { items: [] } }
+}
+
+for (const completed of ['legacy', 'task']) {
+  test(`review regression: open valuation revalidates a completed ${completed} result`, async (t) => {
+    let reads = 0
+    const { page } = await pageFor(t, ({ path }) => {
+      if (path.startsWith('/valuation')) {
+        const result = valuationResult(++reads === 1 ? '旧估值标记' : '新估值标记')
+        return completed === 'legacy'
+          ? { body: { cached: true, result } }
+          : { status: 202, body: backgroundTask('completed', result, 'valuation.percentiles') }
+      }
+    })
+    await page.clock.install()
+    await page.goto(origin + '/valuation')
+    await visible(page.getByText('旧估值标记', { exact: true }))
+    const checked = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
+    await page.clock.runFor(60000)
+    await checked
+    await visible(page.getByText('新估值标记', { exact: true }))
+    assert.equal(reads, 2)
+  })
+}
+
+test('review regression: automatic valuation refresh preserves its snapshot, avoids duplicate work and honors cancellation', async (t) => {
+  let creations = 0,
+    status = 'queued'
+  const { page } = await pageFor(t, ({ path, method }) => {
+    if (path.startsWith('/valuation')) {
+      if (++creations === 1) return { body: { result: valuationResult('刷新前有效估值') } }
+      return { status: 202, body: backgroundTask(status, null, 'valuation.percentiles') }
+    }
+    if (path === '/compute/tasks/synthetic-task-1') {
+      if (method === 'DELETE') status = 'cancelled'
+      return { body: backgroundTask(status, null, 'valuation.percentiles') }
+    }
+    return emptyAssetResponse(path)
+  })
+  await page.clock.install()
+  await page.goto(origin + '/')
+  await visible(page.getByText('刷新前有效估值', { exact: true }))
+  await page.clock.runFor(60000)
+  await visible(page.getByText('排队中', { exact: true }))
+  await visible(page.getByText('刷新前有效估值', { exact: true }))
+  await page.clock.runFor(60000)
+  assert.equal(creations, 2, 'active work must not be submitted again')
+  await page.getByRole('button', { name: '取消任务', exact: true }).click()
+  await visible(page.getByText('已取消', { exact: true }))
+  await page.clock.runFor(120000)
+  assert.equal(creations, 2, 'automatic revalidation must honor explicit cancellation')
+})
+
+for (const status of ['failed', 'interrupted', 'cancelled', 'unavailable']) {
+  test(`review regression: homepage valuation can explicitly restart after ${status}`, async (t) => {
+    let creations = 0,
+      recover = false
+    const { page } = await pageFor(t, ({ path }) => {
+      if (path.startsWith('/valuation')) {
+        creations++
+        if (recover) return { body: { result: valuationResult('首页估值重新运行成功') } }
+        return status === 'unavailable'
+          ? { status: 503, body: { error_code: 'worker_unavailable' } }
+          : {
+              status: 202,
+              body: {
+                ...backgroundTask(status, null, 'valuation.percentiles'),
+                error_code: status === 'failed' ? 'worker_unavailable' : null,
+              },
+            }
+      }
+      if (path === '/compute/tasks/synthetic-task-1')
+        return { body: backgroundTask(status, null, 'valuation.percentiles') }
+      return emptyAssetResponse(path)
+    })
+    await page.goto(origin + '/')
+    await visible(page.getByRole('button', { name: '重新计算估值', exact: true }))
+    if (status !== 'unavailable') {
+      await page.reload()
+      await visible(page.getByRole('button', { name: '重新计算估值', exact: true }))
+      assert.equal(creations, 1, 'reload must not silently resubmit a cancelled or failed task')
+    }
+    recover = true
+    await page.getByRole('button', { name: '重新计算估值', exact: true }).click()
+    await visible(page.getByText('首页估值重新运行成功', { exact: true }))
+    assert.equal(creations, 2)
+  })
+}
+
+test('review regression: FX display uses each original currency and the selected base currency', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path.startsWith('/dashboard/summary')) {
+      const body = emptyDashboard()
+      body.portfolio.positions = ['USD', 'JPY'].map((symbol) => ({
+        symbol,
+        name: '合成' + symbol,
+        asset_type: 'stock',
+        quantity: '1',
+        average_cost: '1',
+        market_value: '100',
+        as_of_date: '2026-10-23',
+      }))
+      body.portfolio.total_value = '200'
+      body.quotes.items = ['USD', 'JPY'].map((symbol) => ({
+        symbol,
+        asset_type: 'stock',
+        price: '100',
+        currency: symbol,
+        change_rate: '0',
+      }))
+      return { body }
+    }
+    if (path.startsWith('/valuation')) return { body: { result: valuationResult('数据不足') } }
+    return emptyAssetResponse(path)
+  })
+  await page.addInitScript(() => {
+    globalThis.localStorage.setItem('guanlan.fx.base.v1', JSON.stringify('USD'))
+    globalThis.localStorage.setItem(
+      'guanlan.fx.rates.v1',
+      JSON.stringify([
+        {
+          from: 'JPY',
+          to: 'USD',
+          rate: 0.01,
+          source: 'synthetic',
+          observed_at: '2026-10-23',
+          updated_at: '2026-10-23',
+        },
+      ]),
+    )
+  })
+  await page.goto(origin + '/')
+  const panel = page.locator('.panel').filter({ has: page.getByRole('heading', { name: '本币折算', exact: true }) })
+  await visible(panel.getByText('已折算持仓市值（USD）', { exact: true }))
+  assert.doesNotMatch(await panel.innerText(), /¥/)
+  assert.match(await panel.innerText(), /USD 101\.00/)
+  assert.match(await panel.innerText(), /JPY 100\.00/)
+  await page.getByRole('button', { name: '隐藏金额', exact: true }).click()
+  assert.doesNotMatch(await panel.innerText(), /101\.00|100\.00/)
+})
+
+test('review regression: foreign cash cannot enter a CNY headline aggregate', async (t) => {
+  let cashSymbol = 'USD'
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path.startsWith('/dashboard/summary')) {
+      const body = emptyDashboard()
+      body.portfolio.positions = [
+        {
+          symbol: 'FUND',
+          asset_type: 'fund',
+          name: '合成基金',
+          quantity: '1',
+          average_cost: '1',
+          market_value: '1000',
+          as_of_date: '2026-10-23',
+        },
+        {
+          symbol: cashSymbol,
+          asset_type: 'cash',
+          name: '合成现金',
+          quantity: '100',
+          average_cost: '1',
+          market_value: '100',
+          as_of_date: '2026-10-23',
+        },
+      ]
+      body.portfolio.total_value = '1100'
+      body.portfolio.cash = '100'
+      body.quotes.items = [{ symbol: 'FUND', asset_type: 'fund', price: '1000', currency: 'CNY', change_rate: '0' }]
+      return { body }
+    }
+    if (path.startsWith('/valuation')) return { body: { result: valuationResult('数据不足') } }
+    return emptyAssetResponse(path)
+  })
+  await page.goto(origin + '/')
+  await visible(page.getByText('币种待核对，暂不合并', { exact: true }))
+  assert.doesNotMatch(await page.locator('.stats-grid').first().innerText(), /1,100/)
+  cashSymbol = 'CNY'
+  await page.getByRole('button', { name: '刷新数据', exact: true }).click()
+  await visible(page.getByText('账本资产（CNY）', { exact: true }))
+  assert.match(await page.locator('.stats-grid').first().innerText(), /1,100\.00/)
+})
+
 test('background backtest shows actual queue states and the completed result', async (t) => {
   let reads = 0
   const { page, calls } = await pageFor(t, ({ path, method }) => {
