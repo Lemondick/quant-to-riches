@@ -266,8 +266,11 @@ export function backtestCurveObservations(result: BacktestResult): { labels: str
 
 export type AskResponse = {
   answer: string
-  matched_template?: string | null
-  cost_note?: string | null
+  matched: boolean
+  template: string | null
+  model_calls: number
+  unsupported?: boolean
+  supported_questions?: string[]
 }
 
 /** 10 个高频问题快捷 chips（与后端模板对齐，契约§5）。 */

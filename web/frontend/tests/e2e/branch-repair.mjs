@@ -242,6 +242,81 @@ for (const outcome of ['success', 'failure']) {
   })
 }
 
+test('ask clears prior private content when a live request discovers an expired session', async (t) => {
+  let expired = false,
+    answered = false
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/auth/session' && expired) return { status: 401, body: { error_code: 'authentication_required' } }
+    if (path === '/goals') return { body: { items: [] } }
+    if (path === '/ask') {
+      if (answered) {
+        expired = true
+        return { status: 401, body: { error_code: 'authentication_required' } }
+      }
+      answered = true
+      return { body: { answer: '会话过期前的私有回答', matched: true, template: 'cash_ratio', model_calls: 0 } }
+    }
+  })
+  await page.goto(origin + '/goals')
+  await page.getByRole('button', { name: '打开智能问答' }).click()
+  await page.getByRole('button', { name: '现金比例', exact: true }).click()
+  await visible(page.getByText('会话过期前的私有回答', { exact: true }))
+  await page.getByRole('button', { name: '盈亏排名', exact: true }).click()
+  await page.waitForFunction(() => !globalThis.document.body.textContent.includes('会话过期前的私有回答'), undefined, {
+    timeout: 2000,
+  })
+  await visible(page.getByRole('form', { name: '登录后端账户' }))
+})
+
+test('ask shows matched template metadata from the backend contract', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/goals') return { body: { items: [] } }
+    if (path === '/ask')
+      return { body: { answer: '合成现金比例回答', matched: true, template: 'cash_ratio', model_calls: 0 } }
+  })
+  await page.goto(origin + '/goals')
+  await page.getByRole('button', { name: '打开智能问答' }).click()
+  await page.getByRole('button', { name: '现金比例', exact: true }).click()
+  await visible(page.getByText('合成现金比例回答', { exact: true }))
+  await visible(page.getByText('命中模板：cash_ratio', { exact: true }))
+})
+
+test('ask explains unsupported questions without a model charge or demo reply', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/goals') return { body: { items: [] } }
+    if (path === '/ask')
+      return {
+        body: {
+          answer: '当前问答仅支持预置的账本查询，请使用下方快捷问题。',
+          matched: false,
+          template: null,
+          unsupported: true,
+          model_calls: 0,
+          supported_questions: ['现金比例'],
+        },
+      }
+  })
+  await page.goto(origin + '/goals')
+  await page.getByRole('button', { name: '打开智能问答' }).click()
+  await page.getByRole('textbox', { name: '输入问题', exact: true }).fill('请写一首关于春天的诗')
+  await page.getByRole('button', { name: '发送问题', exact: true }).click()
+  await visible(page.getByText('当前问答仅支持预置的账本查询，请使用下方快捷问题。', { exact: true }))
+  await visible(page.getByText('未调用模型，不消耗模型预算。', { exact: true }))
+  assert.doesNotMatch(await page.getByRole('dialog', { name: '智能问答', exact: true }).innerText(), /演示答案/)
+})
+
+test('ask keeps a missing live endpoint as an error instead of answering with demo data', async (t) => {
+  const { page } = await pageFor(t, ({ path }) => {
+    if (path === '/goals') return { body: { items: [] } }
+    if (path === '/ask') return { status: 404, body: { error_code: 'route_not_found' } }
+  })
+  await page.goto(origin + '/goals')
+  await page.getByRole('button', { name: '打开智能问答' }).click()
+  await page.getByRole('button', { name: '现金比例', exact: true }).click()
+  await visible(page.getByText('读取失败（HTTP 404），请重试。', { exact: true }))
+  assert.doesNotMatch(await page.getByRole('dialog', { name: '智能问答', exact: true }).innerText(), /演示答案/)
+})
+
 test('risk chart draws nonempty NAV and negative drawdowns with readable tooltips at both widths', async (t) => {
   const { page } = await pageFor(t, ({ path }) => {
     if (path === '/risk/metrics')

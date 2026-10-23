@@ -11,7 +11,7 @@ namespace QuantAssistant.Api.Controllers;
 /// <summary>
 /// batch2 任务7：自然语言问答。
 /// POST api/v1/ask：先匹配 10 个高频问题模板（确定性账本查询，不调模型、零成本）；
-/// 未命中才走模型链路（受 F4 预算机制约束，超预算返回可操作提示）。
+/// 未命中时明确返回支持范围，不调用模型、不消耗预算。
 /// </summary>
 [ApiController]
 [Route("api/v1/ask")]

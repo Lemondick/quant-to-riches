@@ -9,20 +9,20 @@
         <button class="icon-btn" aria-label="关闭智能问答" @click="open = false"><X :size="15" aria-hidden="true" /></button>
       </div>
       <template v-if="!liveBackend || verifiedSession">
-      <div ref="scrollBox" class="ask-messages" aria-live="polite">
-        <div v-for="(message, index) in messages" :key="index" class="ask-msg" :class="message.role">
-          <span class="ask-bubble">{{ message.text }}</span>
-          <span v-if="message.note" class="ask-note">{{ message.note }}</span>
+        <div ref="scrollBox" class="ask-messages" aria-live="polite">
+          <div v-for="(message, index) in messages" :key="index" class="ask-msg" :class="message.role">
+            <span class="ask-bubble">{{ message.text }}</span>
+            <span v-if="message.note" class="ask-note">{{ message.note }}</span>
+          </div>
+          <div v-if="sending" class="ask-msg assistant"><span class="ask-bubble typing">思考中…</span></div>
         </div>
-        <div v-if="sending" class="ask-msg assistant"><span class="ask-bubble typing">思考中…</span></div>
-      </div>
-      <div class="ask-chips" role="group" aria-label="高频问题">
-        <button v-for="chip in ASK_QUICK_QUESTIONS" :key="chip" class="chip" :disabled="sending" @click="ask(chip)">{{ chip }}</button>
-      </div>
-      <form class="ask-input" @submit.prevent="submit">
-        <input v-model.trim="draft" placeholder="输入问题，如：今年收益如何？" aria-label="输入问题" :disabled="sending" maxlength="200" />
-        <button class="btn primary" type="submit" :disabled="sending || !draft" aria-label="发送问题"><Send :size="14" aria-hidden="true" /></button>
-      </form>
+        <div class="ask-chips" role="group" aria-label="高频问题">
+          <button v-for="chip in ASK_QUICK_QUESTIONS" :key="chip" class="chip" :disabled="sending" @click="ask(chip)">{{ chip }}</button>
+        </div>
+        <form class="ask-input" @submit.prevent="submit">
+          <input v-model.trim="draft" placeholder="输入问题，如：今年收益如何？" aria-label="输入问题" :disabled="sending" maxlength="200" />
+          <button class="btn primary" type="submit" :disabled="sending || !draft" aria-label="发送问题"><Send :size="14" aria-hidden="true" /></button>
+        </form>
       </template>
       <p v-else class="feedback" role="status">{{ session ? '正在验证账户会话…' : '请先登录后端账户。' }}</p>
     </div>
@@ -90,18 +90,11 @@ async function ask(question: string) {
   sending.value = true
   try {
     if (liveBackend) {
-      try {
-        const response = await postAsk(text, controller.signal)
-        if (!isCurrent()) return
-        messages.value.push({ role: 'assistant', text: response.answer, note: response.cost_note ?? (response.matched_template ? `命中模板：${response.matched_template}` : undefined) })
-      } catch (failure) {
-        if (!isCurrent()) return
-        if (failure instanceof ApiError && failure.status === 404) {
-          messages.value.push({ role: 'assistant', text: mockAskAnswer(text), note: '后端问答接口尚未就绪（A 并行开发中），当前为演示答案。' })
-        } else {
-          throw failure
-        }
-      }
+      const response = await postAsk(text, controller.signal)
+      if (!isCurrent()) return
+      messages.value.push({ role: 'assistant', text: response.answer,
+        note: response.unsupported ? '未调用模型，不消耗模型预算。'
+          : response.matched && response.template ? `命中模板：${response.template}` : undefined })
     } else {
       await new Promise(resolve => setTimeout(resolve, 300))
       if (!isCurrent()) return
@@ -109,6 +102,10 @@ async function ask(question: string) {
     }
   } catch (failure) {
     if (!isCurrent()) return
+    if (failure instanceof ApiError && [401, 403].includes(failure.status)) {
+      window.dispatchEvent(new Event('quant-auth-invalidated'))
+      return
+    }
     messages.value.push({ role: 'assistant', text: failure instanceof Error ? failure.message : '问答失败，请稍后重试。' })
   } finally {
     if (generation === currentGeneration) { sending.value = false; pending = undefined }

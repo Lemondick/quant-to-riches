@@ -78,6 +78,34 @@ public sealed class BranchIntegrationRepairTests
     }
 
     [PgFact]
+    public async Task UnsupportedAsk_ReturnsSupportedScopeWithoutWorkerOrModelUsage()
+    {
+        using var user = new PgTestUser();
+        using var factory = Factory(user.Connection);
+        using var client = factory.CreateTestClient();
+        PgTestUser.AttachSession(client, user.Connection, user.Id);
+        var body = await Json(await client.PostAsJsonAsync("/api/v1/ask", new { question = "请写一首关于春天的诗" }));
+        Assert.False(body.GetProperty("matched").GetBoolean());
+        Assert.True(body.GetProperty("unsupported").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("template").ValueKind);
+        Assert.Equal(0, body.GetProperty("model_calls").GetInt32());
+        Assert.Contains("快捷问题", body.GetProperty("answer").GetString());
+        Assert.Equal(10, body.GetProperty("supported_questions").GetArrayLength());
+        Assert.Contains(body.GetProperty("supported_questions").EnumerateArray(), item => item.GetString() == "盈亏排名");
+        Assert.Equal(0L, user.Query("SELECT count(*) FROM compute_jobs WHERE user_id=$1", user.Id));
+    }
+
+    [PgFact]
+    public async Task UnsupportedAsk_StillRequiresAuthentication()
+    {
+        using var user = new PgTestUser();
+        using var factory = Factory(user.Connection);
+        using var client = factory.CreateTestClient();
+        var response = await client.PostAsJsonAsync("/api/v1/ask", new { question = "请写一首关于春天的诗" });
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [PgFact]
     public async Task AnonymousTwoFactorLogin_IssuesSessionAndConsumesChallengeOnce()
     {
         using var user = new PgTestUser();

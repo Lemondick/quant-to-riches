@@ -3,14 +3,13 @@ using System.Text.Json.Nodes;
 using QuantAssistant.Core.Abstractions;
 using QuantAssistant.Core.Errors;
 using QuantAssistant.Infrastructure.Db;
-using QuantAssistant.Infrastructure.Runtime;
 
 namespace QuantAssistant.Api.Services;
 
 /// <summary>
 /// batch2 任务7：自然语言问答后端。
 /// 10 个高频问题模板（见 Templates 注释表），命中模板走确定性账本查询（不调模型、零成本，model_calls=0）；
-/// 未命中才走模型链路（worker op ask.answer），受 F4 预算机制约束：预算耗尽抛 model_budget_exceeded（409，可操作提示）。
+/// 未命中时明确返回支持范围，不调用模型或排入不存在的计算任务。
 /// 模板列表（流 D 同步到 web/docs；此处为权威清单）：
 ///   1. year_return            今年收益       关键词：今年+收益/赚/亏
 ///   2. month_performance      近一月涨跌     关键词：近一月/近30天+涨跌/表现
@@ -23,9 +22,8 @@ namespace QuantAssistant.Api.Services;
 ///   9. industry_distribution  行业分布       关键词：行业
 ///  10. valuation_percentile   估值分位       关键词：估值+分位/百分位（调 valuation.percentiles，确定性计算）
 /// 口径声明：凡无历史快照可依赖的指标，均在 data.basis 注明近似口径，不虚构精确值。
-/// 假设：worker op ask.answer 由流 B 实现（契约§2 未列出，A 端先占位透调）。
 /// </summary>
-public sealed class AskService(AccountDatabase database, ComputeService compute, ModelCostRepository costs, ModelCallCacheService modelCache)
+public sealed class AskService(AccountDatabase database, ComputeService compute)
 {
     private const string Holdings = """
         SELECT p.symbol, p.asset_type, p.quantity, p.average_cost, p.market_value, i.industry, COALESCE(i.name, p.symbol) AS name
@@ -40,7 +38,15 @@ public sealed class AskService(AccountDatabase database, ComputeService compute,
     {
         var normalized = question.Replace(" ", "", StringComparison.Ordinal).Replace("　", "", StringComparison.Ordinal);
         var template = Match(normalized);
-        if (template is null) return await AskModelAsync(userId, question, cancellation);
+        if (template is null)
+            return new JsonObject
+            {
+                ["matched"] = false, ["template"] = null, ["question"] = question,
+                ["unsupported"] = true, ["model_calls"] = 0,
+                ["answer"] = "当前问答仅支持预置的账本查询，请使用下方快捷问题。个股研究请前往「AI选股」，基金研究请前往「基金复核」。",
+                ["supported_questions"] = new JsonArray("今年收益", "盈亏排名", "回撤贡献", "定投统计", "费率支出", "现金比例", "行业分布", "近一月涨跌", "分红统计", "估值分位"),
+                ["data"] = new JsonObject { ["basis"] = "unsupported_question" },
+            };
         var data = template == "valuation_percentile"
             ? await ValuationPercentileAsync(userId, cancellation)
             : await database.ReadAsync(sql => Task.FromResult(Dispatch(sql, userId, template)), cancellation);
@@ -66,38 +72,6 @@ public sealed class AskService(AccountDatabase database, ComputeService compute,
         if (Has("行业")) return "industry_distribution";
         if (Has("估值") && Has("分位", "百分位", "水位", "温度")) return "valuation_percentile";
         return null;
-    }
-
-    private async Task<JsonObject> AskModelAsync(string userId, string question, CancellationToken cancellation)
-    {
-        // F4 预算约束：先查预算状态，耗尽则返回可操作提示（不调模型）。
-        var summary = database.Read(sql => costs.SummaryFor(sql, userId));
-        if (summary["budget_blocker"] is not null)
-            throw new ApplicationFailure("model_budget_exceeded", 409,
-                "费用额度不足或调用费用上限未知，未调用模型。日预算将于北京时间明日 00:00 重置；" +
-                "可改用更便宜的模型、调小 max tokens 后重试，或在费用设置中提高日预算。");
-        // batch3-A：模型去重缓存。model_version 取 op 作用域版本（API 侧不知 worker 选用模型，见 ModelCallCacheService 注释）。
-        const string modelVersion = "ask.answer/v1";
-        var prompt = new JsonObject { ["question"] = question };
-        var (hit, cached) = await modelCache.TryGetAsync(userId, modelVersion, prompt, cancellation);
-        if (hit && cached is JsonObject cachedObject)
-            return new JsonObject
-            {
-                ["matched"] = false, ["template"] = JsonValue.Create((string?)null), ["question"] = question,
-                ["answer"] = cachedObject["answer"]?.GetValue<string>() ?? cachedObject.ToJsonString(),
-                ["data"] = cachedObject.DeepClone(), ["model_calls"] = 0, ["cached"] = true,
-                ["budget_warn"] = summary["budget_warn"]?.GetValue<bool>() == true,
-            };
-        var result = await compute.Run(userId, "ask.answer", prompt.DeepClone(), cancellation, seconds: 180);
-        if (result is null) throw new ApplicationFailure("worker_unavailable", 503, "问答服务暂不可用，请稍后重试。");
-        await modelCache.SetAsync(userId, modelVersion, prompt, result, cancellation);
-        return new JsonObject
-        {
-            ["matched"] = false, ["template"] = JsonValue.Create((string?)null), ["question"] = question,
-            ["answer"] = result["answer"]?.GetValue<string>() ?? result.ToJsonString(),
-            ["data"] = result, ["model_calls"] = 1, ["cached"] = false,
-            ["budget_warn"] = summary["budget_warn"]?.GetValue<bool>() == true,
-        };
     }
 
     private async Task<JsonObject> ValuationPercentileAsync(string userId, CancellationToken cancellation)
