@@ -676,6 +676,7 @@ for (const change of ['switch', 'logout']) {
     const checked = page.waitForResponse((response) => response.url().endsWith('/api/v1/auth/session'))
     await page.evaluate(() => globalThis.window.dispatchEvent(new Event('focus')))
     await checked
+    await visible(page.getByText('合成账户 A 的私有回答', { exact: true }))
     assert.equal(await page.getByText('合成账户 A 的私有回答', { exact: true }).count(), 1)
     await visible(page.getByRole('textbox', { name: '输入问题', exact: true }))
     assert.equal(await page.getByRole('textbox', { name: '输入问题', exact: true }).inputValue(), '合成账户 A 的草稿')

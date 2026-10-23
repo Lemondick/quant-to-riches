@@ -65,12 +65,14 @@
 | --- | --- |
 | 审查问题复现 | 8失败 → 8通过；`review-fixes-red.log` / `review-fixes-green.log` |
 | 前端单元 | 144/144，0跳过；`review-final-test.log` |
-| 真实 Vue 浏览器回归 | 46/46，0跳过；`browser-review-final.log` |
+| 真实 Vue 浏览器回归 | 46/46，0跳过；`browser-review-final.log`，CI同步修复后再次46/46：`browser-ci-fix-final.log` |
 | 类型、lint、格式 | 通过；`review-final-typecheck.log`、`review-final-lint.log`、`review-final-format-check.log` |
 | .NET + 本地合成 PostgreSQL18 | 584/584，0跳过；`dotnet-review-final.log` / `phase2-review-final.trx` |
 | 演示构建与页面 | 构建通过，52检查0错误；`review-demo-build.log` / `review-demo-ui.log` |
 | 连接构建、页面脚本与视觉 | 构建及指数/基金/板块3专项通过，5张桌面/移动截图、0浏览器错误，人工检查资产范围和移动任务页；`review-live-build.log`、`review-verify-*.log`、`screenshots/result.json` |
 | API契约 |219条路由；机器清单、OpenAPI及前端快照一致，无新增依赖或迁移 |
+
+首次 Linux CI 的后台计算及资产回归全部通过，但既有问答会话测试在响应头到达后立即断言，先于 JSON 处理和 Vue 更新，导致45/46。补上等待回答重新可见后继续断言；保留同账户恢复、切换/退出清空及草稿检查，不改产品行为。修复后前端144/144、浏览器46/46及类型/lint/格式再次通过，仍要求新提交的完整 CI 成功后合并。
 
 合并门禁是当前精确提交的 `verify-web` 与 `api-contract-check` 成功，随后正常快进 main、在干净桌面工作区快进同步并核对 SHA。最终提交和 CI 链接由交付消息记录。保留原桌面备份、保护分支、stash以及现有链接工作区。
 
