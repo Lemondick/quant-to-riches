@@ -1,6 +1,6 @@
 # 项目优化 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 修复账户问答残留、汇率币种对混用、长回测超时及未支持问答的失效执行路径。
 
@@ -31,10 +31,10 @@
 
 **Interfaces:** 客户端 write 增加可选第六参数 AbortSignal；既有五参数调用兼容。
 
-- [ ] 新增浏览器回归：A 问答后退出并切换 B，历史与草稿清除；A 的迟到成功/失败均被丢弃；同会话 focus 重新核验保留历史。
-- [ ] 运行 `node --test --test-name-pattern="ask.*session|ask.*account" tests/e2e/branch-repair.mjs`，观察旧实现出现残留断言失败。
-- [ ] 使用会话标识与认证失效事件重置浮窗，取消旧请求并防止旧回调更新新会话。
-- [ ] 运行前端全套单元和浏览器接口回归，预期全部通过；提交本任务。
+- [x] 新增浏览器回归：A 问答后退出并切换 B，历史与草稿清除；A 的迟到成功/失败均被丢弃；同会话 focus 重新核验保留历史。
+- [x] 运行 `node --test --test-name-pattern="ask.*session|ask.*account" tests/e2e/branch-repair.mjs`，观察旧实现出现残留断言失败。
+- [x] 使用会话标识与认证失效事件重置浮窗，取消旧请求并防止旧回调更新新会话。
+- [x] 运行前端全套单元和浏览器接口回归，预期全部通过；提交本任务。
 
 ### Task 2: 汇率币种对
 
@@ -42,10 +42,10 @@
 
 **Interfaces:** 汇率条目包含 from/to，convert 仅使用与当前本币匹配的条目；旧格式迁移绑定迁移时的本币。
 
-- [ ] 新增真实状态回归：100 JPY 以合成汇率 0.05 得 5 CNY，改 USD 后不得得到 5 USD；切回 CNY 恢复 5 CNY。覆盖旧配置迁移、不同币种对并存及拉取期间切换本币。
-- [ ] 运行对应回归，预期旧实现币种对混用断言失败。
-- [ ] 实现显式币种对、旧配置迁移及异步拉取的币种对归属。
-- [ ] 运行前端全套单元和浏览器接口回归，预期全部通过；提交本任务。
+- [x] 新增真实状态回归：100 JPY 以合成汇率 0.05 得 5 CNY，改 USD 后不得得到 5 USD；切回 CNY 恢复 5 CNY。覆盖旧配置迁移、不同币种对并存及拉取期间切换本币。
+- [x] 运行对应回归，预期旧实现币种对混用断言失败。
+- [x] 实现显式币种对、旧配置迁移及异步拉取的币种对归属。
+- [x] 运行前端全套单元和浏览器接口回归，预期全部通过；提交本任务。
 
 ### Task 3: 长任务请求等待
 
@@ -53,10 +53,10 @@
 
 **Interfaces:** 保留 Task 1 的可选 AbortSignal 和既有读写签名；仅指定 POST 回测端点延长等待。
 
-- [ ] 使用 Node 受控计时器测试组合回测在 15 秒后仍可完成、605 秒到期中止；智能定投 305 秒；普通读取 15 秒；策略预览 65 秒；长请求外部取消立即生效。
-- [ ] 执行 `node --test tests/request-timeouts.test.mjs`，预期旧实现组合回测提前超时。
-- [ ] 按端点与方法匹配既定等待时限，保留取消与资源清理。
-- [ ] 运行前端全套单元与 lint/typecheck，预期全部通过；提交本任务。
+- [x] 使用 Node 受控计时器测试组合回测在 15 秒后仍可完成、605 秒到期中止；智能定投 305 秒；普通读取 15 秒；策略预览 65 秒；长请求外部取消立即生效。
+- [x] 执行 `node --test tests/request-timeouts.test.mjs`，预期旧实现组合回测提前超时。
+- [x] 按端点与方法匹配既定等待时限，保留取消与资源清理。
+- [x] 运行前端全套单元与 lint/typecheck，预期全部通过；提交本任务。
 
 ### Task 4: 问答范围与完整验证
 
@@ -64,8 +64,8 @@
 
 **Interfaces:** 未支持问题返回 matched=false、unsupported=true、model_calls=0 及明确 answer；模板响应兼容，接口路径不变。
 
-- [ ] 新增 PostgreSQL 接口回归：非模板问题给出明确范围、零模型调用、零计算任务；未登录仍返回 401。浏览器显示范围提示而非演示回答，模板标记使用真实响应字段。
-- [ ] 执行后端专项，预期旧实现无法返回所需范围响应。
-- [ ] 移除未注册任务路径及其模型预算/缓存依赖，前端按真实字段展示提示，更新当前功能说明。
-- [ ] 执行 .NET PostgreSQL 全套、前端全套、浏览器接口、lint/typecheck/格式、两种构建，预期全部通过；记录验证并提交。
-- [ ] 执行一次独立整分支复审，修复重要问题并补回归；同步已验证版本至桌面目录。
+- [x] 新增 PostgreSQL 接口回归：非模板问题给出明确范围、零模型调用、零计算任务；未登录仍返回 401。浏览器显示范围提示而非演示回答，模板标记使用真实响应字段。
+- [x] 执行后端专项，预期旧实现无法返回所需范围响应。
+- [x] 移除未注册任务路径及其模型预算/缓存依赖，前端按真实字段展示提示，更新当前功能说明。
+- [x] 执行 .NET PostgreSQL 全套、前端全套、浏览器接口、lint/typecheck/格式、两种构建，预期全部通过；记录验证并提交。
+- [x] 执行一次独立整分支复审，修复重要问题并补回归；同步已验证版本至桌面目录。
