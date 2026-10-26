@@ -32,7 +32,7 @@ jobs:
         run: uv run --project web/backend ruff check --config web/backend/pyproject.toml .github/scripts web/worker web/backend-dotnet/tools/migrate_site.py web/backend-dotnet/tools/site_archive.py web/backend-dotnet/tools/site_files.py web/backend-dotnet/tools/site_lock.py web/backend-dotnet/tools/export_legacy_site.py web/backend-dotnet/tools/tests
       - name: Source format
         run: uv run --project web/backend ruff format --config web/backend/pyproject.toml --check .github/scripts web/worker web/backend-dotnet/tools/migrate_site.py web/backend-dotnet/tools/site_archive.py web/backend-dotnet/tools/site_files.py web/backend-dotnet/tools/site_lock.py web/backend-dotnet/tools/export_legacy_site.py web/backend-dotnet/tools/tests
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: python-test-results
@@ -83,7 +83,7 @@ jobs:
         run: node scripts/verify-sector-quality.mjs
         env:
           QUANT_WEB_OUTPUT_DIR: ../../output/index-strip-ui
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: browser-regression
@@ -375,7 +375,7 @@ jobs:
           sudo systemctl status postgresql@18-quantci.service --no-pager || true
           sudo journalctl -u postgresql@18-quantci.service --no-pager -n 100 || true
           sudo tail -n 100 /var/log/postgresql/postgresql-18-quantci.log || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: postgres-test-results
